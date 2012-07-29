@@ -3,7 +3,7 @@ package net.bluedash.tcprest.extractor;
 import net.bluedash.tcprest.logger.Logger;
 import net.bluedash.tcprest.logger.LoggerFactory;
 import net.bluedash.tcprest.server.Context;
-import net.bluedash.tcprest.server.SimpleTcpRestServer;
+import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import net.bluedash.tcprest.server.TcpRestServer;
 
 import java.lang.reflect.Method;
@@ -18,7 +18,7 @@ public class DefaultExtractor implements Extractor {
 
     private TcpRestServer tcpRestServer;
 
-    public DefaultExtractor(SimpleTcpRestServer server) {
+    public DefaultExtractor(SingleThreadTcpRestServer server) {
         this.tcpRestServer = server;
     }
 

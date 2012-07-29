@@ -5,7 +5,7 @@ import net.bluedash.tcprest.extractor.Extractor;
 import net.bluedash.tcprest.invoker.DefaultInvoker;
 import net.bluedash.tcprest.invoker.Invoker;
 import net.bluedash.tcprest.server.Context;
-import net.bluedash.tcprest.server.SimpleTcpRestServer;
+import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -21,14 +21,14 @@ public class ExtractorAndInvokerSmokeTests {
 
     @Test
     public void testDefaultExtractAndInvoke() throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InstantiationException, IOException {
-        SimpleTcpRestServer server = new SimpleTcpRestServer();
+        SingleThreadTcpRestServer server = new SingleThreadTcpRestServer();
         server.addResource(HelloWorldRestlet.class);
         Extractor extractor = new DefaultExtractor(server);
         Context ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld");
         assertEquals(ctx.getTargetClass(), HelloWorldRestlet.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldRestlet.class.getMethod("helloWorld"));
         Invoker invoker = new DefaultInvoker();
-        String response = invoker.invoke(ctx);
+        String response = (String) invoker.invoke(ctx);
         assertEquals(response, "Hello, world!");
     }
 }

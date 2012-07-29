@@ -18,13 +18,13 @@ import java.util.List;
 import java.util.Scanner;
 
 /**
- * SimpleTcpRestServer uses a single threaded Socket Server to serve the clients.
+ * SingleThreadTcpRestServer uses a single threaded Socket Server to serve the clients.
  * It's just for demonstration purpose.
  *
  * @author Weinan Li
  *         Jul 29 2012
  */
-public class SimpleTcpRestServer extends Thread implements TcpRestServer {
+public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     private Logger logger = LoggerFactory.getDefaultLogger();
 
@@ -53,18 +53,18 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
     }
 
 
-    public SimpleTcpRestServer() throws IOException {
+    public SingleThreadTcpRestServer() throws IOException {
         this.serverSocket = new ServerSocket(8001); // default port
         logger.log("ServerSocket initialized: " + this.serverSocket);
     }
 
-    public SimpleTcpRestServer(int port) throws IOException {
+    public SingleThreadTcpRestServer(int port) throws IOException {
         this.serverSocket = new ServerSocket(port);
         logger.log("ServerSocket initialized: " + this.serverSocket);
 
     }
 
-    public SimpleTcpRestServer(ServerSocket socket) {
+    public SingleThreadTcpRestServer(ServerSocket socket) {
         this.serverSocket = socket;
         logger.log("ServerSocket initialized: " + this.serverSocket);
     }
@@ -84,8 +84,8 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
                     logger.log("request: " + request);
                     // extract calling class and method from request
                     Context context = extractor.extract(request);
-                    // get response via invoker
-                    String response = invoker.invoke(context);
+                    // invoke real method
+                    String response = (String) invoker.invoke(context);
                     writer.println(response);
                     writer.flush();
                 }
@@ -93,13 +93,13 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
         } catch (IOException e) {
 
         } catch (ClassNotFoundException e) {
-            logger.log("***SimpleTcpRestServer: requested class not found.");
+            logger.log("***SingleThreadTcpRestServer: requested class not found.");
         } catch (NoSuchMethodException e) {
-            logger.log("***SimpleTcpRestServer: requested method not found.");
+            logger.log("***SingleThreadTcpRestServer: requested method not found.");
         } catch (InstantiationException e) {
-            logger.log("***SimpleTcpRestServer: cannot invoke context.");
+            logger.log("***SingleThreadTcpRestServer: cannot invoke context.");
         } catch (IllegalAccessException e) {
-            logger.log("***SimpleTcpRestServer: cannot invoke context.");
+            logger.log("***SingleThreadTcpRestServer: cannot invoke context.");
         } finally {
             try {
                 serverSocket.close();

@@ -15,7 +15,7 @@ import java.lang.reflect.Method;
 public class DefaultInvoker implements Invoker {
     private Logger logger = LoggerFactory.getDefaultLogger();
 
-    public String invoke(Context context) throws InstantiationException, IllegalAccessException {
+    public Object invoke(Context context) throws InstantiationException, IllegalAccessException {
         // get requested class
         Class clazz = context.getTargetClass();
         // get method to invoke

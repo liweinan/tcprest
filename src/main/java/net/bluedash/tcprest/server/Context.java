@@ -1,6 +1,7 @@
 package net.bluedash.tcprest.server;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
 /**
  *
@@ -8,8 +9,12 @@ import java.lang.reflect.Method;
  * Jul 29 2012
  */
 public class Context {
-    private Method targetMethod;
     private Class targetClazz;
+    private Method targetMethod;
+    private List<Object> params;
+
+    public Context() {
+    }
 
     public Class getTargetClass() {
         return targetClazz;

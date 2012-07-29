@@ -1,6 +1,6 @@
 package net.bluedash.tcprest.test;
 
-import net.bluedash.tcprest.server.SimpleTcpRestServer;
+import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import net.bluedash.tcprest.server.TcpRestServer;
 import org.junit.After;
 import org.junit.Before;
@@ -26,7 +26,7 @@ public class TcpServerSmokeTests {
 
     @Before
     public void startTcpRestServer() throws IOException {
-        tcpRestServer = new SimpleTcpRestServer(8001);
+        tcpRestServer = new SingleThreadTcpRestServer(8001);
         tcpRestServer.up();
         clientSocket = new Socket("localhost", 8001);
     }
