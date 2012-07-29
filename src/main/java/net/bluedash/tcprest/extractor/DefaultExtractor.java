@@ -11,7 +11,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * The default extractor.
+ * It currently just support pure String arguments, and in string it cannot
+ * contains parentheses in its argument.
+ * <p/>
+ * The following requests are valid:
+ * <pre>
+ * {@code
+ * HelloWorldRestlet/sayHello
+ * HelloWorldRestlet/sayHello()
+ * HelloWorldRestlet/sayHelloTo(Jack)
+ * HelloWorldRestlet/sayHelloTo(Jack!)
+ * HelloWorldRestlet/sayHelloToPeople(you,me)
+ * }
+ * </pre>
+ * <p/>
+ * But the following are invalid:
+ * <pre>
+ * {@code
+ * HelloWorldRestlet/sayHello((I'm Jack))
+ * HelloWorldRestlet/sayHello("(")
+ * }
+ * </pre>
+ *
  * @author Weinan Li
+ *         Jul 30 2012
  */
 public class DefaultExtractor implements Extractor {
 
@@ -39,7 +63,11 @@ public class DefaultExtractor implements Extractor {
         String[] args;
         if (methodAndArgs.length > 1) {
             String argToken = methodAndArgs[1].substring(0, methodAndArgs[1].length() - 1);
-            args = argToken.split(",");
+            if ("".equals(argToken)) {
+                args = null;
+            } else {
+                args = argToken.split(",");
+            }
         } else {
             args = null;
         }
