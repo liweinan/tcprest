@@ -10,11 +10,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 /**
- *
  * @author Weinan Li
- * CREATED AT:
- * Time: 3:28 PM
- * To change this template use File | Settings | File Templates.
  */
 public class DefaultExtractor implements Extractor {
 

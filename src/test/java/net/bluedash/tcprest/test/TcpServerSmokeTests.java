@@ -15,8 +15,8 @@ import java.net.Socket;
 import static org.junit.Assert.assertEquals;
 
 /**
- * User: weli
- * Date: 7/29/12
+ * @author Weinan Li
+ *         CREATED AT: Jul 29 2012
  */
 public class TcpServerSmokeTests {
 
@@ -41,9 +41,6 @@ public class TcpServerSmokeTests {
     public void testSimpleClient() throws IOException {
         tcpRestServer.addResource(HelloWorldRestlet.class);
 
-        // Add HTTP Client code to access the port
-        // net.bluedash.tcprest.test.unit.sandbox.HelloWorldRestlet/helloWorld
-        // and the expected result should be 'Hello, world!'
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -53,9 +50,6 @@ public class TcpServerSmokeTests {
         String response = reader.readLine();
         assertEquals("Hello, world!", response);
 
-        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/test2");
-        writer.flush();
-        assertEquals("test2", reader.readLine());
     }
 
 }

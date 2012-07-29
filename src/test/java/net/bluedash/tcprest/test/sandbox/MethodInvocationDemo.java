@@ -9,12 +9,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 /**
- * Created by IntelliJ IDEA.
- * User: weli
- * Date: 7/29/12
- * Time: 4:38 PM
- * To change this template use File | Settings | File Templates.
- */
+*
+* @author Weinan Li
+* CREATED AT: Jul 29 2012
+*/
 public class MethodInvocationDemo {
 
     // ABC must be declared as 'static'

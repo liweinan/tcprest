@@ -13,12 +13,10 @@ import java.io.IOException;
 import static org.junit.Assert.assertEquals;
 
 /**
- * Created by IntelliJ IDEA.
- * User: weli
- * Date: 7/29/12
- * Time: 6:34 PM
- * To change this template use File | Settings | File Templates.
- */
+*
+* @author Weinan Li
+* CREATED AT: Jul 29 2012
+*/
 public class ExtractorAndInvokerSmokeTests {
 
     @Test

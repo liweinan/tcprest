@@ -22,7 +22,7 @@ import java.util.Scanner;
  * It's just for demonstration purpose.
  *
  * @author Weinan Li
- * Jul 29 2012
+ *         Jul 29 2012
  */
 public class SimpleTcpRestServer extends Thread implements TcpRestServer {
 
@@ -37,7 +37,6 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
     public Extractor extractor = new DefaultExtractor(this);
 
     public Invoker invoker = new DefaultInvoker();
-
 
 
     public void addResource(Class resourceClass) {
@@ -80,27 +79,27 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
                 Scanner scanner = new Scanner(reader);
 
                 PrintWriter writer = new PrintWriter(socket.getOutputStream());
-                while (true) {
-                    try {
-                        String request = scanner.nextLine();
-                        logger.log("request: " +  request);
-                        // extract calling class and method from request
-                        Context context = extractor.extract(request);
-                        // get response via invoker
-                        String response = invoker.invoke(context);
-                        writer.println(response);
-                        writer.flush();
-                    } catch (Exception e) {
-                        writer.close();
-                        socket.close();
-                        logger.log(e.getClass().toString());
-                        logger.log("Client disconnected.");
-                        break;
-                    }
+                while (scanner.hasNext()) {
+                    String request = scanner.nextLine();
+                    logger.log("request: " + request);
+                    // extract calling class and method from request
+                    Context context = extractor.extract(request);
+                    // get response via invoker
+                    String response = invoker.invoke(context);
+                    writer.println(response);
+                    writer.flush();
                 }
             }
         } catch (IOException e) {
 
+        } catch (ClassNotFoundException e) {
+            logger.log("***SimpleTcpRestServer: requested class not found.");
+        } catch (NoSuchMethodException e) {
+            logger.log("***SimpleTcpRestServer: requested method not found.");
+        } catch (InstantiationException e) {
+            logger.log("***SimpleTcpRestServer: cannot invoke context.");
+        } catch (IllegalAccessException e) {
+            logger.log("***SimpleTcpRestServer: cannot invoke context.");
         } finally {
             try {
                 serverSocket.close();
