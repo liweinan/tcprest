@@ -111,7 +111,7 @@ The Extractor's role is to process client's request and generate a call context:
 
 	Context context = extractor.extract(request);
 
-### What is Context?
+### Context
 
 Context is an object that holds all of the information provided by incoming request:
 
@@ -218,4 +218,6 @@ TcpRest should not depend on any other projects other than JDK itself. Only for 
 
 ...
 
+
+## TODO
 

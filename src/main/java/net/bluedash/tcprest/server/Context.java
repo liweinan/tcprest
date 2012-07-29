@@ -1,7 +1,6 @@
 package net.bluedash.tcprest.server;
 
 import java.lang.reflect.Method;
-import java.util.List;
 
 /**
  *
@@ -11,7 +10,7 @@ import java.util.List;
 public class Context {
     private Class targetClazz;
     private Method targetMethod;
-    private List<Object> params;
+    private Object[] params;
 
     public Context() {
     }
@@ -30,5 +29,13 @@ public class Context {
 
     public void setTargetMethod(Method mtd) {
         this.targetMethod = mtd;
+    }
+
+    public Object[] getParams() {
+        return params;
+    }
+
+    public void setParams(Object[] params) {
+        this.params = params;
     }
 }

@@ -11,4 +11,8 @@ public class HelloWorldRestlet {
         return "Hello, world!";
     }
 
+    public String sayHelloTo(String name) {
+        return "Hello, " + name;
+    }
+
 }

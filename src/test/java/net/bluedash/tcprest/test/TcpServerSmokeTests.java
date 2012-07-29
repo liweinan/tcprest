@@ -52,4 +52,20 @@ public class TcpServerSmokeTests {
 
     }
 
+    @Test
+    public void argTest() throws IOException {
+        tcpRestServer.addResource(HelloWorldRestlet.class);
+
+        PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
+        BufferedReader reader =
+                new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/sayHelloTo(Jack!)");
+        writer.flush();
+
+        String response = reader.readLine();
+        assertEquals("Hello, Jack!", response);
+
+    }
+
+
 }

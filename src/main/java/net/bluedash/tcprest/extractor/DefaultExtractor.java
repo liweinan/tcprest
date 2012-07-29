@@ -7,6 +7,7 @@ import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import net.bluedash.tcprest.server.TcpRestServer;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,10 +24,26 @@ public class DefaultExtractor implements Extractor {
     }
 
     public Context extract(String request) throws ClassNotFoundException, NoSuchMethodException {
+        // class/method(arg1, arg2, ...)
         // get class and method from request
         String[] segments = request.split("/");
         String clazzName = segments[0];
-        String methodName = segments[1];
+
+        // method | arg1, arg2, ...)
+        String[] methodAndArgs = segments[1].split("\\(");
+        String methodName = methodAndArgs[0];
+
+        // extract args
+        // remove the ')' at the end
+        // arg1, arg2, ...
+        String[] args;
+        if (methodAndArgs.length > 1) {
+            String argToken = methodAndArgs[1].substring(0, methodAndArgs[1].length() - 1);
+            args = argToken.split(",");
+        } else {
+            args = null;
+        }
+
 
         Context ctx = new Context();
 
@@ -54,6 +71,15 @@ public class DefaultExtractor implements Extractor {
 
         if (ctx.getTargetMethod() == null)
             throw new NoSuchMethodException();
+
+        // process arguments
+        if (args != null) {
+            List<Object> params = new ArrayList<Object>();
+            for (String arg : args) {
+                params.add(arg.trim());
+            }
+            ctx.setParams(params.toArray());
+        }
 
         return ctx;
     }

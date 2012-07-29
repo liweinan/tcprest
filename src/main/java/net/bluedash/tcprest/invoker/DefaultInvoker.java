@@ -21,7 +21,7 @@ public class DefaultInvoker implements Invoker {
         // get method to invoke
         Method method = context.getTargetMethod();
         try {
-            return (String) method.invoke(clazz.newInstance());
+            return (String) method.invoke(clazz.newInstance(), context.getParams());
         } catch (InvocationTargetException e) {
             logger.log("***DefaultInvoker: method invoking failed.");
             logger.log("Method: " + clazz.getCanonicalName() + "." + method.getName());
