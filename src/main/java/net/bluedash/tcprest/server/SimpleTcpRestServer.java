@@ -4,6 +4,8 @@ import net.bluedash.tcprest.extractor.DefaultExtractor;
 import net.bluedash.tcprest.extractor.Extractor;
 import net.bluedash.tcprest.invoker.DefaultInvoker;
 import net.bluedash.tcprest.invoker.Invoker;
+import net.bluedash.tcprest.logger.Logger;
+import net.bluedash.tcprest.logger.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -16,12 +18,15 @@ import java.util.List;
 import java.util.Scanner;
 
 /**
- * SimpleTcpRestServer is a single thread Socket Server.
+ * SimpleTcpRestServer uses a single threaded Socket Server to serve the clients.
+ * It's just for demonstration purpose.
  *
  * @author Weinan Li
  * Jul 29 2012
  */
 public class SimpleTcpRestServer extends Thread implements TcpRestServer {
+
+    private Logger logger = LoggerFactory.getDefaultLogger();
 
     private String status = TcpRestServerStatus.PASSIVE;
 
@@ -33,6 +38,8 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
 
     public Invoker invoker = new DefaultInvoker();
 
+
+
     public void addResource(Class resourceClass) {
         resourceClasses.add(resourceClass);
 
@@ -42,29 +49,33 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
         return resourceClasses;
     }
 
+    public void setLogger(Logger logger) {
+        this.logger = logger;
+    }
+
 
     public SimpleTcpRestServer() throws IOException {
         this.serverSocket = new ServerSocket(8001); // default port
-        System.out.println("ServerSocket initialized: " + this.serverSocket);
+        logger.log("ServerSocket initialized: " + this.serverSocket);
     }
 
     public SimpleTcpRestServer(int port) throws IOException {
         this.serverSocket = new ServerSocket(port);
-        System.out.println("ServerSocket initialized: " + this.serverSocket);
+        logger.log("ServerSocket initialized: " + this.serverSocket);
 
     }
 
     public SimpleTcpRestServer(ServerSocket socket) {
         this.serverSocket = socket;
-        System.out.println("ServerSocket initialized: " + this.serverSocket);
+        logger.log("ServerSocket initialized: " + this.serverSocket);
     }
 
     public void run() {
         try {
             while (status == TcpRestServerStatus.RUNNING) {
-                System.out.println("Server started.");
+                logger.log("Server started.");
                 Socket socket = serverSocket.accept();
-                System.out.println("Client accepted.");
+                logger.log("Client accepted.");
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 Scanner scanner = new Scanner(reader);
 
@@ -72,7 +83,7 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
                 while (true) {
                     try {
                         String request = scanner.nextLine();
-                        System.out.printf("request: %s\n", request);
+                        logger.log("request: " +  request);
                         // extract calling class and method from request
                         Context context = extractor.extract(request);
                         // get response via invoker
@@ -82,8 +93,8 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
                     } catch (Exception e) {
                         writer.close();
                         socket.close();
-                        System.out.println(e.getClass().toString());
-                        System.out.println("Client disconnected.");
+                        logger.log(e.getClass().toString());
+                        logger.log("Client disconnected.");
                         break;
                     }
                 }
@@ -96,7 +107,7 @@ public class SimpleTcpRestServer extends Thread implements TcpRestServer {
             } catch (IOException e) {
 
             }
-            System.out.println("Server stopped.");
+            logger.log("Server stopped.");
         }
     }
 

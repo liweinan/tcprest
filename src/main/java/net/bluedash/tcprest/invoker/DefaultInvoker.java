@@ -6,11 +6,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
- * Created by IntelliJ IDEA.
- * User: weli
- * Date: 7/29/12
- * Time: 3:21 PM
- * To change this template use File | Settings | File Templates.
+ *
+ * @author Weinan Li
+ * Jul 29 2012
  */
 public class DefaultInvoker implements Invoker {
     public String invoke(Context context) throws InstantiationException, IllegalAccessException {

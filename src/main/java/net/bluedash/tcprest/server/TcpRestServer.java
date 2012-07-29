@@ -1,13 +1,13 @@
 package net.bluedash.tcprest.server;
 
+import net.bluedash.tcprest.logger.Logger;
+
 import java.util.List;
 
 /**
- * Created by IntelliJ IDEA.
- * User: weli
- * Date: 7/29/12
- * Time: 3:33 AM
- * To change this template use File | Settings | File Templates.
+ *
+ * @author Weinan Li
+ * Jul 29 2012
  */
 public interface TcpRestServer {
 
@@ -18,4 +18,6 @@ public interface TcpRestServer {
     void addResource(Class resourceClass);
 
     List<Class> getResourceClasses();
+
+    public void setLogger(Logger logger);
 }

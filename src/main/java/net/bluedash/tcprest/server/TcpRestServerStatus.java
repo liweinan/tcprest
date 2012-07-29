@@ -1,11 +1,12 @@
 package net.bluedash.tcprest.server;
 
 /**
- * Created by IntelliJ IDEA.
- * User: weli
- * Date: 7/29/12
- * Time: 7:21 PM
- * To change this template use File | Settings | File Templates.
+ * Defines the status of TcpRestServer.
+ * The initial status is always PASSIVE, after server starts it transformed into RUNNING status.
+ * If the TcpRestServer is set to CLOSING status, the server will fire the shutdown process.
+ *
+ * @author Weinan Li
+ * Jul 29 2012
  */
 public class TcpRestServerStatus {
 

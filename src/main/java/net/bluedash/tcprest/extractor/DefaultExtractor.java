@@ -1,5 +1,7 @@
 package net.bluedash.tcprest.extractor;
 
+import net.bluedash.tcprest.logger.Logger;
+import net.bluedash.tcprest.logger.LoggerFactory;
 import net.bluedash.tcprest.server.Context;
 import net.bluedash.tcprest.server.SimpleTcpRestServer;
 import net.bluedash.tcprest.server.TcpRestServer;
@@ -8,13 +10,15 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 /**
- * Created by IntelliJ IDEA.
- * User: weli
- * Date: 7/29/12
+ *
+ * @author Weinan Li
+ * CREATED AT:
  * Time: 3:28 PM
  * To change this template use File | Settings | File Templates.
  */
 public class DefaultExtractor implements Extractor {
+
+    private Logger logger = LoggerFactory.getDefaultLogger();
 
     private TcpRestServer tcpRestServer;
 
@@ -33,7 +37,7 @@ public class DefaultExtractor implements Extractor {
         // search clazz from tcpRestServer instance
         List<Class> classes = tcpRestServer.getResourceClasses();
         for (Class clazz : classes) {
-            System.out.println("searching class: " + clazz.getCanonicalName());
+            logger.log("searching class: " + clazz.getCanonicalName());
             if (clazz.getCanonicalName().equals(clazzName)) {
                 ctx.setTargetClass(clazz);
                 break;
@@ -45,7 +49,7 @@ public class DefaultExtractor implements Extractor {
 
         // search method
         for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
-            System.out.println("searching method: " + mtd.getName());
+            logger.log("searching method: " + mtd.getName());
             if (mtd.getName().equals(methodName)) {
                 ctx.setTargetMethod(mtd);
                 break;
