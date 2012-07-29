@@ -71,7 +71,7 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     public void run() {
         try {
-            while (status == TcpRestServerStatus.RUNNING) {
+            while (status.equals(TcpRestServerStatus.RUNNING)) {
                 logger.log("Server started.");
                 Socket socket = serverSocket.accept();
                 logger.log("Client accepted.");

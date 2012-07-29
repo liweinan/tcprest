@@ -146,7 +146,7 @@ It will call the class method inside its invoke() method and return the response
 
 So we can put all the knowledge we've learnt above and read the following code in SingleThreadTcpRestServer:
 
-	while (status == TcpRestServerStatus.RUNNING) {
+	while (status.equals(TcpRestServerStatus.RUNNING)) {
 	    logger.log("Server started.");
 	    Socket socket = serverSocket.accept();
 	    logger.log("Client accepted.");
