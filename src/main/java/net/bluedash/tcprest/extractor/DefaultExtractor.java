@@ -11,9 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The default extractor.
- * It currently just support pure String arguments, and in string it cannot
- * contains parentheses in its argument.
+ * The default request extractor. Now it just support string arguments.
  * <p/>
  * The following requests are valid:
  * <pre>
@@ -26,13 +24,8 @@ import java.util.List;
  * }
  * </pre>
  * <p/>
- * But the following are invalid:
- * <pre>
- * {@code
- * HelloWorldRestlet/sayHello((I'm Jack))
- * HelloWorldRestlet/sayHello("(")
- * }
- * </pre>
+ *
+ * In the future I want to make DefaultExtractor supports complex parameter types via mapper scheme.
  *
  * @author Weinan Li
  *         Jul 30 2012

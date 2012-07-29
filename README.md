@@ -2,7 +2,7 @@
 
 ## Motivation
 
-I'd like to write a tcp server that could automatically map java classes into network apis. For example, here is a java class:
+I want to write a tcp server that could automatically map java classes into network apis. For example, here is a java class:
 
     public class HelloWorldRestlet {
 
@@ -169,6 +169,11 @@ So we can put all the knowledge we've learnt above and read the following code i
 
 As the code show above, the server will accept user request, using extractor to convert request from string to context object, and then invoker will invoke the relative method in mapped class and return back the response to server. Finally the server write response to client.
 
+
+## Mapper
+
+...
+
 ## Example
 
 Here is an example how to use the framework:
@@ -214,10 +219,18 @@ Here is an example how to use the framework:
 
 ### Zero Dependency
 
-TcpRest should not depend on any other projects other than JDK itself. Only for testing it could depend on JUnit.
+TcpRest should not depend on any other projects other than JDK itself, nevertheless it depends on JUnit4 for testing.
 
 ...
 
 
 ## TODO
+
+* Provide client library
+* Implement ThreadPoolRestServer
+* Implement NioTcpRestServer
+* Implement JsonMapper
+* Support Restlet annotation
+* Make DefaultExtractor supports parentheses in parameter.
+
 
