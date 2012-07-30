@@ -18,6 +18,8 @@ public interface TcpRestServer {
 
     void addResource(Class resourceClass);
 
+    void deleteResource(Class resourceClass);
+
     List<Class> getResourceClasses();
 
     public void setLogger(Logger logger);

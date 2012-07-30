@@ -13,27 +13,22 @@ I want to write a tcp server that could automatically map java classes into netw
 
 I want an easy method to register this class into a TCP server, somthing like:
 
-	TcpRestServer tcpRestServer = new SimpleTcpRestServer(8001);
+	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
 	tcpRestServer.up();
 	tcpRestServer.addResource(HelloWorldRestlet.class);
 
-And from client side I could call 'helloWorld' method by sending api call request:
 
-    "HelloWorldRestlet/helloWorld()"
+And from client side I could call 'helloWorld' method like calling the local java method:
 
-Sending the class name and the method name with above format to server:
+	TcpRestClientFactory factory = 
+		new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);
+	HelloWorld client = (HelloWorld) factory.getInstance();
 
-	Socket clientSocket = new Socket("localhost", 8001);
-	PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
-	BufferedReader reader =
-	        new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-	writer.println("HelloWorldRestlet/helloWorld()");
-	writer.flush();
+And I could get the response by:
 
-And I could get the response:
+	client.helloWorld();
 
-	String response = reader.readLine();
-	assertEquals("Hello, world!", response);
+TcpRest will handle all the rest of the work to me.
 
 ## TCP is not HTTP
 
@@ -91,22 +86,13 @@ The framework should allow users to register new webservices at runtime:
 
 	tcpRestServer.addResource(AnotherRestlet.class);
 
-Then the clients could access this new service by sending request:
+It could also be removed at runtime:
 
-	"AnotherRestlet/someMethod(arg1, arg2, ...)"
-
+	tcpRestServer.deleteResource(AnotherRestlet.class);
 
 ### Extractor
 
-TcpRestServer needs Extractor to process clients request and map the incoming string data into method call. For example, if the user requests:
-
-	"AnotherRestlet/someMethod(arg1, arg2, ...)"
-
-TcpRestServer needs to be smart enough to know that user wants to call:
-
-	AnotherRestlet.someMethod(arg1, arg2)
-
-The Extractor's role is to process client's request and generate a call context:
+TcpRestServer needs Extractor to process clients request and map the incoming string data into method call. TcpRestServer needs to be smart enough to know that user wants to call. The Extractor's role is to process client's request and generate a call context:
 
 	Context context = extractor.extract(request);
 
@@ -121,29 +107,17 @@ Context is an object that holds all of the information provided by incoming requ
 	    ...
 	}
 
-For example, if the user requests:
-
-	"AnotherRestlet/someMethod(arg1, arg2, ...)"
-
-Extractor will help to extract this request and put the info into Context:
-
-	targetClazz -> AnotherRestlet.class
-	targetMethod -> someMethod()
-	params -> arg1, arg2...
-
-After we've gotten all these information, we could use Invoker to do the real work.
-
 ### Invoker
 
-Invoker has an invoke() method, and it uses Context to take the real work:
+Invoker will call the class method inside its invoke() method and return the response object to TcpRestServer.
 
 	public interface Invoker {
 	    public Object invoke(Context context);
 	}
 
-It will call the class method inside its invoke() method and return the response object to TcpRestServer. And then TcpRestServer could process this response and return proper data to client.
+TcpRestServer will use the returned object from invoker and transform it into string response to client.
 
-So we can put all the knowledge we've learnt above and read the following code in SingleThreadTcpRestServer:
+We can put all the knowledge we've learnt above into SingleThreadTcpRestServer:
 
 	while (status.equals(TcpRestServerStatus.RUNNING)) {
 	    logger.log("Server started.");
@@ -166,8 +140,9 @@ So we can put all the knowledge we've learnt above and read the following code i
 	    }
 	}
 
-As the code show above, the server will accept user request, using extractor to convert request from string to context object, and then invoker will invoke the relative method in mapped class and return back the response to server. Finally the server write response to client.
+The above pseudocode show how the server work: It uses extractor to convert request from string to context object, and then invoker will invoke the relative method in mapped class and return back the response to server. Finally the server write response to client.
 
+But with only the above codes, we can only trasmitting string values between server and client, that's not enough to map a java class into a network based communication, because network can only send/receive strings instead of java objects. So we need some tools to do the data transformation to us. The following two components are for this purpose:
 
 ### Mapper
 
@@ -175,52 +150,20 @@ As the code show above, the server will accept user request, using extractor to 
 
 ### Converter
 
-Converter is a low-level tool that TcpRest client library used for transforming a method call into TcpRest communication protocol:
+Converter is a low-level tool that TcpRest use it to process its own protocol. Here is a brief introduction to TcpRest's protocol:
+
+	TcpRest Protocol:
+		Class.method(arg1, arg2) will transform to:
+			"Class/method({{arg1}}arg1ClassName,{{arg2}}arg2ClassName)"
+		
+	For example:
+	HelloWorldRestlet.sayHelloFromTo("Jack", "Lucy") will be converted to the following string:
+	"HelloWorldRestlet/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
+
+The definition of Converter is shown as below:
 
 	public interface Converter {
 	    public String convert(Class clazz, Method method, Object[] params);
-	}
-
-
-
-## Example
-
-Here is an example how to use the framework:
-
-	public class TcpServerSmokeTests {
-
-	    private TcpRestServer tcpRestServer;
-	    private Socket clientSocket;
-
-
-	    @Before
-	    public void startTcpRestServer() throws IOException {
-	        tcpRestServer = new SingleThreadTcpRestServer(8001);
-	        tcpRestServer.up();
-	        clientSocket = new Socket("localhost", 8001);
-	    }
-
-	    @After
-	    public void stopTcpRestServer() throws IOException {
-	        tcpRestServer.down();
-	        clientSocket.close();
-	    }
-
-	    @Test
-	    public void testSimpleClient() throws IOException {
-	        tcpRestServer.addResource(HelloWorldRestlet.class);
-
-	        PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
-	        BufferedReader reader =
-	                new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-	        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld()");
-	        writer.flush();
-
-	        String response = reader.readLine();
-	        assertEquals("Hello, world!", response);
-
-	    }
-
 	}
 
 
@@ -281,9 +224,8 @@ Here are the three lines of code that transfer the above class into a server:
 And here are the two lines of code for client:
 
 	TcpRestClientFactory factory = 
-		new DefaultTcpRestClientFactory(HelloWorldRestlet.class)
-	
-	HelloWorld client = factory.getInstance();
+		new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);
+	HelloWorld client = (HelloWorld) factory.getInstance();
 
 That's all. Now you can use the client to call the server:
 
@@ -299,6 +241,7 @@ gSOAP and Apache Thrift generates code for you, it's more on 'compiling and run'
 	tcpRestServer.deleteResource(AnotherRestlet.class);
 
 *You don't have to generate any code, TcpRest generates code for you.*
+
 
 
 ## TODO

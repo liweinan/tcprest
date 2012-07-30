@@ -52,6 +52,11 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     }
 
+    // TODO not thread safe now, if some clients are calling this resource it will cause problem.
+    public void deleteResource(Class resourceClass) {
+        resourceClasses.remove(resourceClass);
+    }
+
     public List<Class> getResourceClasses() {
         return resourceClasses;
     }

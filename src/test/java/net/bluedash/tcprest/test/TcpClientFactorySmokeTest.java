@@ -40,7 +40,8 @@ public class TcpClientFactorySmokeTest {
 
         tcpRestServer.addResource(HelloWorldRestlet.class);
 
-        TcpRestClientFactory factory = new TcpRestClientFactory(HelloWorld.class, "localhost",
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(HelloWorld.class, "localhost",
                 ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
         HelloWorld client = (HelloWorld) factory.getInstance();
         assertEquals("Hello, world!", client.helloWorld());
