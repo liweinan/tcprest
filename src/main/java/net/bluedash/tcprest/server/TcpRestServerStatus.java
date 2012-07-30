@@ -6,7 +6,7 @@ package net.bluedash.tcprest.server;
  * If the TcpRestServer is set to CLOSING status, the server will fire the shutdown process.
  *
  * @author Weinan Li
- * Jul 29 2012
+ * @date Jul 29 2012
  */
 public class TcpRestServerStatus {
 

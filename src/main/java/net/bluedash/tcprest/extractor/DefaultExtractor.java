@@ -1,5 +1,6 @@
 package net.bluedash.tcprest.extractor;
 
+import net.bluedash.tcprest.exception.ParseException;
 import net.bluedash.tcprest.logger.Logger;
 import net.bluedash.tcprest.logger.LoggerFactory;
 import net.bluedash.tcprest.server.Context;
@@ -7,7 +8,6 @@ import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import net.bluedash.tcprest.server.TcpRestServer;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,11 +24,11 @@ import java.util.List;
  * }
  * </pre>
  * <p/>
- *
+ * <p/>
  * In the future I want to make DefaultExtractor supports complex parameter types via mapper scheme.
  *
  * @author Weinan Li
- *         Jul 30 2012
+ * @date Jul 30 2012
  */
 public class DefaultExtractor implements Extractor {
 
@@ -40,32 +40,53 @@ public class DefaultExtractor implements Extractor {
         this.tcpRestServer = server;
     }
 
-    public Context extract(String request) throws ClassNotFoundException, NoSuchMethodException {
+    public Context extract(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException {
         // class/method(arg1, arg2, ...)
         // get class and method from request
-        String[] segments = request.split("/");
-        String clazzName = segments[0];
 
-        // method | arg1, arg2, ...)
-        String[] methodAndArgs = segments[1].split("\\(");
-        String methodName = methodAndArgs[0];
 
-        // extract args
-        // remove the ')' at the end
-        // arg1, arg2, ...
-        String[] args;
-        if (methodAndArgs.length > 1) {
-            String argToken = methodAndArgs[1].substring(0, methodAndArgs[1].length() - 1);
-            if ("".equals(argToken)) {
-                args = null;
-            } else {
-                args = argToken.split(",");
-            }
-        } else {
-            args = null;
+        // We do some sanity check firstly
+        if (request.lastIndexOf(')') != request.length() - 1) {
+            throw new ParseException("***DefaultExtractor: cannot parse request: " + request);
         }
 
 
+        // search first '/'
+        int classSeperator = request.indexOf('/');
+        if (classSeperator < 1) {
+            throw new NoSuchMethodException("***DefaultExtractor: Cannot find a method from request.");
+        }
+
+        // get class name
+        String clazzName = request.substring(0, classSeperator);
+
+
+        // search first '(' to extract method
+        int methodSeperator = request.indexOf('(');
+        // things like 'MyClass/()' is also not valid
+        // so we need to ensure the format is at least 'MyClass/m()'
+        // the methodSeperator - 1 is the 'm'
+        // the classSeperator + 1 is '/'
+        // So we check the method do exists
+        if (methodSeperator - 1 < classSeperator + 1) {
+            throw new NoSuchMethodException("***DefaultExtractor: Cannot find a valid method call from request.");
+        }
+
+        String methodName = request.substring(classSeperator + 1, methodSeperator);
+
+        // get parameters
+        // strip the quotes and extract all params
+        String paramsToken = request.substring(methodSeperator + 1 , request.length() - 1);
+        String params[];
+
+        logger.log("***DefaultExtractor - paramsToken: " + paramsToken.trim());
+        if (paramsToken.trim().length() < 1) {
+            params = null;
+        } else {
+            params = paramsToken.trim().split(",");
+        }
+
+        // Now we fill context
         Context ctx = new Context();
 
         // search clazz from tcpRestServer instance
@@ -79,7 +100,7 @@ public class DefaultExtractor implements Extractor {
         }
 
         if (ctx.getTargetClass() == null)
-            throw new ClassNotFoundException();
+            throw new ClassNotFoundException("***DefaultExtractor - Cannot find class: " + clazzName);
 
         // search method
         for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
@@ -91,16 +112,10 @@ public class DefaultExtractor implements Extractor {
         }
 
         if (ctx.getTargetMethod() == null)
-            throw new NoSuchMethodException();
+            throw new NoSuchMethodException("***DefaultExtractor - Cannot find method: " + methodName);
 
-        // process arguments
-        if (args != null) {
-            List<Object> params = new ArrayList<Object>();
-            for (String arg : args) {
-                params.add(arg.trim());
-            }
-            ctx.setParams(params.toArray());
-        }
+        // fill arguments
+        ctx.setParams(params);
 
         return ctx;
     }

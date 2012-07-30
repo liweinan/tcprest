@@ -10,7 +10,7 @@ import java.lang.reflect.Method;
 /**
  *
  * @author Weinan Li
- * Jul 29 2012
+ * @date Jul 29 2012
  */
 public class DefaultInvoker implements Invoker {
     private Logger logger = LoggerFactory.getDefaultLogger();

@@ -19,7 +19,7 @@ I want an easy method to register this class into a TCP server, somthing like:
 
 And from client side I could call 'helloWorld' method by sending api call request:
 
-    "HelloWorldRestlet/helloWorld"
+    "HelloWorldRestlet/helloWorld()"
 
 Sending the class name and the method name with above format to server:
 
@@ -27,7 +27,7 @@ Sending the class name and the method name with above format to server:
 	PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
 	BufferedReader reader =
 	        new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-	writer.println("HelloWorldRestlet/helloWorld");
+	writer.println("HelloWorldRestlet/helloWorld()");
 	writer.flush();
 
 And I could get the response:
@@ -204,7 +204,7 @@ Here is an example how to use the framework:
 	        PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
 	        BufferedReader reader =
 	                new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-	        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld");
+	        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld()");
 	        writer.flush();
 
 	        String response = reader.readLine();
@@ -285,7 +285,7 @@ gSOAP and Apache Thrift generates code for you, it's more on 'compiling and run'
 	tcpRestServer.addResource(HelloWorldRestlet.class);
 	tcpRestServer.deleteResource(AnotherRestlet.class);
 
-*You don't have to generate any code, TcpRest generates code for you*
+*You don't have to generate any code, TcpRest generates code for you.*
 
 ...
 

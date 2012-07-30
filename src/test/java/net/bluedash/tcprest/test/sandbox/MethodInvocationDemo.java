@@ -11,7 +11,7 @@ import static org.junit.Assert.assertNotNull;
 /**
 *
 * @author Weinan Li
-* CREATED AT: Jul 29 2012
+* @date Jul 29 2012
 */
 public class MethodInvocationDemo {
 

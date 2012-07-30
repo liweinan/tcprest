@@ -16,7 +16,7 @@ import static org.junit.Assert.assertEquals;
 
 /**
  * @author Weinan Li
- *         CREATED AT: Jul 29 2012
+ * @date Jul 29 2012
  */
 public class TcpServerSmokeTests {
 
@@ -44,7 +44,7 @@ public class TcpServerSmokeTests {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld");
+        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld()");
         writer.flush();
 
         String response = reader.readLine();

@@ -1,5 +1,6 @@
 package net.bluedash.tcprest.server;
 
+import net.bluedash.tcprest.exception.ParseException;
 import net.bluedash.tcprest.extractor.DefaultExtractor;
 import net.bluedash.tcprest.extractor.Extractor;
 import net.bluedash.tcprest.invoker.DefaultInvoker;
@@ -22,7 +23,7 @@ import java.util.Scanner;
  * It's just for demonstration purpose.
  *
  * @author Weinan Li
- *         Jul 29 2012
+ * @date Jul 29 2012
  */
 public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
@@ -100,6 +101,8 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
             logger.log("***SingleThreadTcpRestServer: cannot invoke context.");
         } catch (IllegalAccessException e) {
             logger.log("***SingleThreadTcpRestServer: cannot invoke context.");
+        } catch (ParseException e) {
+            logger.log(e.getMessage());
         } finally {
             try {
                 serverSocket.close();
