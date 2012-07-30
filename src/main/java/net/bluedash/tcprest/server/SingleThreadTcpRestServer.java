@@ -1,5 +1,8 @@
 package net.bluedash.tcprest.server;
 
+import net.bluedash.tcprest.conveter.Converter;
+import net.bluedash.tcprest.conveter.DefaultConverter;
+import net.bluedash.tcprest.exception.MapperNotFoundException;
 import net.bluedash.tcprest.exception.ParseException;
 import net.bluedash.tcprest.extractor.DefaultExtractor;
 import net.bluedash.tcprest.extractor.Extractor;
@@ -7,6 +10,10 @@ import net.bluedash.tcprest.invoker.DefaultInvoker;
 import net.bluedash.tcprest.invoker.Invoker;
 import net.bluedash.tcprest.logger.Logger;
 import net.bluedash.tcprest.logger.LoggerFactory;
+import net.bluedash.tcprest.mapper.BooleanMapper;
+import net.bluedash.tcprest.mapper.IntegerMapper;
+import net.bluedash.tcprest.mapper.Mapper;
+import net.bluedash.tcprest.mapper.StringMapper;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,9 +21,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * SingleThreadTcpRestServer uses a single threaded Socket Server to serve the clients.
@@ -26,6 +31,8 @@ import java.util.Scanner;
  * @date Jul 29 2012
  */
 public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
+
+    private Map<String, Mapper> mappers = new HashMap<String, Mapper>();
 
     private Logger logger = LoggerFactory.getDefaultLogger();
 
@@ -53,20 +60,22 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         this.logger = logger;
     }
 
-
     public SingleThreadTcpRestServer() throws IOException {
-        this.serverSocket = new ServerSocket(8001); // default port
-        logger.log("ServerSocket initialized: " + this.serverSocket);
+        this(8001);
     }
 
     public SingleThreadTcpRestServer(int port) throws IOException {
-        this.serverSocket = new ServerSocket(port);
-        logger.log("ServerSocket initialized: " + this.serverSocket);
-
+        this(new ServerSocket(port));
     }
 
     public SingleThreadTcpRestServer(ServerSocket socket) {
         this.serverSocket = socket;
+
+        // register default mappers
+        mappers.put(String.class.getCanonicalName(), new StringMapper());
+        mappers.put(Integer.class.getCanonicalName(), new IntegerMapper());
+        mappers.put(Boolean.class.getCanonicalName(), new BooleanMapper());
+
         logger.log("ServerSocket initialized: " + this.serverSocket);
     }
 
@@ -86,8 +95,16 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                     // extract calling class and method from request
                     Context context = extractor.extract(request);
                     // invoke real method
-                    String response = (String) invoker.invoke(context);
-                    writer.println(response);
+                    Object responseObject = invoker.invoke(context);
+
+                    // get returned object and convert it to string response
+                    Mapper responseMapper = mappers.get(responseObject.getClass().getCanonicalName());
+                    if (responseMapper == null) {
+                        throw new MapperNotFoundException("***SingleThreadTcpRestServer - mapper not found for response object: " + responseObject.toString());
+                    }
+
+                    Converter converter = new DefaultConverter();
+                    writer.println(converter.encode(responseMapper.objectToString(responseObject), responseObject.getClass()));
                     writer.flush();
                 }
             }
@@ -102,6 +119,8 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         } catch (IllegalAccessException e) {
             logger.log("***SingleThreadTcpRestServer: cannot invoke context.");
         } catch (ParseException e) {
+            logger.log(e.getMessage());
+        } catch (MapperNotFoundException e) {
             logger.log(e.getMessage());
         } finally {
             try {
@@ -124,5 +143,13 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     public void down() {
         status = TcpRestServerStatus.CLOSING;
+    }
+
+    public Map<String, Mapper> getMappers() {
+        return mappers;
+    }
+
+    public void setMappers(Map<String, Mapper> mappers) {
+        this.mappers = mappers;
     }
 }

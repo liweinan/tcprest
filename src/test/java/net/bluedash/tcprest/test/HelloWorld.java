@@ -10,4 +10,6 @@ public interface HelloWorld {
     public String sayHelloTo(String name);
 
     public String sayHelloFromTo(String from, String to);
+
+    public String oneTwoThree(String one, int two, boolean three);
 }

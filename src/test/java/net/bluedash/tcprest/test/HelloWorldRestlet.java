@@ -18,5 +18,10 @@ public class HelloWorldRestlet implements HelloWorld {
         return from + " say hello to " + to;
     }
 
+    public String oneTwoThree(String one, int two, boolean three) {
+        return one + "," + Integer.valueOf(two).toString() + "," + Boolean.valueOf(three).toString();
+
+    }
+
 
 }

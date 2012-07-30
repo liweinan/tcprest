@@ -21,6 +21,17 @@ public class StringManipulationTests {
         idx = str.indexOf('/');
         System.out.println(idx);
         assertEquals(3, idx);
+
+        str = "{{Jack!}}java.lang.String";
+        System.out.println(str.indexOf("{{"));
+        assertEquals(0, str.indexOf("{{"));
+        System.out.println(str.indexOf("}}"));
+        assertEquals(7, str.indexOf("}}"));
+        System.out.println(str.substring(str.indexOf("{{") + 2, str.indexOf("}}")));
+        assertEquals("Jack!", str.substring(str.indexOf("{{") + 2, str.indexOf("}}")));
+        System.out.println(str.substring(str.indexOf("}}") + 2, str.length()));
+        assertEquals("java.lang.String", str.substring(str.indexOf("}}") + 2, str.length()));
+
     }
 
 

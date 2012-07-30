@@ -1,7 +1,6 @@
 package net.bluedash.tcprest.logger;
 
 /**
- *
  * @author Weinan Li
  * @date Jul 29 2012
  */

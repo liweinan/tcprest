@@ -11,6 +11,7 @@ public class Context {
     private Class targetClazz;
     private Method targetMethod;
     private Object[] params;
+    private Object[] paramTypes;
 
     public Context() {
     }
@@ -37,5 +38,13 @@ public class Context {
 
     public void setParams(Object[] params) {
         this.params = params;
+    }
+
+    public Object[] getParamTypes() {
+        return paramTypes;
+    }
+
+    public void setParamTypes(Object[] paramTypes) {
+        this.paramTypes = paramTypes;
     }
 }

@@ -4,8 +4,10 @@ package net.bluedash.tcprest.mapper;
  * Mapper can convert incoming string request to complex datatype
  *
  * @author Weinan Li
- * @date Jul 30 2012
+ * Jul 30 2012
  */
 public interface Mapper {
-    public Object map(String request);
+    public Object stringToObject(String param);
+
+    public String objectToString(Object object);
 }

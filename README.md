@@ -91,11 +91,10 @@ The framework should allow users to register new webservices at runtime:
 
 	tcpRestServer.addResource(AnotherRestlet.class);
 
-And then the clients could access this new service by sending request:
+Then the clients could access this new service by sending request:
 
 	"AnotherRestlet/someMethod(arg1, arg2, ...)"
 
-...
 
 ### Extractor
 
@@ -174,6 +173,16 @@ As the code show above, the server will accept user request, using extractor to 
 
 ...
 
+### Converter
+
+Converter is a low-level tool that TcpRest client library used for transforming a method call into TcpRest communication protocol:
+
+	public interface Converter {
+	    public String convert(Class clazz, Method method, Object[] params);
+	}
+
+
+
 ## Example
 
 Here is an example how to use the framework:
@@ -221,7 +230,11 @@ Here is an example how to use the framework:
 
 TcpRest should not depend on any other projects other than JDK itself, nevertheless it depends on JUnit4 for testing.
 
-...
+*In the future I'd like to create an TcpRestPlus project to collect all the add-ons that depend on third-party libraries*
+
+### Automatic serialization and de-serialization
+
+User shouldn't be forced to understand the underlying communication protocol during network communication. They should transparently use the client library to access the server.
 
 ## FAQ
 
@@ -287,7 +300,6 @@ gSOAP and Apache Thrift generates code for you, it's more on 'compiling and run'
 
 *You don't have to generate any code, TcpRest generates code for you.*
 
-...
 
 ## TODO
 
@@ -297,5 +309,6 @@ gSOAP and Apache Thrift generates code for you, it's more on 'compiling and run'
 * Implement JsonMapper
 * Support Restlet annotation
 * Make DefaultExtractor supports parentheses in parameter.
+* Support SSL communication
 
 
