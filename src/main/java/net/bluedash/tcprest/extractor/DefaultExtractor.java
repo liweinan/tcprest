@@ -100,6 +100,8 @@ public class DefaultExtractor implements Extractor {
         if (paramsToken.trim().length() < 1) {
             params = null;
         } else {
+            // todo merge this part of code with Converter
+            // todo put it into a new class called ProtocolStack
             // unprocessed rawParams
             // such as:  {{Jack!}}java.lang.String
             // We need to convert it to proper types

@@ -20,11 +20,8 @@ I want an easy method to register this class into a TCP server, somthing like:
 
 And from client side I could call 'helloWorld' method like calling the local java method:
 
-	TcpRestClientFactory factory = 
-		new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);
-	
+	TcpRestClientFactory factory = new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);
 	HelloWorld client = (HelloWorld) factory.getInstance();
-	
 	client.helloWorld();
 
 TcpRest will handle all the rest of the work to me.
