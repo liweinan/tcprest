@@ -22,10 +22,9 @@ And from client side I could call 'helloWorld' method like calling the local jav
 
 	TcpRestClientFactory factory = 
 		new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);
+	
 	HelloWorld client = (HelloWorld) factory.getInstance();
-
-And I could get the response by:
-
+	
 	client.helloWorld();
 
 TcpRest will handle all the rest of the work to me.
@@ -235,13 +234,12 @@ This is the goal the TcpRestServer want to achieve.
 
 ### What's the differences between TcpRest other RPC frameworks such as gSOAP or Apache Thrift, e.g.?
 
-gSOAP and Apache Thrift generates code for you, it's more on 'compiling and run' side, and TcpRest is all about runtime. You can add/remove resources at runtime:
+gSOAP and Apache Thrift generates code for you, it's more on 'compiling and run' side, but TcpRest is all about runtime. You can add/remove resources at runtime:
 
 	tcpRestServer.addResource(HelloWorldRestlet.class);
 	tcpRestServer.deleteResource(AnotherRestlet.class);
 
 *You don't have to generate any code, TcpRest generates code for you.*
-
 
 
 ## TODO
