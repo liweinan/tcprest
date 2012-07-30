@@ -10,8 +10,8 @@ import java.lang.reflect.Method;
  * Class.method(arg1, arg2) should transform to: "Class/method({{arg1}}arg1ClassName,{{arg2}}arg2ClassName)"
  * <p/>
  * For example:
- * HelloWorldRestlet.sayHelloFromTo("Jack", "Lucy") should transform to:
- * "HelloWorldRestlet/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
+ * HelloWorldResource.sayHelloFromTo("Jack", "Lucy") should transform to:
+ * "HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
  *
  * @author Weinan Li
  * @date 07 31 2012

@@ -38,7 +38,7 @@ public class TcpClientFactorySmokeTest {
     @Test
     public void testClient() throws IOException {
 
-        tcpRestServer.addResource(HelloWorldRestlet.class);
+        tcpRestServer.addResource(HelloWorldResource.class);
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
@@ -52,7 +52,7 @@ public class TcpClientFactorySmokeTest {
     @Test
     public void testProxy() throws IOException {
 
-        tcpRestServer.addResource(HelloWorldRestlet.class);
+        tcpRestServer.addResource(HelloWorldResource.class);
 
         HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
                 new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",

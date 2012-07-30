@@ -20,10 +20,10 @@ import java.util.List;
  * <pre>
  * {@code
  * HelloWorldRestlet/sayHello
- * HelloWorldRestlet/sayHello()
- * HelloWorldRestlet/sayHelloTo(Jack)
- * HelloWorldRestlet/sayHelloTo(Jack!)
- * HelloWorldRestlet/sayHelloToPeople(you,me)
+ * HelloWorldResource/sayHello()
+ * HelloWorldResource/sayHelloTo(Jack)
+ * HelloWorldResource/sayHelloTo(Jack!)
+ * HelloWorldResource/sayHelloToPeople(you,me)
  * }
  * </pre>
  * <p/>

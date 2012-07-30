@@ -4,7 +4,7 @@ package net.bluedash.tcprest.test;
  * @author Weinan Li
  * @date Jul 29 2012
  */
-public class HelloWorldRestlet implements HelloWorld {
+public class HelloWorldResource implements HelloWorld {
 
     public String helloWorld() {
         return "Hello, world!";

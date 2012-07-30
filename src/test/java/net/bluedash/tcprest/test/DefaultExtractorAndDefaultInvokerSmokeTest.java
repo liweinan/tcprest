@@ -25,29 +25,29 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
     @Test
     public void testDefaultExtractAndInvoke() throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InstantiationException, IOException, ParseException, MapperNotFoundException {
         SingleThreadTcpRestServer server = new SingleThreadTcpRestServer();
-        server.addResource(HelloWorldRestlet.class);
+        server.addResource(HelloWorldResource.class);
         Extractor extractor = new DefaultExtractor(server);
 
-        Context ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld()");
-        assertEquals(ctx.getTargetClass(), HelloWorldRestlet.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldRestlet.class.getMethod("helloWorld"));
+        Context ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/helloWorld()");
+        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("helloWorld"));
         Invoker invoker = new DefaultInvoker();
         String response = (String) invoker.invoke(ctx);
         assertEquals("Hello, world!", response);
 
         // test arguments
-        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldRestlet/sayHelloTo({{Jack!}}java.lang.String)");
-        assertEquals(ctx.getTargetClass(), HelloWorldRestlet.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldRestlet.class.getMethod("sayHelloTo", String.class));
+        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}}java.lang.String)");
+        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloTo", String.class));
         assertNotNull(ctx.getParams());
         invoker = new DefaultInvoker();
         response = (String) invoker.invoke(ctx);
         assertEquals("Hello, Jack!", response);
 
         // test multiple arguments
-        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldRestlet/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)");
-        assertEquals(ctx.getTargetClass(), HelloWorldRestlet.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldRestlet.class.getMethod("sayHelloFromTo", String.class, String.class));
+        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)");
+        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());
         invoker = new DefaultInvoker();
         response = (String) invoker.invoke(ctx);
@@ -55,9 +55,9 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
 
         // test params with parentheses inside
-        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldRestlet/sayHelloFromTo({{(me}}java.lang.String,{{you)}}java.lang.String)");
-        assertEquals(ctx.getTargetClass(), HelloWorldRestlet.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldRestlet.class.getMethod("sayHelloFromTo", String.class, String.class));
+        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/sayHelloFromTo({{(me}}java.lang.String,{{you)}}java.lang.String)");
+        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());
         invoker = new DefaultInvoker();
         response = (String) invoker.invoke(ctx);

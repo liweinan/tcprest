@@ -6,7 +6,7 @@ TcpRest is a network framework.
 
 TcpRest is a framework that can turn your POJO into a server/client pair. Suppose you have a java class like this:
 
-    public class HelloWorldRestlet {
+    public class HelloWorldResource {
 
         public String helloWorld() {
             return "Hello, world!";
@@ -17,7 +17,7 @@ It needs three lines of code to turn it into a server:
 
 	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
 	tcpRestServer.up();
-	tcpRestServer.addResource(HelloWorldRestlet.class);
+	tcpRestServer.addResource(HelloWorldResource.class);
 
 
 For client side it needs two lines of code:
@@ -30,17 +30,17 @@ And then you could call the server like using ordinary java class:
 
 	client.helloWorld();
 
-TcpRest will handle all the rest of the work to you.
+TcpRest will handle all the rest of the work for you.
 
 ## Design
 
 The system contains several core components:
 
-### Restlet
+### Resource
 
-Restlet is the java class the developers will write as webservice. For example:
+Resource is the plain java class that you want to turn to a network API. Here is an example:
 
-	public class HelloWorldRestlet {
+	public class HelloWorldResource {
 
 	    public String helloWorld() {
 	        return "Hello, world!";
@@ -48,17 +48,29 @@ Restlet is the java class the developers will write as webservice. For example:
 
 	}
 
-And the class should be easily registered into Server:
+You can turn it into server by:
 
-	tcpRestServer.addResource(HelloWorldRestlet.class);
-
-TcpRest will help to map this class to a tcp webservice and make it work.
+	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
+	tcpRestServer.up();
+	tcpRestServer.addResource(HelloWorldResource.class);
 
 ### TcpRestServer
 
-TcpRestServer uses SocketServer to do the TCP communication, and it should achieve all of the following goals:
+TcpRestServer is the server of TcpRest. Its definition is shown as below:
 
-* It should be extensible
+	public interface TcpRestServer {
+	
+		public void up();
+	
+		public void down();
+	
+		void addResource(Class resourceClass);
+		
+		void deleteResource(Class resourceClass);
+		...
+	}
+
+* TcpRestServer is extensible
 
 For example, we may use a SingleThreadTcpRestServer during project prototyping phase:
 
@@ -70,15 +82,15 @@ And then we could change the it to NioTcpRestServer to increase performance in p
 
 In addition, TcpRest should allow developers to write their own implementations of TcpRestServer.
 
-* Resources could be registered into server at runtime
+* Resource could be registered into server at runtime
 
 The framework should allow users to register new webservices at runtime:
 
-	tcpRestServer.addResource(AnotherRestlet.class);
+	tcpRestServer.addResource(someResourceClass);
 
 It could also be removed at runtime:
 
-	tcpRestServer.deleteResource(AnotherRestlet.class);
+	tcpRestServer.deleteResource(someResourceClass);
 
 ### Extractor
 
@@ -147,24 +159,12 @@ Converter is a low-level tool that TcpRest use it to process its own protocol. H
 			"Class/method({{arg1}}arg1ClassName,{{arg2}}arg2ClassName)"
 		
 	For example:
-	HelloWorldRestlet.sayHelloFromTo("Jack", "Lucy") will be converted to the following string:
-	"HelloWorldRestlet/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
+	HelloWorldResource.sayHelloFromTo("Jack", "Lucy") will be converted to the following string:
+	"HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
 
 The definition of Converter is shown as below:
 
 	public interface Converter {
 	    public String convert(Class clazz, Method method, Object[] params);
 	}
-
-
-## TODO
-
-* Provide client library
-* Implement ThreadPoolRestServer
-* Implement NioTcpRestServer
-* Implement JsonMapper
-* Support Restlet annotation
-* Make DefaultExtractor supports parentheses in parameter.
-* Support SSL communication
-
 

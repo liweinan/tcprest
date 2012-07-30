@@ -15,12 +15,12 @@ public class DefaultConverterSmokeTest {
     @Test
     public void test() throws NoSuchMethodException {
         Converter converter = new DefaultConverter();
-        String request = converter.convert(HelloWorldRestlet.class,
-                HelloWorldRestlet.class.getMethod("oneTwoThree", String.class, int.class, boolean.class),
+        String request = converter.convert(HelloWorldResource.class,
+                HelloWorldResource.class.getMethod("oneTwoThree", String.class, int.class, boolean.class),
                 new Object[]{"One", 2, true});
 
         System.out.println(request);
-        assertEquals("net.bluedash.tcprest.test.HelloWorldRestlet/oneTwoThree({{One}}java.lang.String,{{2}}java.lang.Integer,{{true}}java.lang.Boolean)",request);
+        assertEquals("net.bluedash.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String,{{2}}java.lang.Integer,{{true}}java.lang.Boolean)",request);
 
     }
 

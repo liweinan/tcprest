@@ -41,12 +41,12 @@ public class SimpleTcpServerSmokeTest {
 
     @Test
     public void testSimpleClient() throws IOException {
-        tcpRestServer.addResource(HelloWorldRestlet.class);
+        tcpRestServer.addResource(HelloWorldResource.class);
 
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/helloWorld()");
+        writer.println("net.bluedash.tcprest.test.HelloWorldResource/helloWorld()");
         writer.flush();
 
         String response = reader.readLine();
@@ -56,12 +56,12 @@ public class SimpleTcpServerSmokeTest {
 
     @Test
     public void testArgs() throws IOException {
-        tcpRestServer.addResource(HelloWorldRestlet.class);
+        tcpRestServer.addResource(HelloWorldResource.class);
 
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/sayHelloTo({{Jack!}}java.lang.String)");
+        writer.println("net.bluedash.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}}java.lang.String)");
         writer.flush();
 
         String response = reader.readLine();
@@ -72,12 +72,12 @@ public class SimpleTcpServerSmokeTest {
 
     @Test
     public void testMultipleArgs() throws IOException {
-        tcpRestServer.addResource(HelloWorldRestlet.class);
+        tcpRestServer.addResource(HelloWorldResource.class);
 
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("net.bluedash.tcprest.test.HelloWorldRestlet/oneTwoThree({{One}}java.lang.String,{{2}}java.lang.Integer,{{true}}java.lang.Boolean)");
+        writer.println("net.bluedash.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String,{{2}}java.lang.Integer,{{true}}java.lang.Boolean)");
         writer.flush();
 
         String response = reader.readLine();
