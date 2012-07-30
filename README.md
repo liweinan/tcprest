@@ -1,4 +1,4 @@
-# TCP REST
+# TcpRest
 
 ## Motivation
 
@@ -67,7 +67,7 @@ And the class should be easily registered into Server:
 
 	tcpRestServer.addResource(HelloWorldRestlet.class);
 
-And TcpRest will help to map this class to a tcp webservice and make it work.
+TcpRest will help to map this class to a tcp webservice and make it work.
 
 ### TcpRestServer
 
@@ -223,6 +223,71 @@ TcpRest should not depend on any other projects other than JDK itself, neverthel
 
 ...
 
+## FAQ
+
+### Why another webservice framework?
+
+Because I really want to have a framework that's easy to use and doesn't rely on HTTP or any servlet container.
+
+### Why you don't use Apache CXF, JBoss RESTEasy, Jersey or any other JAX-RS framework?
+
+I don't want to be forced to use HTTP protocol get the job done.
+
+### Why don't you use the Java serializations scheme or some other RPC frameworks such as COBRA?
+
+It's all about simplicity. The goal for TcpRest is:
+
+* Using 5 lines of code to transfer your java class into both server and client!
+
+Suppose you have a java class:
+
+	public interface HelloWorld {
+		public String helloWorld();
+		public String sayHelloTo(String name);
+	}
+
+	public class HelloWorldRestlet implements HelloWorld {
+
+	    public String helloWorld() {
+	        return "Hello, world!";
+	    }
+
+	    public String sayHelloTo(String name) {
+	        return "Hello, " + name;
+	    }
+
+	}
+
+Here are the three lines of code that transfer the above class into a server:
+
+	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
+	tcpRestServer.up();
+	tcpRestServer.addResource(HelloWorldRestlet.class);
+
+
+And here are the two lines of code for client:
+
+	TcpRestClientFactory factory = 
+		new DefaultTcpRestClientFactory(HelloWorldRestlet.class)
+	
+	HelloWorld client = factory.getInstance();
+
+That's all. Now you can use the client to call the server:
+
+	client.helloWorld();
+
+This is the goal the TcpRestServer want to achieve.
+
+### What's the differences between TcpRest other RPC frameworks such as gSOAP or Apache Thrift, e.g.?
+
+gSOAP and Apache Thrift generates code for you, it's more on 'compiling and run' side, and TcpRest is all about runtime. You can add/remove resources at runtime:
+
+	tcpRestServer.addResource(HelloWorldRestlet.class);
+	tcpRestServer.deleteResource(AnotherRestlet.class);
+
+*You don't have to generate any code, TcpRest generates code for you*
+
+...
 
 ## TODO
 
