@@ -170,7 +170,7 @@ So we can put all the knowledge we've learnt above and read the following code i
 As the code show above, the server will accept user request, using extractor to convert request from string to context object, and then invoker will invoke the relative method in mapped class and return back the response to server. Finally the server write response to client.
 
 
-## Mapper
+### Mapper
 
 ...
 
