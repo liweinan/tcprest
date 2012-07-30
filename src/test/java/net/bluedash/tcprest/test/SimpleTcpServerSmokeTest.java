@@ -1,11 +1,17 @@
 package net.bluedash.tcprest.test;
 
+import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
+import net.bluedash.tcprest.server.TcpRestServer;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
 
@@ -13,8 +19,25 @@ import static org.junit.Assert.assertEquals;
  * @author Weinan Li
  * @date Jul 29 2012
  */
-public class SimpleTcpServerSmokeTests extends SmokeTestTemplate {
+public class SimpleTcpServerSmokeTest {
 
+    protected TcpRestServer tcpRestServer;
+    protected Socket clientSocket;
+
+
+    @Before
+    public void startTcpRestServer() throws IOException {
+        int port = Math.abs(new Random().nextInt()) % 10000 + 8000;
+        tcpRestServer = new SingleThreadTcpRestServer(port);
+        tcpRestServer.up();
+        clientSocket = new Socket("localhost", port);
+    }
+
+    @After
+    public void stopTcpRestServer() throws IOException {
+        tcpRestServer.down();
+        clientSocket.close();
+    }
 
     @Test
     public void testSimpleClient() throws IOException {

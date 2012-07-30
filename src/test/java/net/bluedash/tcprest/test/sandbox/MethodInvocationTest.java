@@ -13,7 +13,7 @@ import static org.junit.Assert.assertNotNull;
 * @author Weinan Li
 * @date Jul 29 2012
 */
-public class MethodInvocationDemo {
+public class MethodInvocationTest {
 
     // ABC must be declared as 'static'
     // or it couldn't be instantiated

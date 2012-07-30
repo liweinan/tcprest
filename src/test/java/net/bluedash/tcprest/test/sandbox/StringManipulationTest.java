@@ -8,7 +8,7 @@ import static junit.framework.Assert.assertEquals;
  * @author Weinan Li
  * @date Jul 30 2012
  */
-public class StringManipulationTests {
+public class StringManipulationTest {
 
     @Test
     public void testIndexOf() {

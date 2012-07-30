@@ -20,7 +20,7 @@ import static junit.framework.Assert.assertNotNull;
  * @author Weinan Li
  * @date Jul 29 2012
  */
-public class DefaultExtractorAndDefaultInvokerSmokeTests {
+public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
     @Test
     public void testDefaultExtractAndInvoke() throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InstantiationException, IOException, ParseException, MapperNotFoundException {
