@@ -5,6 +5,7 @@ import net.bluedash.tcprest.exception.ParseException;
 import net.bluedash.tcprest.logger.Logger;
 import net.bluedash.tcprest.logger.LoggerFactory;
 import net.bluedash.tcprest.mapper.Mapper;
+import net.bluedash.tcprest.protocol.DefaultTcpRestProtocol;
 import net.bluedash.tcprest.server.Context;
 import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import net.bluedash.tcprest.server.TcpRestServer;
@@ -105,7 +106,7 @@ public class DefaultExtractor implements Extractor {
             // unprocessed rawParams
             // such as:  {{Jack!}}java.lang.String
             // We need to convert it to proper types
-            String rawParams[] = paramsToken.trim().split(",");
+            String rawParams[] = paramsToken.trim().split(DefaultTcpRestProtocol.PATH_SEPERATOR);
             List<Object> paramsHolder = new ArrayList<Object>();
             for (String rawParam : rawParams) {
                 // pick the value of param

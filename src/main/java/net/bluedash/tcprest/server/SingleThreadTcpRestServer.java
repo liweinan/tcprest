@@ -10,10 +10,7 @@ import net.bluedash.tcprest.invoker.DefaultInvoker;
 import net.bluedash.tcprest.invoker.Invoker;
 import net.bluedash.tcprest.logger.Logger;
 import net.bluedash.tcprest.logger.LoggerFactory;
-import net.bluedash.tcprest.mapper.BooleanMapper;
-import net.bluedash.tcprest.mapper.IntegerMapper;
-import net.bluedash.tcprest.mapper.Mapper;
-import net.bluedash.tcprest.mapper.StringMapper;
+import net.bluedash.tcprest.mapper.*;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -77,14 +74,15 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         this.serverSocket = socket;
 
         // register default mappers
-        mappers.put(String.class.getCanonicalName(), new StringMapper());
-        mappers.put(Integer.class.getCanonicalName(), new IntegerMapper());
-        mappers.put(Boolean.class.getCanonicalName(), new BooleanMapper());
+        mappers = MapperHelper.DEFAULT_MAPPERS;
 
         logger.log("ServerSocket initialized: " + this.serverSocket);
     }
 
+    // todo throw staandard error message.
+    // todo desgin error message
     public void run() {
+        PrintWriter writer = null;
         try {
             while (status.equals(TcpRestServerStatus.RUNNING)) {
                 logger.log("Server started.");
@@ -93,7 +91,7 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 Scanner scanner = new Scanner(reader);
 
-                PrintWriter writer = new PrintWriter(socket.getOutputStream());
+                writer = new PrintWriter(socket.getOutputStream());
                 while (scanner.hasNext()) {
                     String request = scanner.nextLine();
                     logger.log("request: " + request);
@@ -105,7 +103,8 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                     // get returned object and convert it to string response
                     Mapper responseMapper = mappers.get(responseObject.getClass().getCanonicalName());
                     if (responseMapper == null) {
-                        throw new MapperNotFoundException("***SingleThreadTcpRestServer - mapper not found for response object: " + responseObject.toString());
+                        throw new MapperNotFoundException("***SingleThreadTcpRestServer - mapper not found for response object: " +
+                                responseObject.toString());
                     }
 
                     Converter converter = new DefaultConverter();
@@ -116,19 +115,37 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         } catch (IOException e) {
 
         } catch (ClassNotFoundException e) {
-            logger.log("***SingleThreadTcpRestServer: requested class not found.");
+            String message = "***SingleThreadTcpRestServer: requested class not found.";
+            logger.log(message);
+            if (writer != null)
+                writer.println(message);
         } catch (NoSuchMethodException e) {
-            logger.log("***SingleThreadTcpRestServer: requested method not found.");
+            String message = "***SingleThreadTcpRestServer: requested method not found.";
+            logger.log(message);
+            if (writer != null)
+                writer.println(message);
         } catch (InstantiationException e) {
-            logger.log("***SingleThreadTcpRestServer: cannot invoke context.");
+            String message = "***SingleThreadTcpRestServer: requested method not found.";
+            logger.log(message);
+            if (writer != null)
+                writer.println(message);
         } catch (IllegalAccessException e) {
-            logger.log("***SingleThreadTcpRestServer: cannot invoke context.");
+            String message = "***SingleThreadTcpRestServer: cannot invoke context.";
+            logger.log(message);
+            if (writer != null)
+                writer.println(message);
         } catch (ParseException e) {
             logger.log(e.getMessage());
+            if (writer != null)
+                writer.println(e.getMessage());
         } catch (MapperNotFoundException e) {
             logger.log(e.getMessage());
+            if (writer != null)
+                writer.println(e.getMessage());
         } finally {
             try {
+                if (writer != null)
+                    writer.flush();
                 serverSocket.close();
             } catch (IOException e) {
 
@@ -150,11 +167,17 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         status = TcpRestServerStatus.CLOSING;
     }
 
+    // TODO return a cloned copy
     public Map<String, Mapper> getMappers() {
         return mappers;
     }
 
     public void setMappers(Map<String, Mapper> mappers) {
         this.mappers = mappers;
+    }
+
+    // TODO not thread safe now
+    public void addMapper(String canonicalName, Mapper mapper) {
+        mappers.put(canonicalName, mapper);
     }
 }

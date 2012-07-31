@@ -12,4 +12,8 @@ public interface HelloWorld {
     public String sayHelloFromTo(String from, String to);
 
     public String oneTwoThree(String one, int two, boolean three);
+
+    public String favoriteColor(Color color);
+
+    public String allTypes(String one, int two, boolean three, short x, long y, double z, byte o);
 }

@@ -24,8 +24,14 @@ public interface TcpRestServer {
 
     public void setLogger(Logger logger);
 
+    /**
+     * Get a cloned copy of mappers
+     * The impelmentation should ensure thread safety
+     * @return
+     */
     public Map<String, Mapper> getMappers();
 
     public void setMappers(Map<String, Mapper> mappers);
 
+    void addMapper(String canonicalName, Mapper mapper);
 }

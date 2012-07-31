@@ -23,5 +23,15 @@ public class HelloWorldResource implements HelloWorld {
 
     }
 
+    public String favoriteColor(Color color) {
+        return "My favorite color is: " + color.getName();
+    }
+
+    public String allTypes(String one, int two, boolean three, short x, long y, double z, byte o) {
+        return one + "," + Integer.valueOf(two).toString() + "," + Boolean.valueOf(three).toString() + Short.valueOf(x) + Long.valueOf(y) + Double.valueOf(z) + Byte.valueOf(o);
+
+    }
+
+
 
 }

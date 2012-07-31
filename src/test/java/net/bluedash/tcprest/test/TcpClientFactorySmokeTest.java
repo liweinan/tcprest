@@ -42,11 +42,11 @@ public class TcpClientFactorySmokeTest {
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
-                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
         HelloWorld client = (HelloWorld) factory.getInstance();
         assertEquals("Hello, world!", client.helloWorld());
 
-
+        assertEquals("a,2,true123.0111", client.allTypes("a", 2, true, (short) 1, 2L, 3.0, (byte) 'o'));
     }
 
     @Test
@@ -56,7 +56,7 @@ public class TcpClientFactorySmokeTest {
 
         HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
                 new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
-                    ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort()));
+                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort()));
 
         assertEquals("Hello, world!", client.helloWorld());
         assertEquals("x,2,false", client.oneTwoThree("x", 2, false));

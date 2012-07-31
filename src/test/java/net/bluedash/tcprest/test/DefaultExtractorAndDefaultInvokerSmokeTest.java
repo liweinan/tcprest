@@ -6,6 +6,7 @@ import net.bluedash.tcprest.extractor.DefaultExtractor;
 import net.bluedash.tcprest.extractor.Extractor;
 import net.bluedash.tcprest.invoker.DefaultInvoker;
 import net.bluedash.tcprest.invoker.Invoker;
+import net.bluedash.tcprest.protocol.DefaultTcpRestProtocol;
 import net.bluedash.tcprest.server.Context;
 import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import org.junit.Test;
@@ -45,7 +46,8 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
         assertEquals("Hello, Jack!", response);
 
         // test multiple arguments
-        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)");
+        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String"
+                + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{Lucy}}java.lang.String)");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());
@@ -55,7 +57,8 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
 
         // test params with parentheses inside
-        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/sayHelloFromTo({{(me}}java.lang.String,{{you)}}java.lang.String)");
+        ctx = extractor.extract("net.bluedash.tcprest.test.HelloWorldResource/sayHelloFromTo({{(me}}java.lang.String"
+                + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{you)}}java.lang.String)");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());

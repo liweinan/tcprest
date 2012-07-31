@@ -1,5 +1,6 @@
 package net.bluedash.tcprest.test;
 
+import net.bluedash.tcprest.protocol.DefaultTcpRestProtocol;
 import net.bluedash.tcprest.server.SingleThreadTcpRestServer;
 import net.bluedash.tcprest.server.TcpRestServer;
 import org.junit.After;
@@ -77,7 +78,10 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("net.bluedash.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String,{{2}}java.lang.Integer,{{true}}java.lang.Boolean)");
+        writer.println("net.bluedash.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String"
+                + DefaultTcpRestProtocol.PATH_SEPERATOR
+                + "{{2}}java.lang.Integer"
+                + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{true}}java.lang.Boolean)");
         writer.flush();
 
         String response = reader.readLine();

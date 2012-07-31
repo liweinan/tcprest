@@ -1,9 +1,13 @@
 package net.bluedash.tcprest.conveter;
 
+import net.bluedash.tcprest.exception.MapperNotFoundException;
 import net.bluedash.tcprest.logger.Logger;
 import net.bluedash.tcprest.logger.SystemOutLogger;
+import net.bluedash.tcprest.mapper.Mapper;
+import net.bluedash.tcprest.protocol.DefaultTcpRestProtocol;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 
 /**
  * TcpRest Protocol:
@@ -19,15 +23,22 @@ import java.lang.reflect.Method;
 public class DefaultConverter implements Converter {
     Logger logger = new SystemOutLogger();
 
-    public String convert(Class clazz, Method method, Object[] params) {
+    public String convert(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException {
         StringBuilder paramTokenBuffer = new StringBuilder();
         if (params != null) {
             for (Object param : params) {
                 logger.log("***DefaultConverter: " + param.getClass());
-                paramTokenBuffer.append("{{").append(param.toString()).append("}}").append(param.getClass().getCanonicalName()).append(",");
+                Mapper mapper = mappers.get(param.getClass().getCanonicalName());
+                if (mapper == null) {
+                    throw new MapperNotFoundException("***DefaultConverter - Cannot find mapper for: " + param.getClass().getCanonicalName());
+                }
+
+                paramTokenBuffer.append("{{").append(mapper.objectToString(param))
+                        .append("}}").append(param.getClass().getCanonicalName()).append(DefaultTcpRestProtocol.PATH_SEPERATOR);
             }
-            paramTokenBuffer.deleteCharAt(paramTokenBuffer.length() - 1); // delete the last ','
-            return clazz.getCanonicalName() + "/" + method.getName() + "(" + paramTokenBuffer.toString() + ")";
+
+            return clazz.getCanonicalName() + "/" + method.getName() + "(" + paramTokenBuffer.
+                    substring(0, paramTokenBuffer.length() - DefaultTcpRestProtocol.PATH_SEPERATOR.length()) + ")";
         } else {
             return clazz.getCanonicalName() + "/" + method.getName() + "()";
         }

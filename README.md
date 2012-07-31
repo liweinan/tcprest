@@ -148,23 +148,114 @@ But with only the above codes, we can only trasmitting string values between ser
 
 ### Mapper
 
-...
+Mapper is the core component doing data serialization and deserialization. Here is its definition:
+
+	public interface Mapper {
+		public Object stringToObject(String param);
+	
+		public String objectToString(Object object);
+	}
+
+TcpRest provides mappers for follwing primitive data types by default:
+
+* byte
+* short
+* int
+* long
+* float
+* double
+* String
+* boolean
+
+For example:
+
+	public class IntegerMapper implements Mapper {
+
+	    public Object stringToObject(String param) {
+	        return Integer.valueOf(param);
+	    }
+
+	    public String objectToString(Object object) {
+	        return object.toString();
+	    }
+	}
+
+You can also create your own mapper for custom data types. Suppose we have a following data type:
+
+	public class Color {
+	    private String name;
+
+	    public Color(String name) {
+	        this.name = name;
+	    }
+
+	    public String getName() {
+	        return name;
+	    }
+
+	    public void setName(String name) {
+	        this.name = name;
+	    }
+	}
+
+We could create a mapper for it:
+
+	public class ColorMapper implements Mapper {
+	    public Object stringToObject(String param) {
+	        return new Color(param);
+	    }
+
+	    public String objectToString(Object object) {
+	        if (object instanceof Color) {
+	            return ((Color) object).getName();
+	        } else {
+	            return null;
+	        }
+
+	    }
+	}
+
+Then we could register the mapper to server:
+
+	tcpRestServer.addMapper(Color.class.getCanonicalName(), new ColorMapper());
+
+We should also register it to client side:
+
+	Map<String, Mapper> colorMapper = new HashMap<String, Mapper>();
+	colorMapper.put(Color.class.getCanonicalName(), new ColorMapper());
+	TcpRestClientFactory factory =
+	        new TcpRestClientFactory(HelloWorld.class, "localhost",
+	                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort(), colorMapper);
+
+Then we could use Color class in our API:
+
+	public interface HelloWorld {
+	    public String favoriteColor(Color color);
+	}
 
 ### Converter
 
-Converter is a low-level tool that TcpRest use it to process its own protocol. Here is a brief introduction to TcpRest's protocol:
-
-	TcpRest Protocol:
-		Class.method(arg1, arg2) will transform to:
-			"Class/method({{arg1}}arg1ClassName,{{arg2}}arg2ClassName)"
-		
-	For example:
-	HelloWorldResource.sayHelloFromTo("Jack", "Lucy") will be converted to the following string:
-	"HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
-
-The definition of Converter is shown as below:
+Converter is a low-level tool that TcpRest use it to process its own protocol. The definition of Converter is shown as below:
 
 	public interface Converter {
 	    public String convert(Class clazz, Method method, Object[] params);
 	}
 
+Here is a brief introduction to TcpRest's protocol:
+
+If we make a call from client side:
+	Class.method(arg1, arg2)
+
+Tcp Rest will convert it to:
+
+	"Class/method({{arg1}}arg1ClassName,{{arg2}}arg2ClassName)"
+
+during network transmitting. For example:
+
+	HelloWorldResource.sayHelloFromTo("Jack", "Lucy")
+
+will be converted to the following string:
+
+	"HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
+
+TcpRestServer will try to find proper Mapper to decode the parameters.
