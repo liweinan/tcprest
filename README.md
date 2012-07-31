@@ -32,11 +32,11 @@ And then you could call the server like using ordinary java class:
 
 TcpRest will handle all the rest of the work for you.
 
-## Zero Dependency
-
-TcpRest will not depended on any libraries other than JDK itself. For testing purpose it can depend on JUnit. All the components of TcpRest that relies on other opensource libraries will goes into *TcpRestPlus* project.
-
 ## Design
+
+### Zero Dependency
+
+TcpRest will not depended on any libraries other than JDK itself. For testing purpose it can depend on JUnit. All the components that relies on other opensource libraries will goes into *TcpRestPlus* project.
 
 The system contains several core components:
 

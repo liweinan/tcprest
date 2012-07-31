@@ -9,8 +9,8 @@ import java.util.Map;
  */
 public class MapperHelper {
 
-
     public static final Map<String,Mapper> DEFAULT_MAPPERS = new HashMap<String, Mapper>();
+
     static {
         DEFAULT_MAPPERS.put(Byte.class.getCanonicalName(), new ByteMapper());
         DEFAULT_MAPPERS.put(Long.class.getCanonicalName(), new LongMapper());
