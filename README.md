@@ -72,11 +72,11 @@ TcpRestServer is the server of TcpRest. Its definition is shown as below:
 
 * TcpRestServer is extensible
 
-For example, we may use a SingleThreadTcpRestServer during project prototyping phase:
+For example, you may use a SingleThreadTcpRestServer during project prototyping phase:
 
 	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
 
-And then we could change the it to NioTcpRestServer to increase performance in productization environment:
+And then it could be changed the it to NioTcpRestServer to increase performance in productization environment:
 
 	TcpRestServer tcpRestServer = new NioTcpRestServer(8001);
 
@@ -180,7 +180,7 @@ For example:
 	    }
 	}
 
-You can also create your own mapper for custom data types. Suppose we have a following data type:
+You can also create your own mapper for custom data types. Suppose you have a following data type:
 
 	public class Color {
 	    private String name;
@@ -198,7 +198,7 @@ You can also create your own mapper for custom data types. Suppose we have a fol
 	    }
 	}
 
-We could create a mapper for it:
+You could create a mapper for it:
 
 	public class ColorMapper implements Mapper {
 	    public Object stringToObject(String param) {
@@ -215,23 +215,17 @@ We could create a mapper for it:
 	    }
 	}
 
-Then we could register the mapper to server:
+And then register the mapper to server:
 
 	tcpRestServer.addMapper(Color.class.getCanonicalName(), new ColorMapper());
 
-We should also register it to client side:
+The mapper should also be registered to client side for decoding the response from server:
 
 	Map<String, Mapper> colorMapper = new HashMap<String, Mapper>();
 	colorMapper.put(Color.class.getCanonicalName(), new ColorMapper());
 	TcpRestClientFactory factory =
 	        new TcpRestClientFactory(HelloWorld.class, "localhost",
 	                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort(), colorMapper);
-
-Then we could use Color class in our API:
-
-	public interface HelloWorld {
-	    public String favoriteColor(Color color);
-	}
 
 ### Converter
 
