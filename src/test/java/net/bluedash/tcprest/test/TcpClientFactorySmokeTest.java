@@ -43,9 +43,10 @@ public class TcpClientFactorySmokeTest {
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
                         ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
-        HelloWorld client = (HelloWorld) factory.getInstance();
-        assertEquals("Hello, world!", client.helloWorld());
 
+        HelloWorld client = (HelloWorld) factory.getInstance();
+
+        assertEquals("Hello, world!", client.helloWorld());
         assertEquals("a,2,true123.0111", client.allTypes("a", 2, true, (short) 1, 2L, 3.0, (byte) 'o'));
     }
 

@@ -7,7 +7,8 @@ import java.lang.reflect.Method;
 import java.util.Map;
 
 /**
- * Converter is a low-level tool that TcpRest client library used for transforming a method call into TcpRest communication protocol.
+ * Converter is the the reverse operation of Extractor.
+ * TcpRest client library uses it for transforming a method call into TcpRest communication protocol.
  * @author Weinan Li
  * @date 07 31 2012
  */

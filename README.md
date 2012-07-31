@@ -235,7 +235,7 @@ Then we could use Color class in our API:
 
 ### Converter
 
-Converter is a low-level tool that TcpRest use it to process its own protocol. The definition of Converter is shown as below:
+Converter is the the reverse operation of Extractor. TcpRest client library uses it for transforming a method call into TcpRest communication protocol.
 
 	public interface Converter {
 	    public String convert(Class clazz, Method method, Object[] params);
@@ -248,7 +248,7 @@ If we make a call from client side:
 
 Tcp Rest will convert it to:
 
-	"Class/method({{arg1}}arg1ClassName,{{arg2}}arg2ClassName)"
+	"Class/method({{arg1}}arg1ClassName:::{{arg2}}arg2ClassName)"
 
 during network transmitting. For example:
 
@@ -256,6 +256,6 @@ during network transmitting. For example:
 
 will be converted to the following string:
 
-	"HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
+	"HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String:::{{Lucy}}java.lang.String)"
 
 TcpRestServer will try to find proper Mapper to decode the parameters.
