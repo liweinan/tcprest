@@ -1,6 +1,6 @@
 package io.tcprest.test.sandbox;
 
-import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.TcpRestProtocol;
 import org.junit.Test;
 
 import static junit.framework.Assert.assertEquals;
@@ -34,11 +34,11 @@ public class StringManipulationTest {
         assertEquals("java.lang.String", str.substring(str.indexOf("}}") + 2, str.length()));
 
 
-        str = "{{x}}java.lang.String" + DefaultTcpRestProtocol.PATH_SEPERATOR
+        str = "{{x}}java.lang.String" + TcpRestProtocol.PATH_SEPERATOR
                 + "{{2}}java.lang.Integer"
-                + DefaultTcpRestProtocol.PATH_SEPERATOR
+                + TcpRestProtocol.PATH_SEPERATOR
                 + "{{false}}java.lang.Boolean";
-        for (String s : str.split(DefaultTcpRestProtocol.PATH_SEPERATOR)) {
+        for (String s : str.split(TcpRestProtocol.PATH_SEPERATOR)) {
             System.out.println(s);
         }
 

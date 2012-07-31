@@ -6,7 +6,7 @@ import io.tcprest.extractor.DefaultExtractor;
 import io.tcprest.extractor.Extractor;
 import io.tcprest.invoker.DefaultInvoker;
 import io.tcprest.invoker.Invoker;
-import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.Context;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import org.junit.Test;
@@ -47,7 +47,7 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
         // test multiple arguments
         ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String"
-                + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{Lucy}}java.lang.String)");
+                + TcpRestProtocol.PATH_SEPERATOR + "{{Lucy}}java.lang.String)");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());
@@ -58,7 +58,7 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
         // test params with parentheses inside
         ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{(me}}java.lang.String"
-                + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{you)}}java.lang.String)");
+                + TcpRestProtocol.PATH_SEPERATOR + "{{you)}}java.lang.String)");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());

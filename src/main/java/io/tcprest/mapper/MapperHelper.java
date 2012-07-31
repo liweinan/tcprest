@@ -1,6 +1,5 @@
 package io.tcprest.mapper;
 
-import io.tcprest.protocol.DefaultTcpRestProtocol;
 import io.tcprest.protocol.NullObj;
 
 import java.util.HashMap;

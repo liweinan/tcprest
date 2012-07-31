@@ -1,6 +1,6 @@
 package io.tcprest.mapper;
 
-import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.TcpRestProtocol;
 
 /**
  * @author Weinan Li
@@ -12,7 +12,7 @@ public class NullMapper implements Mapper {
     }
 
     public String objectToString(Object object) {
-        return DefaultTcpRestProtocol.NULL;
+        return TcpRestProtocol.NULL;
     }
 
 }

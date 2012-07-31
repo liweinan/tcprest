@@ -4,7 +4,7 @@ import io.tcprest.conveter.Converter;
 import io.tcprest.conveter.DefaultConverter;
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.mapper.MapperHelper;
-import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.TcpRestProtocol;
 import org.junit.Test;
 
 import static junit.framework.Assert.assertEquals;
@@ -23,7 +23,7 @@ public class DefaultConverterSmokeTest {
                 new Object[]{"One", 2, true}, MapperHelper.DEFAULT_MAPPERS);
 
         System.out.println(request);
-        assertEquals("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String" + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{2}}java.lang.Integer" + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{true}}java.lang.Boolean)", request);
+        assertEquals("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String" + TcpRestProtocol.PATH_SEPERATOR + "{{2}}java.lang.Integer" + TcpRestProtocol.PATH_SEPERATOR + "{{true}}java.lang.Boolean)", request);
 
     }
 

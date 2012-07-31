@@ -1,6 +1,6 @@
 package io.tcprest.test;
 
-import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
 import org.junit.After;
@@ -79,9 +79,9 @@ public class SimpleTcpServerSmokeTest {
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         writer.println("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String"
-                + DefaultTcpRestProtocol.PATH_SEPERATOR
+                + TcpRestProtocol.PATH_SEPERATOR
                 + "{{2}}java.lang.Integer"
-                + DefaultTcpRestProtocol.PATH_SEPERATOR + "{{true}}java.lang.Boolean)");
+                + TcpRestProtocol.PATH_SEPERATOR + "{{true}}java.lang.Boolean)");
         writer.flush();
 
         String response = reader.readLine();

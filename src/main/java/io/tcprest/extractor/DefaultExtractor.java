@@ -5,7 +5,7 @@ import io.tcprest.exception.ParseException;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
 import io.tcprest.mapper.Mapper;
-import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.Context;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
@@ -114,7 +114,7 @@ public class DefaultExtractor implements Extractor {
             // unprocessed rawParams
             // such as:  {{Jack!}}java.lang.String
             // We need to convert it to proper types
-            String rawParams[] = paramsToken.trim().split(DefaultTcpRestProtocol.PATH_SEPERATOR);
+            String rawParams[] = paramsToken.trim().split(TcpRestProtocol.PATH_SEPERATOR);
             List<Object> paramsHolder = new ArrayList<Object>();
             for (String rawParam : rawParams) {
                 // pick the value of param

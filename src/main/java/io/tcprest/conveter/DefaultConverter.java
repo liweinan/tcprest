@@ -4,7 +4,7 @@ import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.SystemOutLogger;
 import io.tcprest.mapper.Mapper;
-import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.TcpRestProtocol;
 
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -34,11 +34,11 @@ public class DefaultConverter implements Converter {
                 }
 
                 paramTokenBuffer.append("{{").append(mapper.objectToString(param))
-                        .append("}}").append(param.getClass().getCanonicalName()).append(DefaultTcpRestProtocol.PATH_SEPERATOR);
+                        .append("}}").append(param.getClass().getCanonicalName()).append(TcpRestProtocol.PATH_SEPERATOR);
             }
 
             return clazz.getCanonicalName() + "/" + method.getName() + "(" + paramTokenBuffer.
-                    substring(0, paramTokenBuffer.length() - DefaultTcpRestProtocol.PATH_SEPERATOR.length()) + ")";
+                    substring(0, paramTokenBuffer.length() - TcpRestProtocol.PATH_SEPERATOR.length()) + ")";
         } else {
             return clazz.getCanonicalName() + "/" + method.getName() + "()";
         }

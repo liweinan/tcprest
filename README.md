@@ -1,6 +1,6 @@
 # TcpRest
 
-TcpRest is a network framework.
+TcpRest is a lightweight webservice framework.
 
 ## Introduction
 
