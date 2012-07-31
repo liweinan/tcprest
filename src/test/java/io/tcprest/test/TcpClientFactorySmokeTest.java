@@ -51,6 +51,29 @@ public class TcpClientFactorySmokeTest {
     }
 
     @Test
+    public void testSingletonResource() throws IOException {
+        Object instance = new SingletonCounterResource(2);
+        tcpRestServer.addSingletonResource(instance);
+
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(Counter.class, "localhost",
+                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+
+        Counter client = (Counter) factory.getInstance();
+        assertEquals(2, client.getCounter());
+
+        client.increaseCounter();
+        assertEquals(3, client.getCounter());
+
+        tcpRestServer.deleteSingletonResource(instance);
+
+        tcpRestServer.addResource(SingletonCounterResource.class);
+        assertEquals(0, client.getCounter());
+        client.increaseCounter();
+        assertEquals(0, client.getCounter());
+    }
+
+    @Test
     public void testProxy() throws IOException {
 
         tcpRestServer.addResource(HelloWorldResource.class);

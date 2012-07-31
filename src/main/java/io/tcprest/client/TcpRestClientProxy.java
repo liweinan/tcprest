@@ -2,12 +2,14 @@ package io.tcprest.client;
 
 import io.tcprest.conveter.Converter;
 import io.tcprest.conveter.DefaultConverter;
+import io.tcprest.logger.Logger;
+import io.tcprest.logger.LoggerFactory;
 import io.tcprest.mapper.Mapper;
 import io.tcprest.mapper.MapperHelper;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.Map;
 
 /**
  * TcpRestClientProxy can generate a client from resource class/interface
@@ -17,9 +19,13 @@ import java.util.*;
  */
 public class TcpRestClientProxy implements InvocationHandler {
 
+    private Logger logger = LoggerFactory.getDefaultLogger();
+
     private TcpRestClient tcpRestClient;
 
     private Map<String, Mapper> mappers;
+
+    private Converter converter = new DefaultConverter();
 
     public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers) {
         //add default mappers
@@ -50,11 +56,16 @@ public class TcpRestClientProxy implements InvocationHandler {
         if (!className.equals(tcpRestClient.getDeletgatedClassName())) {
             throw new IllegalAccessException("***TcpRestClientProxy - method cannot be invoked: " + method.getName());
         }
-        Converter converter = new DefaultConverter();
+
         String request = converter.convert(method.getDeclaringClass(), method, params, mappers);
         String response = tcpRestClient.sendRequest(request);
+        logger.log("***TcpRestClientProxy - response: " + response);
+
         String[] respObj = converter.decode(response);
-        Mapper mapper = mappers.get(respObj[0].getClass().getCanonicalName());
+
+
+        Mapper mapper = mappers.get(respObj[0]);
+        logger.log("***TcpRestClientProxy - mapper: " + mapper);
         if (mapper == null) {
             throw new IllegalAccessException("***TcpRestClientProxy - mapper cannot be found for response object: " + respObj[1].toString());
         }

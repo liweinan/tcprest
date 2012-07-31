@@ -11,6 +11,7 @@ import io.tcprest.invoker.Invoker;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
 import io.tcprest.mapper.*;
+import io.tcprest.protocol.NullObj;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -39,14 +40,17 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     public List<Class> resourceClasses = new ArrayList<Class>();
 
+    public List<Object> singletonResources = new ArrayList<Object>();
+
     public Extractor extractor = new DefaultExtractor(this);
 
     public Invoker invoker = new DefaultInvoker();
 
-
+    // TODO Adding multiple instances of same class is meaningless. So every TcpRestServer implementation
+    // TODO should check and overwrite existing instances of same class and give out warning each time a
+    // TODO singleton resource is added.
     public void addResource(Class resourceClass) {
         resourceClasses.add(resourceClass);
-
     }
 
     // TODO not thread safe now, if some clients are calling this resource it will cause problem.
@@ -54,8 +58,21 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         resourceClasses.remove(resourceClass);
     }
 
+    public void addSingletonResource(Object instance) {
+        singletonResources.add(instance);
+    }
+
+    // todo not thread safe now
+    public void deleteSingletonResource(Object instance) {
+        singletonResources.remove(instance);
+    }
+
     public List<Class> getResourceClasses() {
         return resourceClasses;
+    }
+
+    public List<Object> getSingletonResources() {
+        return singletonResources;
     }
 
     public void setLogger(Logger logger) {
@@ -80,7 +97,8 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
     }
 
     // todo throw staandard error message.
-    // todo desgin error message
+    // todo design error message
+    // todo write exception handling framework
     public void run() {
         PrintWriter writer = null;
         try {
@@ -99,6 +117,10 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                     Context context = extractor.extract(request);
                     // invoke real method
                     Object responseObject = invoker.invoke(context);
+                    logger.log("***SingleThreadTcpRestServer - responseObject: " + responseObject);
+                    if (responseObject == null) {
+                        responseObject = new NullObj();
+                    }
 
                     // get returned object and convert it to string response
                     Mapper responseMapper = mappers.get(responseObject.getClass().getCanonicalName());
@@ -139,6 +161,10 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
             if (writer != null)
                 writer.println(e.getMessage());
         } catch (MapperNotFoundException e) {
+            logger.log(e.getMessage());
+            if (writer != null)
+                writer.println(e.getMessage());
+        } catch (Exception e) {
             logger.log(e.getMessage());
             if (writer != null)
                 writer.println(e.getMessage());

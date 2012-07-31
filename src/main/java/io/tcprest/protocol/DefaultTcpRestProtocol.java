@@ -6,4 +6,5 @@ package io.tcprest.protocol;
  */
 public class DefaultTcpRestProtocol {
     public static final String PATH_SEPERATOR = ":::";
+    public static final String NULL = "TCPREST.NULL";
 }

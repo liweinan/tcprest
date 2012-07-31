@@ -20,7 +20,19 @@ public interface TcpRestServer {
 
     void deleteResource(Class resourceClass);
 
+    /**
+     * Adding multiple instances of same class is meaningless. So every TcpRestServer implementation
+     * should check and overwrite existing instances of same class and give out warning each time a
+     * singleton resource is added.
+     * @param instance
+     */
+    void addSingletonResource(Object instance);
+
+    void deleteSingletonResource(Object instance);
+
     List<Class> getResourceClasses();
+
+    List<Object> getSingletonResources();
 
     public void setLogger(Logger logger);
 

@@ -48,12 +48,10 @@ public class DefaultExtractor implements Extractor {
         // class/method(arg1, arg2, ...)
         // get class and method from request
 
-
         // We do some sanity check firstly
         if (request == null || (request.lastIndexOf(')') != request.length() - 1)) {
             throw new ParseException("***DefaultExtractor: cannot parse request: " + request);
         }
-
 
         // search first '/'
         int classSeperator = request.indexOf('/');
@@ -65,7 +63,17 @@ public class DefaultExtractor implements Extractor {
         String clazzName = request.substring(0, classSeperator);
 
         // we need to check whether the server has the relative resource or not
-        for (Class clazz : tcpRestServer.getResourceClasses()) {
+        // If client is using interface, we'll check whether the server has implemented resources
+        // or not.
+
+        // First we combine resources and singletonResources to search
+        List<Class> classesToSearch = tcpRestServer.getResourceClasses();
+        for (Object instance : tcpRestServer.getSingletonResources()) {
+            classesToSearch.add(instance.getClass());
+        }
+
+        // The search logic
+        for (Class clazz : classesToSearch) {
             if (clazzName.equals(clazz.getCanonicalName())) {
                 break; // we've found it.
             } else { // otherwise we check if it's an interface that has an implmented class resource in server
@@ -128,10 +136,24 @@ public class DefaultExtractor implements Extractor {
         // Now we fill context
         Context ctx = new Context();
 
-        // search clazz from tcpRestServer instance
+        // We'll search for relative class now. We first search in singletonResources,
+        // then we search in resources. So if two same class appear both in resources and
+        // singletonResources(one is class and the other is instance of the class), the latter will hit first.
+
+        // search clazz from tcpRestServer singletonResources firstly
+        List<Object> instances = tcpRestServer.getSingletonResources();
+
+        for (Object instance : instances) {
+            logger.log("***DefaultExtractor - searching singleton resources: " + instance.getClass().getCanonicalName());
+            if (instance.getClass().getCanonicalName().equals(clazzName)) {
+                ctx.setTargetInstance(instance);
+                break;
+            }
+        }
+
         List<Class> classes = tcpRestServer.getResourceClasses();
         for (Class clazz : classes) {
-            logger.log("searching class: " + clazz.getCanonicalName());
+            logger.log("***DefaultExtractor - searching class: " + clazz.getCanonicalName());
             if (clazz.getCanonicalName().equals(clazzName)) {
                 ctx.setTargetClass(clazz);
                 break;

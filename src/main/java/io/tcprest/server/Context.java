@@ -3,12 +3,14 @@ package io.tcprest.server;
 import java.lang.reflect.Method;
 
 /**
- *
  * @author Weinan Li
  * @date Jul 29 2012
  */
 public class Context {
     private Class targetClazz;
+
+
+    private Object targetInstance;
     private Method targetMethod;
     private Object[] params;
     private Object[] paramTypes;
@@ -47,4 +49,14 @@ public class Context {
     public void setParamTypes(Object[] paramTypes) {
         this.paramTypes = paramTypes;
     }
+
+    public Object getTargetInstance() {
+        return targetInstance;
+    }
+
+    public void setTargetInstance(Object targetInstance) {
+        this.targetInstance = targetInstance;
+    }
+
+
 }

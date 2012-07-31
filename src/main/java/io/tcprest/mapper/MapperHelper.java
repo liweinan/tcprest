@@ -1,5 +1,8 @@
 package io.tcprest.mapper;
 
+import io.tcprest.protocol.DefaultTcpRestProtocol;
+import io.tcprest.protocol.NullObj;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,5 +23,6 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put(String.class.getCanonicalName(), new StringMapper());
         DEFAULT_MAPPERS.put(Boolean.class.getCanonicalName(), new BooleanMapper());
         DEFAULT_MAPPERS.put(Integer.class.getCanonicalName(), new IntegerMapper());
+        DEFAULT_MAPPERS.put(NullObj.class.getCanonicalName(), new NullMapper());
     }
 }

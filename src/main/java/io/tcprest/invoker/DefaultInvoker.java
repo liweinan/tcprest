@@ -8,7 +8,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
- *
  * @author Weinan Li
  * @date Jul 29 2012
  */
@@ -16,15 +15,27 @@ public class DefaultInvoker implements Invoker {
     private Logger logger = LoggerFactory.getDefaultLogger();
 
     public Object invoke(Context context) throws InstantiationException, IllegalAccessException {
-        // get requested class
-        Class clazz = context.getTargetClass();
+        Object targetInstance;
+        targetInstance = context.getTargetInstance(); // try to use singletonResource firstly
+        if (targetInstance == null) { // search resource now
+            // get requested class
+            Class clazz = context.getTargetClass();
+            targetInstance = clazz.newInstance();
+        }
+
+        logger.log("***DefaultInvoker - targetInstance: " + targetInstance);
+
         // get method to invoke
         Method method = context.getTargetMethod();
+        logger.log("***DefaultInvoker - targetMethod: " + method.getName());
+
         try {
-            return method.invoke(clazz.newInstance(), context.getParams());
+            Object respObj = method.invoke(targetInstance, context.getParams());
+            logger.log("***DefaultInvoker - respObj: " + respObj);
+            return respObj;
         } catch (InvocationTargetException e) {
             logger.log("***DefaultInvoker: method invoking failed.");
-            logger.log("Method: " + clazz.getCanonicalName() + "." + method.getName());
+            logger.log("Method: " + targetInstance.getClass().getCanonicalName() + "." + method.getName());
         }
         return null;
     }

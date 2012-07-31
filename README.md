@@ -58,6 +58,14 @@ You can turn it into server by:
 	tcpRestServer.up();
 	tcpRestServer.addResource(HelloWorldResource.class);
 
+#### Singleton Resource
+
+Singleton resource is registered into server by:
+
+    tcpRestServer.addResource(new HelloWorldResource());
+
+Unlike ordinary resources, singleton resource will only have one instance on server. So you must *ensure the thread safety* of your resource class by yourself.
+
 ### TcpRestServer
 
 TcpRestServer is the server of TcpRest. Its definition is shown as below:
@@ -74,9 +82,7 @@ TcpRestServer is the server of TcpRest. Its definition is shown as below:
 		...
 	}
 
-* TcpRestServer is extensible
-
-For example, you may use a SingleThreadTcpRestServer during project prototyping phase:
+TcpRestServer is extensible. For example, you may use a SingleThreadTcpRestServer during project prototyping phase:
 
 	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
 
@@ -257,3 +263,14 @@ will be converted to the following string:
 	"HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String:::{{Lucy}}java.lang.String)"
 
 TcpRestServer will try to find proper Mapper to decode the parameters.
+
+## Usage Tips
+
+### Try to make your resource class re-entrant and immutable
+
+Try to avoid using static variables in your resource class, or you will make great effort to avoid concurrent problems. Because people may use your client interface in multi-threaded environments.
+
+### Try to avoid using singleton resources.
+
+If you are using singleton resources, you have to ensure the thread safety by yourself, that's a great amount of work.
+

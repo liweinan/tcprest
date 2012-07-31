@@ -51,8 +51,11 @@ public class DefaultConverter implements Converter {
     }
 
     public String[] decode(String message) {
+        logger.log("***DefaultConverter - incoming message: " + message);
+
         String val = message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"));
         String type = message.substring(message.indexOf("}}") + 2, message.length());
+        logger.log("***DefaultConverter - decode: " + val + ", " + type);
         return new String[]{type, val};
     }
 }
