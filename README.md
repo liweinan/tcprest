@@ -64,7 +64,23 @@ Singleton resource is registered into server by:
 
     tcpRestServer.addResource(new HelloWorldResource());
 
-Unlike ordinary resources, singleton resource will only have one instance on server. So you must *ensure the thread safety* of your resource class by yourself.
+Unlike ordinary resources, singleton resource will only have one instance on server. So you must *ensure the thread safety* of your resource by yourself.
+
+Note:
+
+For ordinary resources(non-singleton), you must provide a constructor with no parameters. Here is an example:
+
+	    public HelloWorldResource();
+
+If you only have constructor like:
+
+	    public HelloWorldResource(String arg);
+
+Adding resource to server will cause problem:
+
+	tcpRestServer.addResource(HelloWorldResource.class);
+
+Obviously, by this registration method, you didn't provide any parameters of the resource to the server. And for non-singleton resources, each time TcpRestServer will create a new instance of the resource to serve the clients.
 
 ### TcpRestServer
 

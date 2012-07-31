@@ -6,6 +6,9 @@ package io.tcprest.test;
  */
 public class HelloWorldResource implements HelloWorld {
 
+    public HelloWorldResource() {
+    }
+
     public String helloWorld() {
         return "Hello, world!";
     }
