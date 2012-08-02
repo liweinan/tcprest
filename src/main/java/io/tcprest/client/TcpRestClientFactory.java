@@ -16,21 +16,21 @@ public class TcpRestClientFactory {
     int port;
     Map<String, Mapper> extraMappers;
 
-    public TcpRestClientFactory(Class resourceClass, String host, int port) {
+    public <T> TcpRestClientFactory(Class<T> resourceClass, String host, int port) {
         this.resourceClass = resourceClass;
         this.host = host;
         this.port = port;
     }
 
-    public TcpRestClientFactory(Class resourceClass, String host, int port, Map<String, Mapper> extraMappers) {
+    public <T> TcpRestClientFactory(Class<T> resourceClass, String host, int port, Map<String, Mapper> extraMappers) {
         this.resourceClass = resourceClass;
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
     }
 
-    public Object getInstance() {
-        return Proxy.newProxyInstance(resourceClass.getClassLoader(),
+    public <T> T getInstance() {
+        return (T) Proxy.newProxyInstance(resourceClass.getClassLoader(),
                 new Class[]{resourceClass}, new TcpRestClientProxy(resourceClass.getCanonicalName(), host, port, extraMappers));
 
     }

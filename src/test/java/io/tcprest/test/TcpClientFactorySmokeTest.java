@@ -59,7 +59,7 @@ public class TcpClientFactorySmokeTest {
                 new TcpRestClientFactory(Counter.class, "localhost",
                         ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
 
-        Counter client = (Counter) factory.getInstance();
+        Counter client = factory.getInstance();
         assertEquals(2, client.getCounter());
 
         client.increaseCounter();

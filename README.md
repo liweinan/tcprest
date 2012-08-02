@@ -24,7 +24,7 @@ For client side it needs two lines of code:
 
 	TcpRestClientFactory factory = 
 		new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);
-	HelloWorld client = (HelloWorld) factory.getInstance();
+	HelloWorld client = factory.getInstance();
 
 And then you could call the server like using ordinary java class:
 
