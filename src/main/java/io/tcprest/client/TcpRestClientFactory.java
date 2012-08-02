@@ -11,18 +11,18 @@ import java.util.Map;
  */
 public class TcpRestClientFactory {
 
-    Class resourceClass;
+    Class<?> resourceClass;
     String host;
     int port;
     Map<String, Mapper> extraMappers;
 
-    public <T> TcpRestClientFactory(Class<T> resourceClass, String host, int port) {
+    public TcpRestClientFactory(Class<?> resourceClass, String host, int port) {
         this.resourceClass = resourceClass;
         this.host = host;
         this.port = port;
     }
 
-    public <T> TcpRestClientFactory(Class<T> resourceClass, String host, int port, Map<String, Mapper> extraMappers) {
+    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers) {
         this.resourceClass = resourceClass;
         this.host = host;
         this.port = port;
