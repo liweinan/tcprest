@@ -1,8 +1,9 @@
-package io.tcprest.test;
+package io.tcprest.test.smoke;
 
 import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
+import io.tcprest.test.HelloWorldResource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

@@ -1,8 +1,9 @@
-package io.tcprest.test;
+package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
 import io.tcprest.mapper.Mapper;
 import io.tcprest.server.SingleThreadTcpRestServer;
+import io.tcprest.test.*;
 import org.junit.Test;
 
 import java.util.HashMap;

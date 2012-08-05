@@ -1,10 +1,11 @@
-package io.tcprest.test;
+package io.tcprest.test.smoke;
 
 import io.tcprest.conveter.Converter;
 import io.tcprest.conveter.DefaultConverter;
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.mapper.MapperHelper;
 import io.tcprest.protocol.TcpRestProtocol;
+import io.tcprest.test.HelloWorldResource;
 import org.junit.Test;
 
 import static junit.framework.Assert.assertEquals;

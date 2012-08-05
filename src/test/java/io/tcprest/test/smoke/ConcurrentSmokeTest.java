@@ -1,4 +1,4 @@
-package io.tcprest.test;
+package io.tcprest.test.smoke;
 
 /**
  * TODO write concurrent tests.
@@ -6,4 +6,8 @@ package io.tcprest.test;
  * @date 07 31 2012
  */
 public class ConcurrentSmokeTest {
+
+    public void multipleClients() {
+
+    }
 }

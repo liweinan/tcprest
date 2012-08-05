@@ -1,4 +1,4 @@
-package io.tcprest.test;
+package io.tcprest.test.smoke;
 
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.exception.ParseException;
@@ -9,6 +9,7 @@ import io.tcprest.invoker.Invoker;
 import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.Context;
 import io.tcprest.server.SingleThreadTcpRestServer;
+import io.tcprest.test.HelloWorldResource;
 import org.junit.Test;
 
 import java.io.IOException;

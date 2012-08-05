@@ -103,7 +103,6 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         PrintWriter writer = null;
         try {
             while (status.equals(TcpRestServerStatus.RUNNING)) {
-                logger.log("Server started.");
                 Socket socket = serverSocket.accept();
                 logger.log("Client accepted.");
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
