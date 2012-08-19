@@ -1,5 +1,6 @@
 package io.tcprest.test.sandbox;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.lang.reflect.InvocationTargetException;
@@ -27,6 +28,7 @@ public class MethodInvocationTest {
         }
     }
 
+    @Ignore
     @Test
     public void testMethodInvocation() throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
         Object obj = ABC.class.newInstance();

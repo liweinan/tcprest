@@ -10,8 +10,8 @@ import io.tcprest.invoker.DefaultInvoker;
 import io.tcprest.invoker.Invoker;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
-import io.tcprest.mapper.*;
-import io.tcprest.protocol.NullObj;
+import io.tcprest.mapper.Mapper;
+import io.tcprest.mapper.MapperHelper;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,7 +19,9 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
 
 /**
  * SingleThreadTcpRestServer uses a single threaded Socket Server to serve the clients.
@@ -132,9 +134,6 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                     // invoke real method
                     Object responseObject = invoker.invoke(context);
                     logger.debug("***SingleThreadTcpRestServer - responseObject: " + responseObject);
-                    if (responseObject == null) {
-                        responseObject = new NullObj();
-                    }
 
                     // get returned object and encode it to string response
                     Mapper responseMapper = mappers.get(responseObject.getClass().getCanonicalName());

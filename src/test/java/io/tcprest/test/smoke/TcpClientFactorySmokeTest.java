@@ -90,5 +90,33 @@ public class TcpClientFactorySmokeTest {
         assertEquals("x,2,false", client.oneTwoThree("x", 2, false));
     }
 
+    private interface NullParam {
+        public String nullMethod(String one, String empty, String two);
+    }
+
+    public class NullParamResource implements NullParam {
+        public String nullMethod(String one, String empty, String two) {
+            if (empty == null) {
+                return one + two;
+            } else {
+                return one + empty + two;
+            }
+        }
+    }
+
+    @Test
+    public void testNullParameter() {
+        tcpRestServer.addSingletonResource(new NullParamResource());
+
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(NullParam.class, "localhost",
+                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+
+        NullParam client = factory.getInstance();
+
+
+        assertEquals("onetwo", client.nullMethod("one", null, "two"));
+    }
+
 
 }

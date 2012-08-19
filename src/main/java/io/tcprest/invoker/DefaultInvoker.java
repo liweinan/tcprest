@@ -2,6 +2,7 @@ package io.tcprest.invoker;
 
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
+import io.tcprest.protocol.NullObj;
 import io.tcprest.server.Context;
 
 import java.lang.reflect.InvocationTargetException;
@@ -22,21 +23,20 @@ public class DefaultInvoker implements Invoker {
             Class clazz = context.getTargetClass();
             targetInstance = clazz.newInstance();
         }
-
-        logger.log("***DefaultInvoker - targetInstance: " + targetInstance);
-
+        logger.debug("***DefaultInvoker - targetInstance: " + targetInstance);
         // get method to invoke
         Method method = context.getTargetMethod();
-        logger.log("***DefaultInvoker - targetMethod: " + method.getName());
-
+        logger.debug("***DefaultInvoker - targetMethod: " + method.getName());
         try {
             Object respObj = method.invoke(targetInstance, context.getParams());
-            logger.log("***DefaultInvoker - respObj: " + respObj);
+            if (respObj == null)
+                respObj = new NullObj();
+            logger.debug("***DefaultInvoker - respObj: " + respObj);
             return respObj;
         } catch (InvocationTargetException e) {
-            logger.log("***DefaultInvoker: method invoking failed.");
-            logger.log("Method: " + targetInstance.getClass().getCanonicalName() + "." + method.getName());
+            logger.debug("***DefaultInvoker: method invoking failed.");
+            logger.debug("Method: " + targetInstance.getClass().getCanonicalName() + "." + method.getName());
         }
-        return null;
+        return new NullObj();
     }
 }

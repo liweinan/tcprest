@@ -4,6 +4,7 @@ import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.SystemOutLogger;
 import io.tcprest.mapper.Mapper;
+import io.tcprest.protocol.NullObj;
 import io.tcprest.protocol.TcpRestProtocol;
 
 import java.lang.reflect.Method;
@@ -39,6 +40,8 @@ public class DefaultConverter implements Converter {
         StringBuilder paramTokenBuffer = new StringBuilder();
         if (params != null) {
             for (Object param : params) {
+                if (param == null)
+                    param = new NullObj();
                 logger.log("***DefaultConverter: " + param.getClass());
                 Mapper mapper = mappers.get(param.getClass().getCanonicalName());
                 if (mapper == null) {
