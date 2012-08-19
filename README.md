@@ -278,7 +278,7 @@ will be converted to the following string:
 
 	"HelloWorldResource/sayHelloFromTo({{SmFjaw==}}:::{{THVjeQ==}})"
 
-Please not "THVjeQ==" and "SmFjaw==" are base64 encoded strings. TcpRestServer will try to find proper Mapper to decode the parameters.
+Please note that "THVjeQ==" and "SmFjaw==" are base64 encoded strings. TcpRestServer will try to find proper Mapper to decode the parameters.
 
 ## Usage Tips
 

@@ -61,6 +61,7 @@ public class TcpRestClientProxy implements InvocationHandler {
 
         String request = converter.encode(method.getDeclaringClass(), method, params, mappers);
         String response = tcpRestClient.sendRequest(request);
+        logger.debug("respose: " + response);
         String respStr = converter.decodeParam(response);
 
         String mapperKey = method.getReturnType().getCanonicalName();

@@ -73,6 +73,7 @@ public class DefaultConverter implements Converter {
                 String thisParam = decodeParam(rawParam);
                 String classType = targetMethod.getParameterTypes()[i].getCanonicalName();
                 Mapper mapper = mappers.get(classType.trim());
+                logger.debug("found mapper: " + mapper.getClass().getCanonicalName() + " for: " + classType);
                 if (mapper == null) {
                     throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + classType);
                 }
@@ -109,6 +110,7 @@ public class DefaultConverter implements Converter {
      * @return
      */
     public String decodeParam(String message) {
+        logger.debug("decodeParam: " + message);
         return new String(Base64.decode(message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"))));
     }
 }

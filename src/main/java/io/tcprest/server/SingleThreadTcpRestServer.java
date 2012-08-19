@@ -160,7 +160,7 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
             if (writer != null)
                 writer.println(message);
         } catch (InstantiationException e) {
-            String message = "***SingleThreadTcpRestServer: requested method not found.";
+            String message = "***SingleThreadTcpRestServer: resource cannot be instantiated.";
             logger.error(message);
             if (writer != null)
                 writer.println(message);

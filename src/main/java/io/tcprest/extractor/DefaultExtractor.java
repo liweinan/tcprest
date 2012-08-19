@@ -123,9 +123,12 @@ public class DefaultExtractor implements Extractor {
             throw new ClassNotFoundException("***DefaultExtractor - Can't find resource for: " + clazzName);
 
         // search method
+        // todo cannot handle method with same name correctly now
+        logger.debug("target method name: " +  methodName);
         for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
-            logger.debug("searching method: " + mtd.getName());
-            if (mtd.getName().equals(methodName)) {
+            logger.debug("scanning method: " + mtd.getName());
+            if (mtd.getName().equals(methodName.trim())) {
+                logger.debug("found method: " + mtd.getName());
                 ctx.setTargetMethod(mtd);
                 break;
             }
@@ -137,6 +140,7 @@ public class DefaultExtractor implements Extractor {
         // get parameters
         // strip the quotes and extract all params
         String paramsToken = request.substring(methodSeperator + 1, request.length() - 1);
+        logger.debug("paramsToken: " + paramsToken);
 
         Object params[] = converter.decode(ctx.getTargetMethod(), paramsToken, tcpRestServer.getMappers());
 

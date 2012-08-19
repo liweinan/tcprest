@@ -2,7 +2,9 @@ package io.tcprest.mapper;
 
 import io.tcprest.protocol.NullObj;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,5 +34,7 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put("int", new IntegerMapper());
         DEFAULT_MAPPERS.put("boolean", new BooleanMapper());
         DEFAULT_MAPPERS.put("integer", new IntegerMapper());
+        DEFAULT_MAPPERS.put(ArrayList.class.getCanonicalName(), new RawTypeMapper());
+        DEFAULT_MAPPERS.put(List.class.getCanonicalName(), new RawTypeMapper());
     }
 }
