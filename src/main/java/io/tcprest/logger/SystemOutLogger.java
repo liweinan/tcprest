@@ -12,7 +12,23 @@ public class SystemOutLogger implements Logger {
         System.out.println(message);
     }
 
-    public void log(String message, int log_level) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void log(String message, LoggerLevel level) {
+        System.out.println(message);
+    }
+
+    public void debug(String message) {
+        log(message, LoggerLevel.DEBUG);
+    }
+
+    public void info(String message) {
+        log(message, LoggerLevel.INFO);
+    }
+
+    public void warn(String message) {
+        log(message, LoggerLevel.WARN);
+    }
+
+    public void error(String message) {
+        log(message, LoggerLevel.ERROR);
     }
 }

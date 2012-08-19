@@ -1,11 +1,11 @@
 package io.tcprest.extractor;
 
+import io.tcprest.conveter.Converter;
+import io.tcprest.conveter.DefaultConverter;
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.exception.ParseException;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
-import io.tcprest.mapper.Mapper;
-import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.Context;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
@@ -40,6 +40,8 @@ public class DefaultExtractor implements Extractor {
 
     private TcpRestServer tcpRestServer;
 
+    private final Converter converter = new DefaultConverter();
+
     public DefaultExtractor(SingleThreadTcpRestServer server) {
         this.tcpRestServer = server;
     }
@@ -65,10 +67,13 @@ public class DefaultExtractor implements Extractor {
         // we need to check whether the server has the relative resource or not
         // If client is using interface, we'll check whether the server has implemented resources
         // or not.
+        List<Class> classesToSearch = new ArrayList<Class>();
 
-        // First we combine resources and singletonResources to search
-        List<Class> classesToSearch = tcpRestServer.getResourceClasses();
-        for (Object instance : tcpRestServer.getSingletonResources()) {
+        for (Class clazz: tcpRestServer.getResourceClasses().values()) {
+            classesToSearch.add(clazz);
+        }
+
+        for (Object instance : tcpRestServer.getSingletonResources().values()) {
             classesToSearch.add(instance.getClass());
         }
 
@@ -104,68 +109,28 @@ public class DefaultExtractor implements Extractor {
         // strip the quotes and extract all params
         String paramsToken = request.substring(methodSeperator + 1, request.length() - 1);
 
-        Object params[] = null;
-        logger.log("***DefaultExtractor - paramsToken: " + paramsToken.trim());
-        if (paramsToken.trim().length() < 1) {
-            params = null;
-        } else {
-            // todo merge this part of code with Converter
-            // todo put it into a new class called ProtocolStack
-            // unprocessed rawParams
-            // such as:  {{Jack!}}java.lang.String
-            // We need to convert it to proper types
-            String rawParams[] = paramsToken.trim().split(TcpRestProtocol.PATH_SEPERATOR);
-            List<Object> paramsHolder = new ArrayList<Object>();
-            for (String rawParam : rawParams) {
-                // pick the value of param
-                String val = rawParam.substring(rawParam.indexOf("{{") + 2, rawParam.indexOf("}}"));
-                logger.log("***DefaultExtractor - param value: " + val);
-                String classType = rawParam.substring(rawParam.indexOf("}}") + 2, rawParam.length());
-                logger.log("***DefaultExtractor - param type: " + classType);
-                Mapper mapper = tcpRestServer.getMappers().get(classType.trim());
-                if (mapper == null) {
-                    throw new MapperNotFoundException("***DefaultExtractor - cannot find mapper for: " + classType);
-                }
-
-                Object param = mapper.stringToObject(val);
-                paramsHolder.add(param);
-            }
-            params = paramsHolder.toArray();
-        }
+        Object params[] = converter.decode(paramsToken, tcpRestServer.getMappers());
 
         // Now we fill context
         Context ctx = new Context();
 
-        // We'll search for relative class now. We first search in singletonResources,
-        // then we search in resources. So if two same class appear both in resources and
-        // singletonResources(one is class and the other is instance of the class), the latter will hit first.
-
-        // search clazz from tcpRestServer singletonResources firstly
-        List<Object> instances = tcpRestServer.getSingletonResources();
-
-        for (Object instance : instances) {
-            logger.log("***DefaultExtractor - searching singleton resources: " + instance.getClass().getCanonicalName());
-            if (instance.getClass().getCanonicalName().equals(clazzName)) {
-                ctx.setTargetInstance(instance);
-                break;
-            }
-        }
-
-        List<Class> classes = tcpRestServer.getResourceClasses();
-        for (Class clazz : classes) {
-            logger.log("***DefaultExtractor - searching class: " + clazz.getCanonicalName());
-            if (clazz.getCanonicalName().equals(clazzName)) {
-                ctx.setTargetClass(clazz);
-                break;
-            }
+        // We'll search for resources now. We first search in singleton resources,
+        // then we search in resource classes.
+        // If two same class appear both in singleton and class resources, we'll
+        // use the singleton one.
+        if (tcpRestServer.getSingletonResources().containsKey(clazzName)) {
+            ctx.setTargetInstance(tcpRestServer.getSingletonResources().get(clazzName));
+            ctx.setTargetClass(tcpRestServer.getSingletonResources().get(clazzName).getClass());
+        } else if (tcpRestServer.getResourceClasses().containsKey(clazzName)){
+            ctx.setTargetClass(tcpRestServer.getResourceClasses().get(clazzName));
         }
 
         if (ctx.getTargetClass() == null)
-            throw new ClassNotFoundException("***DefaultExtractor - Cannot find class: " + clazzName);
+            throw new ClassNotFoundException("***DefaultExtractor - Can't find resource for: " + clazzName);
 
         // search method
         for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
-            logger.log("searching method: " + mtd.getName());
+            logger.debug("searching method: " + mtd.getName());
             if (mtd.getName().equals(methodName)) {
                 ctx.setTargetMethod(mtd);
                 break;
@@ -173,7 +138,7 @@ public class DefaultExtractor implements Extractor {
         }
 
         if (ctx.getTargetMethod() == null)
-            throw new NoSuchMethodException("***DefaultExtractor - Cannot find method: " + methodName);
+            throw new NoSuchMethodException("***DefaultExtractor - Can't find method: " + methodName);
 
         // fill arguments
         ctx.setParams(params);

@@ -7,6 +7,8 @@ import io.tcprest.mapper.Mapper;
 import io.tcprest.protocol.TcpRestProtocol;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -23,7 +25,17 @@ import java.util.Map;
 public class DefaultConverter implements Converter {
     Logger logger = new SystemOutLogger();
 
-    public String convert(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException {
+    /**
+     * Convert a method call into a string according to TcpRest protocol that can be transmitted across network.
+     *
+     * @param clazz   Calling class
+     * @param method  Calling method
+     * @param params  parameters of calling method
+     * @param mappers mapper for each parameter
+     * @return
+     * @throws MapperNotFoundException
+     */
+    public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException {
         StringBuilder paramTokenBuffer = new StringBuilder();
         if (params != null) {
             for (Object param : params) {
@@ -46,16 +58,54 @@ public class DefaultConverter implements Converter {
 
     }
 
-    public String encode(String message, Class messageType) {
+    public Object[] decode(String paramsToken, Map<String, Mapper> mappers) throws MapperNotFoundException {
+        if (paramsToken == null || paramsToken.trim().length() < 1) {
+            return null;
+        } else {
+            String rawParams[] = paramsToken.trim().split(TcpRestProtocol.PATH_SEPERATOR);
+            List<Object> paramsHolder = new ArrayList<Object>();
+            for (String rawParam : rawParams) {
+                String[] thisParam = decodeParam(rawParam);
+                String classType = thisParam[0];
+                String val = thisParam[1];
+                Mapper mapper = mappers.get(classType.trim());
+                if (mapper == null) {
+                    throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + classType);
+                }
+
+                Object param = mapper.stringToObject(val);
+                paramsHolder.add(param);
+            }
+            return paramsHolder.toArray();
+        }
+    }
+
+    /**
+     * Encode a single parameter.
+     * For example: "abc" will transform into "{{abc}}java.lang.String"
+     *
+     * @param message
+     * @param messageType
+     * @return
+     */
+    public String encodeParam(String message, Class messageType) {
         return "{{" + message + "}}" + messageType.getCanonicalName();
     }
 
-    public String[] decode(String message) {
-        logger.log("***DefaultConverter - incoming message: " + message);
+
+    /**
+     * Decode a single parameter.
+     *
+     * @param message
+     * @return
+     */
+    public String[] decodeParam(String message) {
+        logger.log("***DefaultConverter - before decodeParam: " + message);
 
         String val = message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"));
         String type = message.substring(message.indexOf("}}") + 2, message.length());
-        logger.log("***DefaultConverter - decode: " + val + ", " + type);
+
+        logger.log("***DefaultConverter - after decodeParam: " + val + ", " + type);
         return new String[]{type, val};
     }
 }

@@ -57,11 +57,11 @@ public class TcpRestClientProxy implements InvocationHandler {
             throw new IllegalAccessException("***TcpRestClientProxy - method cannot be invoked: " + method.getName());
         }
 
-        String request = converter.convert(method.getDeclaringClass(), method, params, mappers);
+        String request = converter.encode(method.getDeclaringClass(), method, params, mappers);
         String response = tcpRestClient.sendRequest(request);
         logger.log("***TcpRestClientProxy - response: " + response);
 
-        String[] respObj = converter.decode(response);
+        String[] respObj = converter.decodeParam(response);
 
 
         Mapper mapper = mappers.get(respObj[0]);

@@ -19,7 +19,7 @@ public class DefaultConverterSmokeTest {
     @Test
     public void test() throws NoSuchMethodException, MapperNotFoundException {
         Converter converter = new DefaultConverter();
-        String request = converter.convert(HelloWorldResource.class,
+        String request = converter.encode(HelloWorldResource.class,
                 HelloWorldResource.class.getMethod("oneTwoThree", String.class, int.class, boolean.class),
                 new Object[]{"One", 2, true}, MapperHelper.DEFAULT_MAPPERS);
 

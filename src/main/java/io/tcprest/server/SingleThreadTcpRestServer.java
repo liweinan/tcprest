@@ -38,40 +38,56 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     private ServerSocket serverSocket;
 
-    public List<Class> resourceClasses = new ArrayList<Class>();
+    public final Map<String, Class> resourceClasses = new HashMap<String, Class>();
 
-    public List<Object> singletonResources = new ArrayList<Object>();
+    public final Map<String, Object> singletonResources = new HashMap<String, Object>();
 
     public Extractor extractor = new DefaultExtractor(this);
 
     public Invoker invoker = new DefaultInvoker();
 
-    // TODO Adding multiple instances of same class is meaningless. So every TcpRestServer implementation
-    // TODO should check and overwrite existing instances of same class and give out warning each time a
-    // TODO singleton resource is added.
     public void addResource(Class resourceClass) {
-        resourceClasses.add(resourceClass);
+        if (resourceClass == null) {
+            return;
+        }
+
+        // Adding multiple instances of same class is meaningless. So every TcpRestServer implementation
+        // should check and overwrite existing instances of same class and give out warning each time a
+        // singleton resource is added.
+        synchronized (resourceClasses) {
+            if (resourceClasses.containsKey(resourceClass.getCanonicalName())) {
+                logger.warn("Resource already exists for: " + resourceClass.getCanonicalName());
+                return;
+            }
+
+            resourceClasses.put(resourceClass.getCanonicalName(), resourceClass);
+        }
     }
 
-    // TODO not thread safe now, if some clients are calling this resource it will cause problem.
     public void deleteResource(Class resourceClass) {
-        resourceClasses.remove(resourceClass);
+        synchronized (resourceClasses) {
+            resourceClasses.remove(resourceClass.getCanonicalName());
+        }
     }
 
     public void addSingletonResource(Object instance) {
-        singletonResources.add(instance);
+        synchronized (singletonResources) {
+            deleteSingletonResource(instance);
+            singletonResources.put(instance.getClass().getCanonicalName(), instance);
+        }
     }
 
-    // todo not thread safe now
     public void deleteSingletonResource(Object instance) {
-        singletonResources.remove(instance);
+        synchronized (singletonResources) {
+            singletonResources.remove(instance.getClass().getCanonicalName());
+        }
     }
 
-    public List<Class> getResourceClasses() {
+    public Map<String, Class> getResourceClasses() {
         return resourceClasses;
     }
 
-    public List<Object> getSingletonResources() {
+    public Map<String, Object> getSingletonResources() {
         return singletonResources;
     }
 
@@ -80,7 +96,7 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
     }
 
     public SingleThreadTcpRestServer() throws IOException {
-        this(8001);
+        this(TcpRestServerConfig.DEFAULT_PORT);
     }
 
     public SingleThreadTcpRestServer(int port) throws IOException {
@@ -96,32 +112,29 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         logger.log("ServerSocket initialized: " + this.serverSocket);
     }
 
-    // todo throw staandard error message.
-    // todo design error message
-    // todo write exception handling framework
     public void run() {
         PrintWriter writer = null;
         try {
             while (status.equals(TcpRestServerStatus.RUNNING)) {
                 Socket socket = serverSocket.accept();
-                logger.log("Client accepted.");
+                logger.debug("Client accepted.");
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 Scanner scanner = new Scanner(reader);
 
                 writer = new PrintWriter(socket.getOutputStream());
                 while (scanner.hasNext()) {
                     String request = scanner.nextLine();
-                    logger.log("request: " + request);
+                    logger.debug("request: " + request);
                     // extract calling class and method from request
                     Context context = extractor.extract(request);
                     // invoke real method
                     Object responseObject = invoker.invoke(context);
-                    logger.log("***SingleThreadTcpRestServer - responseObject: " + responseObject);
+                    logger.debug("***SingleThreadTcpRestServer - responseObject: " + responseObject);
                     if (responseObject == null) {
                         responseObject = new NullObj();
                     }
 
-                    // get returned object and convert it to string response
+                    // get returned object and encode it to string response
                     Mapper responseMapper = mappers.get(responseObject.getClass().getCanonicalName());
                     if (responseMapper == null) {
                         throw new MapperNotFoundException("***SingleThreadTcpRestServer - mapper not found for response object: " +
@@ -129,7 +142,7 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                     }
 
                     Converter converter = new DefaultConverter();
-                    writer.println(converter.encode(responseMapper.objectToString(responseObject), responseObject.getClass()));
+                    writer.println(converter.encodeParam(responseMapper.objectToString(responseObject), responseObject.getClass()));
                     writer.flush();
                 }
             }
@@ -137,34 +150,34 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
         } catch (ClassNotFoundException e) {
             String message = "***SingleThreadTcpRestServer: requested class not found.";
-            logger.log(message);
+            logger.error(message);
             if (writer != null)
                 writer.println(message);
         } catch (NoSuchMethodException e) {
             String message = "***SingleThreadTcpRestServer: requested method not found.";
-            logger.log(message);
+            logger.error(message);
             if (writer != null)
                 writer.println(message);
         } catch (InstantiationException e) {
             String message = "***SingleThreadTcpRestServer: requested method not found.";
-            logger.log(message);
+            logger.error(message);
             if (writer != null)
                 writer.println(message);
         } catch (IllegalAccessException e) {
             String message = "***SingleThreadTcpRestServer: cannot invoke context.";
-            logger.log(message);
+            logger.error(message);
             if (writer != null)
                 writer.println(message);
         } catch (ParseException e) {
-            logger.log(e.getMessage());
+            logger.error(e.getMessage());
             if (writer != null)
                 writer.println(e.getMessage());
         } catch (MapperNotFoundException e) {
-            logger.log(e.getMessage());
+            logger.error(e.getMessage());
             if (writer != null)
                 writer.println(e.getMessage());
         } catch (Exception e) {
-            logger.log(e.getMessage());
+            logger.error(e.getMessage());
             if (writer != null)
                 writer.println(e.getMessage());
         } finally {
@@ -175,7 +188,7 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
             } catch (IOException e) {
 
             }
-            logger.log("Server stopped.");
+            logger.debug("Server stopped.");
         }
     }
 

@@ -3,7 +3,6 @@ package io.tcprest.server;
 import io.tcprest.logger.Logger;
 import io.tcprest.mapper.Mapper;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,9 +29,9 @@ public interface TcpRestServer {
 
     void deleteSingletonResource(Object instance);
 
-    List<Class> getResourceClasses();
+    Map<String, Class> getResourceClasses();
 
-    List<Object> getSingletonResources();
+    Map<String, Object> getSingletonResources();
 
     public void setLogger(Logger logger);
 

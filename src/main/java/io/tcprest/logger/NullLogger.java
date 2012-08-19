@@ -12,7 +12,23 @@ public class NullLogger implements Logger {
         // eating the message!
     }
 
-    public void log(String message, int log_level) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void log(String message, LoggerLevel level) {
+
+    }
+
+    public void debug(String message) {
+
+    }
+
+    public void info(String message) {
+
+    }
+
+    public void warn(String message) {
+
+    }
+
+    public void error(String message) {
+
     }
 }
