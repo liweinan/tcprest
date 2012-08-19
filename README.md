@@ -268,7 +268,7 @@ If we make a call from client side:
 
 Tcp Rest will convert it to:
 
-	"Class/method({{arg1}}:::{{arg2}})"
+	"Class/method({{<Base64 Encoded::arg1>}}:::{{<Base64 Encoded::arg2>}})"
 
 during network transmitting. For example:
 
@@ -276,9 +276,9 @@ during network transmitting. For example:
 
 will be converted to the following string:
 
-	"HelloWorldResource/sayHelloFromTo({{Jack}}:::{{Lucy}})"
+	"HelloWorldResource/sayHelloFromTo({{SmFjaw==}}:::{{THVjeQ==}})"
 
-TcpRestServer will try to find proper Mapper to decode the parameters.
+Please not "THVjeQ==" and "SmFjaw==" are base64 encoded strings. TcpRestServer will try to find proper Mapper to decode the parameters.
 
 ## Usage Tips
 

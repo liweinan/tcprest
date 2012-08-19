@@ -1,5 +1,6 @@
 package io.tcprest.conveter;
 
+import io.tcprest.commons.Base64;
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.SystemOutLogger;
@@ -48,8 +49,8 @@ public class DefaultConverter implements Converter {
                     throw new MapperNotFoundException("***DefaultConverter - Cannot find mapper for: " + param.getClass().getCanonicalName());
                 }
 
-                paramTokenBuffer.append("{{").append(mapper.objectToString(param))
-                        .append("}}").append(TcpRestProtocol.PATH_SEPERATOR);
+                paramTokenBuffer.append(encodeParam(mapper.objectToString(param))).append(TcpRestProtocol.PATH_SEPERATOR);
+                logger.debug("***DefaultConverter - paramTokenBuffer " + paramTokenBuffer.toString());
             }
 
             return clazz.getCanonicalName() + "/" + method.getName() + "(" + paramTokenBuffer.
@@ -97,7 +98,7 @@ public class DefaultConverter implements Converter {
      * @return
      */
     public String encodeParam(String message) {
-        return "{{" + message + "}}";
+        return "{{" + Base64.encode(message.getBytes()) + "}}";
     }
 
 
@@ -108,7 +109,6 @@ public class DefaultConverter implements Converter {
      * @return
      */
     public String decodeParam(String message) {
-        return message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"));
-//        String type = message.substring(message.indexOf("}}") + 2, message.length());
+        return new String(Base64.decode(message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"))));
     }
 }

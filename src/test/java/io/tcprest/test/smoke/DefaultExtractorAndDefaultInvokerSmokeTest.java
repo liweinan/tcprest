@@ -1,5 +1,7 @@
 package io.tcprest.test.smoke;
 
+import io.tcprest.conveter.Converter;
+import io.tcprest.conveter.DefaultConverter;
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.exception.ParseException;
 import io.tcprest.extractor.DefaultExtractor;
@@ -37,8 +39,9 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
         String response = (String) invoker.invoke(ctx);
         assertEquals("Hello, world!", response);
 
+        Converter converter = new DefaultConverter();
         // test arguments
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}})");
+        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloTo", String.class));
         assertNotNull(ctx.getParams());
@@ -47,8 +50,8 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
         assertEquals("Hello, Jack!", response);
 
         // test multiple arguments
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{Jack}}"
-                + TcpRestProtocol.PATH_SEPERATOR + "{{Lucy}})");
+        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("Jack") + ""
+                + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("Lucy") + ")");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());
@@ -58,8 +61,8 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
 
         // test params with parentheses inside
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{(me}}"
-                + TcpRestProtocol.PATH_SEPERATOR + "{{you)}})");
+        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("(me")
+                + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("you)") + ")");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());

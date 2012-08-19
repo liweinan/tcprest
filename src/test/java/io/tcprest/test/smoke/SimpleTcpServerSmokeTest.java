@@ -1,5 +1,7 @@
 package io.tcprest.test.smoke;
 
+import io.tcprest.conveter.Converter;
+import io.tcprest.conveter.DefaultConverter;
 import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
@@ -44,6 +46,7 @@ public class SimpleTcpServerSmokeTest {
     @Test
     public void testSimpleClient() throws IOException {
         tcpRestServer.addResource(HelloWorldResource.class);
+        Converter converter = new DefaultConverter();
 
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
@@ -52,41 +55,44 @@ public class SimpleTcpServerSmokeTest {
         writer.flush();
 
         String response = reader.readLine();
-        assertEquals("{{Hello, world!}}", response);
+        assertEquals("Hello, world!", converter.decodeParam(response));
 
     }
 
     @Test
     public void testArgs() throws IOException {
         tcpRestServer.addResource(HelloWorldResource.class);
-
+        Converter converter = new DefaultConverter();
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("io.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}})");
+        writer.println("io.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
         writer.flush();
 
         String response = reader.readLine();
 
-        assertEquals("{{Hello, Jack!}}", response);
+        assertEquals("Hello, Jack!", converter.decodeParam(response));
 
     }
 
     @Test
     public void testMultipleArgs() throws IOException {
         tcpRestServer.addResource(HelloWorldResource.class);
-
+        Converter converter = new DefaultConverter();
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}"
+        writer.println("io.tcprest.test.HelloWorldResource/oneTwoThree("
+                + converter.encodeParam("One")
                 + TcpRestProtocol.PATH_SEPERATOR
-                + "{{2}}"
-                + TcpRestProtocol.PATH_SEPERATOR + "{{true}})");
+                + converter.encodeParam("2")
+                + TcpRestProtocol.PATH_SEPERATOR
+                + converter.encodeParam("true")
+                + ")");
         writer.flush();
 
         String response = reader.readLine();
-        assertEquals("{{One,2,true}}", response);
+        assertEquals("One,2,true", converter.decodeParam(response));
 
     }
 
