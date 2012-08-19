@@ -42,7 +42,5 @@ public interface TcpRestServer {
      */
     public Map<String, Mapper> getMappers();
 
-    public void setMappers(Map<String, Mapper> mappers);
-
     void addMapper(String canonicalName, Mapper mapper);
 }

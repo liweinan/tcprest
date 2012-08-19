@@ -30,7 +30,7 @@ import java.util.*;
  */
 public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
-    private Map<String, Mapper> mappers = new HashMap<String, Mapper>();
+    private final Map<String, Mapper> mappers = new HashMap<String, Mapper>();
 
     private Logger logger = LoggerFactory.getDefaultLogger();
 
@@ -107,7 +107,9 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         this.serverSocket = socket;
 
         // register default mappers
-        mappers = MapperHelper.DEFAULT_MAPPERS;
+        for (String key : MapperHelper.DEFAULT_MAPPERS.keySet()) {
+            mappers.put(key, MapperHelper.DEFAULT_MAPPERS.get(key));
+        }
 
         logger.log("ServerSocket initialized: " + this.serverSocket);
     }
@@ -205,17 +207,15 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         status = TcpRestServerStatus.CLOSING;
     }
 
-    // TODO return a cloned copy
     public Map<String, Mapper> getMappers() {
-        return mappers;
+        // We don't want user to modify the mappers by getMappers.
+        // Use addMapper() to add mapper to server to ensure concurrency safety
+        return new HashMap<String, Mapper>(this.mappers);
     }
 
-    public void setMappers(Map<String, Mapper> mappers) {
-        this.mappers = mappers;
-    }
-
-    // TODO not thread safe now
     public void addMapper(String canonicalName, Mapper mapper) {
-        mappers.put(canonicalName, mapper);
+        synchronized (mappers) {
+            mappers.put(canonicalName, mapper);
+        }
     }
 }

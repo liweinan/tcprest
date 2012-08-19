@@ -65,6 +65,7 @@ public class DefaultConverter implements Converter {
             String rawParams[] = paramsToken.trim().split(TcpRestProtocol.PATH_SEPERATOR);
             List<Object> paramsHolder = new ArrayList<Object>();
             for (String rawParam : rawParams) {
+                // TODO It should handle null parameter correctly
                 String[] thisParam = decodeParam(rawParam);
                 String classType = thisParam[0];
                 String val = thisParam[1];
@@ -100,12 +101,12 @@ public class DefaultConverter implements Converter {
      * @return
      */
     public String[] decodeParam(String message) {
-        logger.log("***DefaultConverter - before decodeParam: " + message);
+        logger.debug("***DefaultConverter - before decodeParam: " + message);
 
         String val = message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"));
         String type = message.substring(message.indexOf("}}") + 2, message.length());
 
-        logger.log("***DefaultConverter - after decodeParam: " + val + ", " + type);
+        logger.debug("***DefaultConverter - after decodeParam: " + val + ", " + type);
         return new String[]{type, val};
     }
 }
