@@ -268,7 +268,7 @@ If we make a call from client side:
 
 Tcp Rest will convert it to:
 
-	"Class/method({{arg1}}arg1ClassName:::{{arg2}}arg2ClassName)"
+	"Class/method({{arg1}}:::{{arg2}})"
 
 during network transmitting. For example:
 
@@ -276,7 +276,7 @@ during network transmitting. For example:
 
 will be converted to the following string:
 
-	"HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String:::{{Lucy}}java.lang.String)"
+	"HelloWorldResource/sayHelloFromTo({{Jack}}:::{{Lucy}})"
 
 TcpRestServer will try to find proper Mapper to decode the parameters.
 

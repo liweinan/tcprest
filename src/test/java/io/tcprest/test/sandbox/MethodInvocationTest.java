@@ -10,10 +10,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 /**
-*
-* @author Weinan Li
-* @date Jul 29 2012
-*/
+ * @author Weinan Li
+ * @date Jul 29 2012
+ */
 public class MethodInvocationTest {
 
     // ABC must be declared as 'static'
@@ -31,10 +30,24 @@ public class MethodInvocationTest {
     @Ignore
     @Test
     public void testMethodInvocation() throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
-        Object obj = ABC.class.newInstance();
-        Method mtd = obj.getClass().getMethod("method1", String.class);
-        assertNotNull(mtd);
-        String response = (String) mtd.invoke(obj, "Hello, world!");
-        assertEquals("Hello, world!", response);
+        {
+            Object obj = ABC.class.newInstance();
+            Method mtd = obj.getClass().getMethod("method1", String.class);
+            assertNotNull(mtd);
+            String response = (String) mtd.invoke(obj, "Hello, world!");
+            assertEquals("Hello, world!", response);
+        }
+
+        {
+            Object obj = ABC.class.newInstance();
+            for (Method mtd : obj.getClass().getMethods()) {
+                System.out.print(mtd.getName() + ": ");
+                for (Class clazz : mtd.getParameterTypes()) {
+                    System.out.print(clazz.getCanonicalName() + " ");
+                }
+                System.out.println("");
+            }
+        }
     }
+
 }

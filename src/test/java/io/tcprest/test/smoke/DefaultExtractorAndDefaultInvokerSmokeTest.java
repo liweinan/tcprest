@@ -38,7 +38,7 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
         assertEquals("Hello, world!", response);
 
         // test arguments
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}}java.lang.String)");
+        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}})");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloTo", String.class));
         assertNotNull(ctx.getParams());
@@ -47,8 +47,8 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
         assertEquals("Hello, Jack!", response);
 
         // test multiple arguments
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String"
-                + TcpRestProtocol.PATH_SEPERATOR + "{{Lucy}}java.lang.String)");
+        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{Jack}}"
+                + TcpRestProtocol.PATH_SEPERATOR + "{{Lucy}})");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());
@@ -58,8 +58,8 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
 
         // test params with parentheses inside
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{(me}}java.lang.String"
-                + TcpRestProtocol.PATH_SEPERATOR + "{{you)}}java.lang.String)");
+        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo({{(me}}"
+                + TcpRestProtocol.PATH_SEPERATOR + "{{you)}})");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
         assertNotNull(ctx.getParams());

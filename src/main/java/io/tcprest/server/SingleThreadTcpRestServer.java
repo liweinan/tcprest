@@ -143,7 +143,7 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                     }
 
                     Converter converter = new DefaultConverter();
-                    writer.println(converter.encodeParam(responseMapper.objectToString(responseObject), responseObject.getClass()));
+                    writer.println(converter.encodeParam(responseMapper.objectToString(responseObject)));
                     writer.flush();
                 }
             }

@@ -69,7 +69,7 @@ public class DefaultExtractor implements Extractor {
         // or not.
         List<Class> classesToSearch = new ArrayList<Class>();
 
-        for (Class clazz: tcpRestServer.getResourceClasses().values()) {
+        for (Class clazz : tcpRestServer.getResourceClasses().values()) {
             classesToSearch.add(clazz);
         }
 
@@ -105,13 +105,7 @@ public class DefaultExtractor implements Extractor {
 
         String methodName = request.substring(classSeperator + 1, methodSeperator);
 
-        // get parameters
-        // strip the quotes and extract all params
-        String paramsToken = request.substring(methodSeperator + 1, request.length() - 1);
-
-        Object params[] = converter.decode(paramsToken, tcpRestServer.getMappers());
-
-        // Now we fill context
+        // Now we start to fill in context
         Context ctx = new Context();
 
         // We'll search for resources now. We first search in singleton resources,
@@ -121,7 +115,7 @@ public class DefaultExtractor implements Extractor {
         if (tcpRestServer.getSingletonResources().containsKey(clazzName)) {
             ctx.setTargetInstance(tcpRestServer.getSingletonResources().get(clazzName));
             ctx.setTargetClass(tcpRestServer.getSingletonResources().get(clazzName).getClass());
-        } else if (tcpRestServer.getResourceClasses().containsKey(clazzName)){
+        } else if (tcpRestServer.getResourceClasses().containsKey(clazzName)) {
             ctx.setTargetClass(tcpRestServer.getResourceClasses().get(clazzName));
         }
 
@@ -139,6 +133,12 @@ public class DefaultExtractor implements Extractor {
 
         if (ctx.getTargetMethod() == null)
             throw new NoSuchMethodException("***DefaultExtractor - Can't find method: " + methodName);
+
+        // get parameters
+        // strip the quotes and extract all params
+        String paramsToken = request.substring(methodSeperator + 1, request.length() - 1);
+
+        Object params[] = converter.decode(ctx.getTargetMethod(), paramsToken, tcpRestServer.getMappers());
 
         // fill arguments
         ctx.setParams(params);

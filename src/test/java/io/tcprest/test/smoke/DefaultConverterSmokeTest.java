@@ -24,7 +24,7 @@ public class DefaultConverterSmokeTest {
                 new Object[]{"One", 2, true}, MapperHelper.DEFAULT_MAPPERS);
 
         System.out.println(request);
-        assertEquals("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String" + TcpRestProtocol.PATH_SEPERATOR + "{{2}}java.lang.Integer" + TcpRestProtocol.PATH_SEPERATOR + "{{true}}java.lang.Boolean)", request);
+        assertEquals("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}" + TcpRestProtocol.PATH_SEPERATOR + "{{2}}" + TcpRestProtocol.PATH_SEPERATOR + "{{true}})", request);
 
     }
 

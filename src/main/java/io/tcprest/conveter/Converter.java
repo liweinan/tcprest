@@ -22,14 +22,14 @@ public interface Converter {
      */
     public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException;
 
-    public Object[] decode(String paramToken, Map<String, Mapper> mappers) throws MapperNotFoundException;
+    public Object[] decode(Method targetMethod, String paramToken, Map<String, Mapper> mappers) throws MapperNotFoundException;
 
     /**
      * Encapsulate the mapper processed message
      * @param message
      * @return
      */
-    public String encodeParam(String message, Class messageType);
+    public String encodeParam(String message);
 
-    public String[] decodeParam(String message);
+    public String decodeParam(String message);
 }

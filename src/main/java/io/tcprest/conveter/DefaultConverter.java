@@ -49,7 +49,7 @@ public class DefaultConverter implements Converter {
                 }
 
                 paramTokenBuffer.append("{{").append(mapper.objectToString(param))
-                        .append("}}").append(param.getClass().getCanonicalName()).append(TcpRestProtocol.PATH_SEPERATOR);
+                        .append("}}").append(TcpRestProtocol.PATH_SEPERATOR);
             }
 
             return clazz.getCanonicalName() + "/" + method.getName() + "(" + paramTokenBuffer.
@@ -61,24 +61,29 @@ public class DefaultConverter implements Converter {
 
     }
 
-    public Object[] decode(String paramsToken, Map<String, Mapper> mappers) throws MapperNotFoundException {
+    public Object[] decode(Method targetMethod, String paramsToken, Map<String, Mapper> mappers) throws MapperNotFoundException {
         if (paramsToken == null || paramsToken.trim().length() < 1) {
             return null;
         } else {
             String rawParams[] = paramsToken.trim().split(TcpRestProtocol.PATH_SEPERATOR);
             List<Object> paramsHolder = new ArrayList<Object>();
+            int i = 0;
             for (String rawParam : rawParams) {
-                // TODO It should handle null parameter correctly
-                String[] thisParam = decodeParam(rawParam);
-                String classType = thisParam[0];
-                String val = thisParam[1];
+                String thisParam = decodeParam(rawParam);
+                String classType = targetMethod.getParameterTypes()[i].getCanonicalName();
                 Mapper mapper = mappers.get(classType.trim());
                 if (mapper == null) {
                     throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + classType);
                 }
 
-                Object param = mapper.stringToObject(val);
+                Object param = mapper.stringToObject(thisParam);
+
+                if (thisParam.equals(TcpRestProtocol.NULL)) {
+                    param = null;
+                }
+
                 paramsHolder.add(param);
+                i++;
             }
             return paramsHolder.toArray();
         }
@@ -89,11 +94,10 @@ public class DefaultConverter implements Converter {
      * For example: "abc" will transform into "{{abc}}java.lang.String"
      *
      * @param message
-     * @param messageType
      * @return
      */
-    public String encodeParam(String message, Class messageType) {
-        return "{{" + message + "}}" + messageType.getCanonicalName();
+    public String encodeParam(String message) {
+        return "{{" + message + "}}";
     }
 
 
@@ -103,13 +107,8 @@ public class DefaultConverter implements Converter {
      * @param message
      * @return
      */
-    public String[] decodeParam(String message) {
-        logger.debug("***DefaultConverter - before decodeParam: " + message);
-
-        String val = message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"));
-        String type = message.substring(message.indexOf("}}") + 2, message.length());
-
-        logger.debug("***DefaultConverter - after decodeParam: " + val + ", " + type);
-        return new String[]{type, val};
+    public String decodeParam(String message) {
+        return message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"));
+//        String type = message.substring(message.indexOf("}}") + 2, message.length());
     }
 }

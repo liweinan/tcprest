@@ -6,6 +6,8 @@ import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
 import io.tcprest.mapper.Mapper;
 import io.tcprest.mapper.MapperHelper;
+import io.tcprest.protocol.NullObj;
+import io.tcprest.protocol.TcpRestProtocol;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -59,18 +61,23 @@ public class TcpRestClientProxy implements InvocationHandler {
 
         String request = converter.encode(method.getDeclaringClass(), method, params, mappers);
         String response = tcpRestClient.sendRequest(request);
-        logger.log("***TcpRestClientProxy - response: " + response);
+        String respStr = converter.decodeParam(response);
 
-        String[] respObj = converter.decodeParam(response);
+        String mapperKey = method.getReturnType().getCanonicalName();
+        if (respStr.equals(TcpRestProtocol.NULL))
+            mapperKey = NullObj.class.getCanonicalName();
 
+        logger.debug("***TcpRestClientProxy - response: " + respStr);
 
-        Mapper mapper = mappers.get(respObj[0]);
-        logger.log("***TcpRestClientProxy - mapper: " + mapper);
+        Mapper mapper = mappers.get(mapperKey);
+
+        logger.debug("***TcpRestClientProxy - mapper: " + mapper);
+
         if (mapper == null) {
-            throw new IllegalAccessException("***TcpRestClientProxy - mapper cannot be found for response object: " + respObj[1].toString());
+            throw new IllegalAccessException("***TcpRestClientProxy - mapper cannot be found for response object: " + respStr.toString());
         }
 
-        return mapper.stringToObject(respObj[1]);
+        return mapper.stringToObject(respStr);
     }
 
 }

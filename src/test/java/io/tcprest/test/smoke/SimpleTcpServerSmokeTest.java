@@ -52,7 +52,7 @@ public class SimpleTcpServerSmokeTest {
         writer.flush();
 
         String response = reader.readLine();
-        assertEquals("{{Hello, world!}}java.lang.String", response);
+        assertEquals("{{Hello, world!}}", response);
 
     }
 
@@ -63,12 +63,12 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("io.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}}java.lang.String)");
+        writer.println("io.tcprest.test.HelloWorldResource/sayHelloTo({{Jack!}})");
         writer.flush();
 
         String response = reader.readLine();
 
-        assertEquals("{{Hello, Jack!}}java.lang.String", response);
+        assertEquals("{{Hello, Jack!}}", response);
 
     }
 
@@ -79,14 +79,14 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}java.lang.String"
+        writer.println("io.tcprest.test.HelloWorldResource/oneTwoThree({{One}}"
                 + TcpRestProtocol.PATH_SEPERATOR
-                + "{{2}}java.lang.Integer"
-                + TcpRestProtocol.PATH_SEPERATOR + "{{true}}java.lang.Boolean)");
+                + "{{2}}"
+                + TcpRestProtocol.PATH_SEPERATOR + "{{true}})");
         writer.flush();
 
         String response = reader.readLine();
-        assertEquals("{{One,2,true}}java.lang.String", response);
+        assertEquals("{{One,2,true}}", response);
 
     }
 
