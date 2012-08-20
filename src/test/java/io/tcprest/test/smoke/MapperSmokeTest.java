@@ -52,34 +52,36 @@ public class MapperSmokeTest extends TcpClientFactorySmokeTest {
     }
 
     public interface RawType {
-        public List getArrayList();
+        public List getArrayList(List in);
     }
 
     public class RawTypeResource implements RawType {
-        public List getArrayList() {
-            List lst = new ArrayList();
-            lst.add(42);
-            lst.add(new Color("Red"));
-
-            return lst;
+        public List getArrayList(List in) {
+            return in;
         }
     }
 
     @Test
     public void rawTypeTest() {
+        // We didn't put Color mapper into server,
+        // so server will fallback to use RawTypeMapper to decode Color.class
+        // because Color is Serializable
         tcpRestServer.addSingletonResource(new RawTypeResource());
-        tcpRestServer.addMapper(Color.class.getCanonicalName(), new ColorMapper());
-        Map<String, Mapper> colorMapper = new HashMap<String, Mapper>();
-        colorMapper.put(Color.class.getCanonicalName(), new ColorMapper());
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(RawType.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort(), colorMapper);
+                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
 
         RawType client = (RawType) factory.getInstance();
-        List resp = client.getArrayList();
+
+        List lst = new ArrayList();
+        lst.add(42);
+        lst.add(new Color("Red"));
+
+        List resp = client.getArrayList(lst);
 
         assertEquals(42, resp.get(0));
+
         Color c = new Color("Red");
         assertEquals(c.getName(), ((Color) resp.get(1)).getName());
     }

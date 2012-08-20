@@ -182,7 +182,7 @@ Mapper is the core component doing data serialization and deserialization. Here 
 		public String objectToString(Object object);
 	}
 
-TcpRest provides mappers for follwing primitive data types by default:
+TcpRest provides mappers for following primitive data types by default:
 
 * byte
 * short
@@ -252,6 +252,53 @@ The mapper should also be registered to client side for decoding the response fr
 	TcpRestClientFactory factory =
 	        new TcpRestClientFactory(HelloWorld.class, "localhost",
 	                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort(), colorMapper);
+
+#### RawTypeMapper
+
+TcpRest supports all serializable types by RawTypeMapper and you don't have to write mapper for it. We can modify the above example to remove ColorMapper. All we need to do is to make Color serializable:
+
+    public class Color implements Serializable {
+	    ...
+    }
+
+Then TcpRest will handle the data mapping automatically. We can create a test for this:
+
+	public interface RawType {
+		public List getArrayList(List in);
+	}
+
+	public class RawTypeResource implements RawType {
+		public List getArrayList(List in) {
+			return in;
+		}
+	}
+
+	@Test
+	public void rawTypeTest() {
+		// We didn't put Color mapper into server,
+		// so server will fallback to use RawTypeMapper to decode Color.class
+		// because Color is serializable now.
+		tcpRestServer.addSingletonResource(new RawTypeResource());
+
+		TcpRestClientFactory factory =
+				new TcpRestClientFactory(RawType.class, "localhost",
+						((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+
+		RawType client = (RawType) factory.getInstance();
+
+		List lst = new ArrayList();
+		lst.add(42);
+		lst.add(new Color("Red"));
+
+		List resp = client.getArrayList(lst);
+
+		assertEquals(42, resp.get(0));
+
+		Color c = new Color("Red");
+		assertEquals(c.getName(), ((Color) resp.get(1)).getName());
+	}
+
+In above example we can see the List type is also automatically supported because all List is implicitly serializable.
 
 ### Converter
 

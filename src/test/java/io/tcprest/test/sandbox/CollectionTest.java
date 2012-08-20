@@ -24,5 +24,9 @@ public class CollectionTest {
         for (Object obj : objs) {
             System.out.println(obj.getClass().getCanonicalName());
         }
+
+        for (Class clazz : objs.getClass().getInterfaces()) {
+            System.out.println(clazz.equals(java.io.Serializable.class));
+        }
     }
 }

@@ -5,6 +5,7 @@ import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.SystemOutLogger;
 import io.tcprest.mapper.Mapper;
+import io.tcprest.mapper.RawTypeMapper;
 import io.tcprest.protocol.NullObj;
 import io.tcprest.protocol.TcpRestProtocol;
 
@@ -71,12 +72,27 @@ public class DefaultConverter implements Converter {
             int i = 0;
             for (String rawParam : rawParams) {
                 String thisParam = decodeParam(rawParam);
+
                 String classType = targetMethod.getParameterTypes()[i].getCanonicalName();
                 Mapper mapper = mappers.get(classType.trim());
-                logger.debug("found mapper: " + mapper.getClass().getCanonicalName() + " for: " + classType);
+
                 if (mapper == null) {
-                    throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + classType);
+                    // now we try to find if the target param is serizialiable, if so we could use
+                    // RawTypeMapper
+//                    java.io.Serializable
+                    Class targetClazz = targetMethod.getParameterTypes()[i];
+                    for (Class clazz : targetClazz.getInterfaces()) {
+                        if (clazz.equals(java.io.Serializable.class)) {
+                            mapper = new RawTypeMapper();
+                            break;
+                        }
+                    }
+
+                    if (mapper == null)
+                        throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + classType);
                 }
+
+                logger.debug("found mapper: " + mapper.getClass().getCanonicalName() + " for: " + classType);
 
                 Object param = mapper.stringToObject(thisParam);
 
