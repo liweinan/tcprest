@@ -1,7 +1,5 @@
 package io.tcprest.server;
 
-import io.tcprest.conveter.Converter;
-import io.tcprest.conveter.DefaultConverter;
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.exception.ParseException;
 import io.tcprest.extractor.DefaultExtractor;
@@ -31,6 +29,8 @@ import java.util.Scanner;
  * @date Jul 29 2012
  */
 // TODO support SSL
+// TODO support @Timeout for resources
+// TODO when server throws exception, put it into response object and return to user
 public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     private final Map<String, Mapper> mappers = new HashMap<String, Mapper>();
@@ -87,11 +87,11 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
     }
 
     public Map<String, Class> getResourceClasses() {
-        return resourceClasses;
+        return new HashMap<String, Class>(resourceClasses);
     }
 
     public Map<String, Object> getSingletonResources() {
-        return singletonResources;
+        return new HashMap<String, Object>(singletonResources);
     }
 
     public void setLogger(Logger logger) {
@@ -137,14 +137,9 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                     logger.debug("***SingleThreadTcpRestServer - responseObject: " + responseObject);
 
                     // get returned object and encode it to string response
-                    Mapper responseMapper = mappers.get(responseObject.getClass().getCanonicalName());
-                    if (responseMapper == null) {
-                        throw new MapperNotFoundException("***SingleThreadTcpRestServer - mapper not found for response object: " +
-                                responseObject.toString());
-                    }
+                    Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
 
-                    Converter converter = new DefaultConverter();
-                    writer.println(converter.encodeParam(responseMapper.objectToString(responseObject)));
+                    writer.println(context.getConverter().encodeParam(responseMapper.objectToString(responseObject)));
                     writer.flush();
                 }
             }

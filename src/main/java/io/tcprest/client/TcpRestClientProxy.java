@@ -71,7 +71,7 @@ public class TcpRestClientProxy implements InvocationHandler {
 
         logger.debug("***TcpRestClientProxy - response: " + respStr);
 
-        Mapper mapper = mappers.get(mapperKey);
+        Mapper mapper = converter.getMapper(mappers, mapperKey);
 
         logger.debug("***TcpRestClientProxy - mapper: " + mapper);
 

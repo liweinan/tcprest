@@ -1,5 +1,7 @@
 package io.tcprest.server;
 
+import io.tcprest.conveter.Converter;
+
 import java.lang.reflect.Method;
 
 /**
@@ -8,7 +10,15 @@ import java.lang.reflect.Method;
  */
 public class Context {
     private Class targetClazz;
+    private Converter converter;
 
+    public Converter getConverter() {
+        return converter;
+    }
+
+    public void setConverter(Converter converter) {
+        this.converter = converter;
+    }
 
     private Object targetInstance;
     private Method targetMethod;

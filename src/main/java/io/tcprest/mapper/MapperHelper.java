@@ -2,7 +2,6 @@ package io.tcprest.mapper;
 
 import io.tcprest.protocol.NullObj;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +12,7 @@ import java.util.Map;
  */
 public class MapperHelper {
 
-    public static final Map<String,Mapper> DEFAULT_MAPPERS = new HashMap<String, Mapper>();
+    public static final Map<String, Mapper> DEFAULT_MAPPERS = new HashMap<String, Mapper>();
 
     // todo add Mappers for Collections and Map
     static {
@@ -25,7 +24,7 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put(Boolean.class.getCanonicalName(), new BooleanMapper());
         DEFAULT_MAPPERS.put(Integer.class.getCanonicalName(), new IntegerMapper());
         DEFAULT_MAPPERS.put(String.class.getCanonicalName(), new StringMapper());
-        DEFAULT_MAPPERS.put(NullObj.class.getCanonicalName(), new NullMapper());
+
         DEFAULT_MAPPERS.put("byte", new ByteMapper());
         DEFAULT_MAPPERS.put("long", new LongMapper());
         DEFAULT_MAPPERS.put("float", new FloatMapper());
@@ -34,7 +33,13 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put("int", new IntegerMapper());
         DEFAULT_MAPPERS.put("boolean", new BooleanMapper());
         DEFAULT_MAPPERS.put("integer", new IntegerMapper());
-        DEFAULT_MAPPERS.put(ArrayList.class.getCanonicalName(), new RawTypeMapper());
+
+        // All the implementations of List (such as ArrayList) are serializable.
         DEFAULT_MAPPERS.put(List.class.getCanonicalName(), new RawTypeMapper());
+
+        DEFAULT_MAPPERS.put(NullObj.class.getCanonicalName(), new NullMapper());
+
+        DEFAULT_MAPPERS.put(Exception.class.getCanonicalName(), new ExceptionMapper());
+
     }
 }

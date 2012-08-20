@@ -146,7 +146,7 @@ public class DefaultExtractor implements Extractor {
 
         // fill arguments
         ctx.setParams(params);
-
+        ctx.setConverter(converter);
         return ctx;
     }
 

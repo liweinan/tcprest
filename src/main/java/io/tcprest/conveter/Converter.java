@@ -32,4 +32,7 @@ public interface Converter {
     public String encodeParam(String message);
 
     public String decodeParam(String message);
+
+    public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) throws MapperNotFoundException;
+    public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) throws MapperNotFoundException;
 }
