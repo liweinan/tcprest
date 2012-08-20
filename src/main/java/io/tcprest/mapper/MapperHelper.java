@@ -2,9 +2,7 @@ package io.tcprest.mapper;
 
 import io.tcprest.protocol.NullObj;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Weinan Li
@@ -34,8 +32,13 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put("boolean", new BooleanMapper());
         DEFAULT_MAPPERS.put("integer", new IntegerMapper());
 
-        // All the implementations of List (such as ArrayList) are serializable.
+        // Implicitly set all collections as serializable
+        // This may cause exceptions if user defined not serializable collections
+        DEFAULT_MAPPERS.put(Collection.class.getCanonicalName(), new RawTypeMapper());
+        DEFAULT_MAPPERS.put(Set.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(List.class.getCanonicalName(), new RawTypeMapper());
+        DEFAULT_MAPPERS.put(Queue.class.getCanonicalName(), new RawTypeMapper());
+        DEFAULT_MAPPERS.put(Map.class.getCanonicalName(), new RawTypeMapper());
 
         DEFAULT_MAPPERS.put(NullObj.class.getCanonicalName(), new NullMapper());
 

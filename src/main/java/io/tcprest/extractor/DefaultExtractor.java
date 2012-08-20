@@ -22,12 +22,12 @@ import java.util.List;
  * {@code
  * HelloWorldRestlet/sayHello
  * HelloWorldResource/sayHello()
- * HelloWorldResource/sayHelloTo(Jack)
- * HelloWorldResource/sayHelloTo(Jack!)
- * HelloWorldResource/sayHelloToPeople(you,me)
+ * HelloWorldResource/sayHelloTo({{Jack}})
+ * HelloWorldResource/sayHelloToPeople({{you}}:::{{me}})
  * }
  * </pre>
  * <p/>
+ * Please note the
  * <p/>
  * In the future I want to make DefaultExtractor supports complex parameter types via mapper scheme.
  *

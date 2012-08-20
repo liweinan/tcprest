@@ -3,7 +3,9 @@ package io.tcprest.test.sandbox;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Weinan Li
@@ -28,5 +30,18 @@ public class CollectionTest {
         for (Class clazz : objs.getClass().getInterfaces()) {
             System.out.println(clazz.equals(java.io.Serializable.class));
         }
+
+
+    }
+
+    @Test
+    public void mapTest() {
+        for (Class clazz : HashMap.class.getInterfaces()) {
+            System.out.println(clazz.getCanonicalName());
+        }
+
+        System.out.println(Map.class.getCanonicalName());
+        List<?> l = new ArrayList<Object>();
+        System.out.println(l.getClass().getCanonicalName());
     }
 }
