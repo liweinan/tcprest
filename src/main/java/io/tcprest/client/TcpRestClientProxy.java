@@ -19,6 +19,7 @@ import java.util.Map;
  * @author Weinan Li
  * @date Jul 30 2012
  */
+// TODO Support timeout
 public class TcpRestClientProxy implements InvocationHandler {
 
     private Logger logger = LoggerFactory.getDefaultLogger();

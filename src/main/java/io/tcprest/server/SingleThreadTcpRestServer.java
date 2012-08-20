@@ -30,6 +30,7 @@ import java.util.Scanner;
  * @author Weinan Li
  * @date Jul 29 2012
  */
+// TODO support SSL
 public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
     private final Map<String, Mapper> mappers = new HashMap<String, Mapper>();
