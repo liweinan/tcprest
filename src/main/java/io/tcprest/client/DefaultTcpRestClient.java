@@ -21,8 +21,11 @@ public class DefaultTcpRestClient implements TcpRestClient {
         this.port = port;
     }
 
-    public String sendRequest(String request) throws IOException {
+    public String sendRequest(String request, int timeout) throws IOException {
         Socket clientSocket = new Socket(host, port);
+
+        if (timeout > 0)
+            clientSocket.setSoTimeout(timeout * 1000);
 
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =

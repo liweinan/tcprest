@@ -3,7 +3,7 @@ package io.tcprest.conveter;
 import io.tcprest.commons.Base64;
 import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.logger.Logger;
-import io.tcprest.logger.SystemOutLogger;
+import io.tcprest.logger.LoggerFactory;
 import io.tcprest.mapper.Mapper;
 import io.tcprest.mapper.RawTypeMapper;
 import io.tcprest.protocol.NullObj;
@@ -26,7 +26,7 @@ import java.util.Map;
  * @date 07 31 2012
  */
 public class DefaultConverter implements Converter {
-    Logger logger = new SystemOutLogger();
+    private Logger logger = LoggerFactory.getDefaultLogger();
 
     /**
      * Convert a method call into a string according to TcpRest protocol that can be transmitted across network.

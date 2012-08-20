@@ -29,7 +29,6 @@ import java.util.Scanner;
  * @date Jul 29 2012
  */
 // TODO support SSL
-// TODO support @Timeout for resources
 // TODO when server throws exception, put it into response object and return to user
 // TODO check the resources when it's added, to see if it could be correctly mapped, if cannot find mapper and not serializable put warning.
 public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {

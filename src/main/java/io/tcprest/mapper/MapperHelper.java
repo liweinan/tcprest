@@ -12,7 +12,6 @@ public class MapperHelper {
 
     public static final Map<String, Mapper> DEFAULT_MAPPERS = new HashMap<String, Mapper>();
 
-    // todo add Mappers for Collections and Map
     static {
         DEFAULT_MAPPERS.put(Byte.class.getCanonicalName(), new ByteMapper());
         DEFAULT_MAPPERS.put(Long.class.getCanonicalName(), new LongMapper());

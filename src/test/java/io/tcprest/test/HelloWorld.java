@@ -1,5 +1,7 @@
 package io.tcprest.test;
 
+import io.tcprest.annotations.Timeout;
+
 /**
  * @author Weinan Li
  * @date Jul 30 2012
@@ -16,4 +18,7 @@ public interface HelloWorld {
     public String favoriteColor(Color color);
 
     public String allTypes(String one, int two, boolean three, short x, long y, double z, byte o);
+
+    @Timeout(second = 1)
+    public String timeout();
 }
