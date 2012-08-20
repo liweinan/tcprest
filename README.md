@@ -275,7 +275,7 @@ Then TcpRest will handle the data mapping automatically. We can create a test fo
 
 	@Test
 	public void rawTypeTest() {
-		// We didn't put Color mapper into server,
+		// We don't put Color mapper into server,
 		// so server will fallback to use RawTypeMapper to decode Color.class
 		// because Color is serializable now.
 		tcpRestServer.addSingletonResource(new RawTypeResource());
@@ -298,7 +298,7 @@ Then TcpRest will handle the data mapping automatically. We can create a test fo
 		assertEquals(c.getName(), ((Color) resp.get(1)).getName());
 	}
 
-In above example we can see the List type is also automatically supported because all List is implicitly serializable.
+In above example we can see the List type is also automatically supported because all List types are implicitly serializable.
 
 ### Converter
 

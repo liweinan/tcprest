@@ -63,9 +63,9 @@ public class MapperSmokeTest extends TcpClientFactorySmokeTest {
 
     @Test
     public void rawTypeTest() {
-        // We didn't put Color mapper into server,
+        // We don't put Color mapper into server,
         // so server will fallback to use RawTypeMapper to decode Color.class
-        // because Color is Serializable
+        // because Color is serializable now.
         tcpRestServer.addSingletonResource(new RawTypeResource());
 
         TcpRestClientFactory factory =
