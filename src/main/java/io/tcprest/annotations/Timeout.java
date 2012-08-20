@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * @author Weinan Li
  * @created_at 08 21 2012
  */
-@Target({ElementType.TYPE, ElementType.METHOD})
+@Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Timeout {
     int second();

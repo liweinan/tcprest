@@ -327,6 +327,17 @@ will be converted to the following string:
 
 Please note that "THVjeQ==" and "SmFjaw==" are base64 encoded strings. TcpRestServer will try to find proper Mapper to decode the parameters.
 
+## Configuration
+
+### Timeout
+
+You can use @Timeout to annotate a method of the resource interface for client side:
+
+    @Timeout(second = 1)
+    public String yourMethod();
+
+When you invoke this method from client side, it will wait for 1 second for server to response. If the time expires client side will throw exception.
+
 ## Usage Tips
 
 ### Try to make your resource class re-entrant and immutable
