@@ -1,5 +1,6 @@
 package io.tcprest.test.sandbox;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.Map;
  */
 public class CollectionTest {
 
+    @Ignore
     @Test
     public void smokeTests() {
 
@@ -34,6 +36,7 @@ public class CollectionTest {
 
     }
 
+    @Ignore
     @Test
     public void mapTest() {
         for (Class clazz : HashMap.class.getInterfaces()) {
@@ -43,5 +46,11 @@ public class CollectionTest {
         System.out.println(Map.class.getCanonicalName());
         List<?> l = new ArrayList<Object>();
         System.out.println(l.getClass().getCanonicalName());
+    }
+
+    @Ignore
+    @Test
+    public void arrayTest() {
+        System.out.println(String[].class.isArray());
     }
 }

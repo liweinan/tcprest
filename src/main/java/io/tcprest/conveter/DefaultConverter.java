@@ -118,7 +118,7 @@ public class DefaultConverter implements Converter {
             // RawTypeMapper
             //                    java.io.Serializable
             for (Class clazz : targetClazz.getInterfaces()) {
-                if (clazz.equals(java.io.Serializable.class)) {
+                if (clazz.equals(java.io.Serializable.class) || clazz.isArray()) {
                     mapper = new RawTypeMapper();
                     break;
                 }
@@ -134,7 +134,13 @@ public class DefaultConverter implements Converter {
 
     public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) throws MapperNotFoundException {
         try {
-            Mapper mapper = mappers.get(targetClazzName);
+            Mapper mapper;
+            // check for array type
+            if (targetClazzName.endsWith("[]")) {
+                mapper = new RawTypeMapper();
+                return mapper;
+            }
+            mapper = mappers.get(targetClazzName);
             if (mapper != null) {
                 logger.debug("found mapper: " + mapper.getClass().getCanonicalName() + " for: " + targetClazzName);
                 return mapper;

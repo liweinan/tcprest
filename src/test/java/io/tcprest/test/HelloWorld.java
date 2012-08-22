@@ -21,4 +21,6 @@ public interface HelloWorld {
 
     @Timeout(second = 1)
     public String timeout();
+
+    public String[] getArray(String[] in);
 }

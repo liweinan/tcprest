@@ -133,5 +133,20 @@ public class TcpClientFactorySmokeTest {
         assertEquals("onetwo", client.nullMethod("one", null, "two"));
     }
 
+    @Test
+    public void testArray() {
+        tcpRestServer.addSingletonResource(new HelloWorldResource());
 
+        HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
+                new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
+                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort()));
+
+        String[] in = new String[]{"a", "b", "c"};
+        String[] out = client.getArray(in);
+        for (int i = 0; i < in.length; i++) {
+            assertEquals(in[i], out[i]);
+        }
+
+
+    }
 }

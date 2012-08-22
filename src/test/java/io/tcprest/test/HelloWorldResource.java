@@ -44,5 +44,9 @@ public class HelloWorldResource implements HelloWorld {
         return "ok";
     }
 
+    public String[] getArray(String[] in) {
+        return in;
+    }
+
 
 }
