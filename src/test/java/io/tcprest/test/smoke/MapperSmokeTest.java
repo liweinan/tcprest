@@ -23,66 +23,91 @@ import static junit.framework.Assert.assertEquals;
  */
 public class MapperSmokeTest extends TcpClientFactorySmokeTest {
 
-    @Test
-    public void extendMapperTest() {
-        tcpRestServer.addResource(HelloWorldResource.class);
-        tcpRestServer.addMapper(Color.class.getCanonicalName(), new ColorMapper());
+	@Test
+	public void extendMapperTest() {
+		tcpRestServer.addResource(HelloWorldResource.class);
+		tcpRestServer.addMapper(Color.class.getCanonicalName(),
+				new ColorMapper());
 
-        Map<String, Mapper> colorMapper = new HashMap<String, Mapper>();
-        colorMapper.put(Color.class.getCanonicalName(), new ColorMapper());
+		Map<String, Mapper> colorMapper = new HashMap<String, Mapper>();
+		colorMapper.put(Color.class.getCanonicalName(), new ColorMapper());
 
-        TcpRestClientFactory factory =
-                new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort(), colorMapper);
+		TcpRestClientFactory factory = new TcpRestClientFactory(
+				HelloWorld.class, "localhost",
+				((SingleThreadTcpRestServer) tcpRestServer).getServerSocket()
+						.getLocalPort(), colorMapper);
 
-        HelloWorld client = (HelloWorld) factory.getInstance();
-        Color color = new Color("Red");
-        assertEquals("My favorite color is: Red", client.favoriteColor(color));
+		HelloWorld client = (HelloWorld) factory.getInstance();
+		Color color = new Color("Red");
+		assertEquals("My favorite color is: Red", client.favoriteColor(color));
 
-    }
+	}
 
-    @Test
-    public void testArrayListMapper() {
-        List l = new ArrayList();
-        l.add(1);
-        l.add(2);
-        l.add(3);
-        RawTypeMapper mapper = new RawTypeMapper();
-        System.out.println(mapper.objectToString(l));
-    }
+	@Test
+	public void testArrayListMapper() {
+		List l = new ArrayList();
+		l.add(1);
+		l.add(2);
+		l.add(3);
+		RawTypeMapper mapper = new RawTypeMapper();
+		System.out.println(mapper.objectToString(l));
+	}
 
-    public interface RawType {
-        public List getArrayList(List in);
-    }
+	public interface RawType {
+		public List getArrayList(List in);
 
-    public class RawTypeResource implements RawType {
-        public List getArrayList(List in) {
-            return in;
-        }
-    }
+		public HashMap<String, List<Color>> getComplexType(
+				HashMap<String, List<Color>> in);
+	}
 
-    @Test
-    public void rawTypeTest() {
-        // We don't put Color mapper into server,
-        // so server will fallback to use RawTypeMapper to decode Color.class
-        // because Color is serializable now.
-        tcpRestServer.addSingletonResource(new RawTypeResource());
+	public class RawTypeResource implements RawType {
+		public List getArrayList(List in) {
+			return in;
+		}
 
-        TcpRestClientFactory factory =
-                new TcpRestClientFactory(RawType.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+		public HashMap<String, List<Color>> getComplexType(
+				HashMap<String, List<Color>> in) {
+			return in;
+		}
+	}
 
-        RawType client = (RawType) factory.getInstance();
+	@SuppressWarnings({"unchecked","rawtypes"})	
+	@Test
+	public void rawTypeTest() {
+		// We don't put Color mapper into server,
+		// so server will fallback to use RawTypeMapper to decode Color.class
+		// because Color is serializable now.
+		tcpRestServer.addSingletonResource(new RawTypeResource());
 
-        List lst = new ArrayList();
-        lst.add(42);
-        lst.add(new Color("Red"));
+		TcpRestClientFactory factory = new TcpRestClientFactory(RawType.class,
+				"localhost", ((SingleThreadTcpRestServer) tcpRestServer)
+						.getServerSocket().getLocalPort());
 
-        List resp = client.getArrayList(lst);
+		RawType client = (RawType) factory.getInstance();
+		Color red = new Color("Red");
 
-        assertEquals(42, resp.get(0));
+		{			
+			List request = new ArrayList();
+			request.add(42);
+			request.add(red);
 
-        Color c = new Color("Red");
-        assertEquals(c.getName(), ((Color) resp.get(1)).getName());
-    }
+			List response = client.getArrayList(request);
+
+			assertEquals(42, response.get(0));
+			assertEquals(red.getName(), ((Color) response.get(1)).getName());
+		}
+
+		{
+			List<Color> list = new ArrayList<Color>();
+			list.add(red);
+			HashMap<String, List<Color>> request = new HashMap<String, List<Color>>();
+			request.put("item", list);
+			
+			HashMap<String, List<Color>> response = client.getComplexType(request);
+			
+			assertEquals("item", response.keySet().iterator().next());
+			assertEquals(red.getName(), response.get("item").get(0).getName());
+		}
+
+	}
 }
