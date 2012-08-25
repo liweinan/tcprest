@@ -34,13 +34,13 @@ import java.util.Scanner;
 // TODO check the resources when it's added, to see if it could be correctly mapped, if cannot find mapper and not serializable put warning.
 public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
-    private final Map<String, Mapper> mappers = new HashMap<String, Mapper>();
+	protected final Map<String, Mapper> mappers = new HashMap<String, Mapper>();
 
-    private Logger logger = LoggerFactory.getDefaultLogger();
+    protected Logger logger = LoggerFactory.getDefaultLogger();
 
-    private String status = TcpRestServerStatus.PASSIVE;
+    protected String status = TcpRestServerStatus.PASSIVE;
 
-    private ServerSocket serverSocket;
+    protected ServerSocket serverSocket;
 
     public final Map<String, Class> resourceClasses = new HashMap<String, Class>();
 
@@ -121,6 +121,21 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
 
         logger.log("ServerSocket initialized: " + this.serverSocket);
     }
+    
+    protected String processRequest(String request) throws Exception {
+    	logger.debug("request: " + request);
+        // extract calling class and method from request
+        Context context = extractor.extract(request);
+        // invoke real method
+        Object responseObject = invoker.invoke(context);
+        logger.debug("***SingleThreadTcpRestServer - responseObject: " + responseObject);
+
+        // get returned object and encode it to string response
+        Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
+
+        return context.getConverter().encodeParam(responseMapper.objectToString(responseObject));
+
+    }
 
     public void run() {
         PrintWriter writer = null;
@@ -134,17 +149,10 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                 writer = new PrintWriter(socket.getOutputStream());
 
                 String request = scanner.nextLine();
-                logger.debug("request: " + request);
-                // extract calling class and method from request
-                Context context = extractor.extract(request);
-                // invoke real method
-                Object responseObject = invoker.invoke(context);
-                logger.debug("***SingleThreadTcpRestServer - responseObject: " + responseObject);
-
-                // get returned object and encode it to string response
-                Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
-
-                writer.println(context.getConverter().encodeParam(responseMapper.objectToString(responseObject)));
+                
+                String response = processRequest(request);
+                                
+                writer.println(response);
                 writer.flush();
 
             }

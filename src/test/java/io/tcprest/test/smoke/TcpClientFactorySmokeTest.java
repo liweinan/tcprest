@@ -1,21 +1,21 @@
 package io.tcprest.test.smoke;
 
+import static junit.framework.Assert.assertEquals;
 import io.tcprest.client.TcpRestClientFactory;
 import io.tcprest.client.TcpRestClientProxy;
-import io.tcprest.server.SingleThreadTcpRestServer;
+import io.tcprest.server.NioTcpRestServer;
 import io.tcprest.server.TcpRestServer;
 import io.tcprest.test.Counter;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
 import io.tcprest.test.SingletonCounterResource;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.Random;
 
-import static junit.framework.Assert.assertEquals;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * @author Weinan Li
@@ -28,7 +28,8 @@ public class TcpClientFactorySmokeTest {
     @Before
     public void startTcpRestServer() throws Exception {
 
-        tcpRestServer = new SingleThreadTcpRestServer(Math.abs(new Random().nextInt()) % 10000 + 8000);
+//        tcpRestServer = new SingleThreadTcpRestServer(Math.abs(new Random().nextInt()) % 10000 + 8000);
+    	tcpRestServer = new NioTcpRestServer(Math.abs(new Random().nextInt()) % 10000 + 8000);
         tcpRestServer.up();
     }
 
