@@ -34,8 +34,7 @@ public class MapperSmokeTest extends TcpClientFactorySmokeTest {
 
 		TcpRestClientFactory factory = new TcpRestClientFactory(
 				HelloWorld.class, "localhost",
-				((SingleThreadTcpRestServer) tcpRestServer).getServerSocket()
-						.getLocalPort(), colorMapper);
+				tcpRestServer.getServerPort(), colorMapper);
 
 		HelloWorld client = (HelloWorld) factory.getInstance();
 		Color color = new Color("Red");
@@ -81,7 +80,7 @@ public class MapperSmokeTest extends TcpClientFactorySmokeTest {
 
 		TcpRestClientFactory factory = new TcpRestClientFactory(RawType.class,
 				"localhost", ((SingleThreadTcpRestServer) tcpRestServer)
-						.getServerSocket().getLocalPort());
+						.getServerPort());
 
 		RawType client = (RawType) factory.getInstance();
 		Color red = new Color("Red");

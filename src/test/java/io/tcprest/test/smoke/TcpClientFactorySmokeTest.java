@@ -46,7 +46,7 @@ public class TcpClientFactorySmokeTest {
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+                        tcpRestServer.getServerPort());
 
         HelloWorld client = (HelloWorld) factory.getInstance();
 
@@ -62,7 +62,7 @@ public class TcpClientFactorySmokeTest {
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+                        tcpRestServer.getServerPort());
 
         HelloWorld client = (HelloWorld) factory.getInstance();
         client.timeout();
@@ -76,7 +76,7 @@ public class TcpClientFactorySmokeTest {
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(Counter.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+                        tcpRestServer.getServerPort());
 
         Counter client = factory.getInstance();
         assertEquals(2, client.getCounter());
@@ -99,7 +99,7 @@ public class TcpClientFactorySmokeTest {
 
         HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
                 new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
-                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort()));
+                tcpRestServer.getServerPort()));
 
         assertEquals("Hello, world!", client.helloWorld());
         assertEquals("x,2,false", client.oneTwoThree("x", 2, false));
@@ -125,7 +125,7 @@ public class TcpClientFactorySmokeTest {
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(NullParam.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+                        tcpRestServer.getServerPort());
 
         NullParam client = factory.getInstance();
 
@@ -139,7 +139,7 @@ public class TcpClientFactorySmokeTest {
 
         HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
                 new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
-                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort()));
+                tcpRestServer.getServerPort()));
 
         String[] in = new String[]{"a", "b", "c"};
         String[] out = client.getArray(in);

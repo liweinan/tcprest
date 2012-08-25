@@ -43,4 +43,6 @@ public interface TcpRestServer {
     public Map<String, Mapper> getMappers();
 
     void addMapper(String canonicalName, Mapper mapper);
+
+    public int getServerPort();
 }

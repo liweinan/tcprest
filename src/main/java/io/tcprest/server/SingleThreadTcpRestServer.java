@@ -127,21 +127,21 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
                 Scanner scanner = new Scanner(reader);
 
                 writer = new PrintWriter(socket.getOutputStream());
-                while (scanner.hasNext()) {
-                    String request = scanner.nextLine();
-                    logger.debug("request: " + request);
-                    // extract calling class and method from request
-                    Context context = extractor.extract(request);
-                    // invoke real method
-                    Object responseObject = invoker.invoke(context);
-                    logger.debug("***SingleThreadTcpRestServer - responseObject: " + responseObject);
 
-                    // get returned object and encode it to string response
-                    Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
+                String request = scanner.nextLine();
+                logger.debug("request: " + request);
+                // extract calling class and method from request
+                Context context = extractor.extract(request);
+                // invoke real method
+                Object responseObject = invoker.invoke(context);
+                logger.debug("***SingleThreadTcpRestServer - responseObject: " + responseObject);
 
-                    writer.println(context.getConverter().encodeParam(responseMapper.objectToString(responseObject)));
-                    writer.flush();
-                }
+                // get returned object and encode it to string response
+                Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
+
+                writer.println(context.getConverter().encodeParam(responseMapper.objectToString(responseObject)));
+                writer.flush();
+
             }
         } catch (IOException e) {
 
@@ -189,8 +189,8 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         }
     }
 
-    public ServerSocket getServerSocket() {
-        return serverSocket;
+    public int getServerPort() {
+        return serverSocket.getLocalPort();
     }
 
     public void up() {

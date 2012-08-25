@@ -1,6 +1,6 @@
 package io.tcprest.client;
 
-import io.tcprest.annotations.ParamHandler;
+import io.tcprest.annotations.TimeoutAnnotationHandler;
 import io.tcprest.conveter.Converter;
 import io.tcprest.conveter.DefaultConverter;
 import io.tcprest.logger.Logger;
@@ -62,7 +62,7 @@ public class TcpRestClientProxy implements InvocationHandler {
 
         String request = converter.encode(method.getDeclaringClass(), method, params, mappers);
 
-        String response = tcpRestClient.sendRequest(request, ParamHandler.getTimeout(method));
+        String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
         logger.debug("respose: " + response);
         String respStr = converter.decodeParam(response);
 

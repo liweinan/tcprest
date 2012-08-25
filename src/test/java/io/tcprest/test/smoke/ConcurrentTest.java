@@ -1,7 +1,6 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
-import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
 
@@ -18,7 +17,7 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
 
         factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
+                        tcpRestServer.getServerPort());
 
         for (int i = 0; i < 100; i++) {
             Thread t = new Thread() {
