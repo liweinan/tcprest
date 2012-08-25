@@ -31,8 +31,7 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put("boolean", new BooleanMapper());
         DEFAULT_MAPPERS.put("integer", new IntegerMapper());
 
-        // Implicitly set all collections as serializable
-        // This may cause exceptions if user defined not serializable collections
+        // All collections are implicitly serializable
         DEFAULT_MAPPERS.put(Collection.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(Set.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(List.class.getCanonicalName(), new RawTypeMapper());
@@ -41,6 +40,7 @@ public class MapperHelper {
 
         DEFAULT_MAPPERS.put(NullObj.class.getCanonicalName(), new NullMapper());
 
+        // TODO add exception transfer
         DEFAULT_MAPPERS.put(Exception.class.getCanonicalName(), new ExceptionMapper());
 
     }
