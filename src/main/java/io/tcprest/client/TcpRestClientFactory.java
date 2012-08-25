@@ -1,6 +1,7 @@
 package io.tcprest.client;
 
 import io.tcprest.mapper.Mapper;
+import io.tcprest.server.SSLParam;
 
 import java.lang.reflect.Proxy;
 import java.util.Map;
@@ -15,6 +16,7 @@ public class TcpRestClientFactory {
     String host;
     int port;
     Map<String, Mapper> extraMappers;
+    SSLParam sslParam;
 
     public TcpRestClientFactory(Class<?> resourceClass, String host, int port) {
         this.resourceClass = resourceClass;
@@ -29,9 +31,17 @@ public class TcpRestClientFactory {
         this.extraMappers = extraMappers;
     }
 
+    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam) {
+        this.resourceClass = resourceClass;
+        this.host = host;
+        this.port = port;
+        this.extraMappers = extraMappers;
+        this.sslParam = sslParam;
+    }
+
     public <T> T getInstance() {
         return (T) Proxy.newProxyInstance(resourceClass.getClassLoader(),
-                new Class[]{resourceClass}, new TcpRestClientProxy(resourceClass.getCanonicalName(), host, port, extraMappers));
+                new Class[]{resourceClass}, new TcpRestClientProxy(resourceClass.getCanonicalName(), host, port, extraMappers, sslParam));
 
     }
 

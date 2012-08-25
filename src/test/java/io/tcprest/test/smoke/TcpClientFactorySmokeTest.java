@@ -12,7 +12,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.util.Random;
 
@@ -27,20 +26,20 @@ public class TcpClientFactorySmokeTest {
 
 
     @Before
-    public void startTcpRestServer() throws IOException {
+    public void startTcpRestServer() throws Exception {
 
         tcpRestServer = new SingleThreadTcpRestServer(Math.abs(new Random().nextInt()) % 10000 + 8000);
         tcpRestServer.up();
     }
 
     @After
-    public void stopTcpRestServer() throws IOException {
+    public void stopTcpRestServer() throws Exception {
         tcpRestServer.down();
     }
 
 
     @Test
-    public void testClient() throws IOException {
+    public void testClient() throws Exception {
 
         tcpRestServer.addResource(HelloWorldResource.class);
 
@@ -70,7 +69,7 @@ public class TcpClientFactorySmokeTest {
     }
 
     @Test
-    public void testSingletonResource() throws IOException {
+    public void testSingletonResource() throws Exception {
         Object instance = new SingletonCounterResource(2);
         tcpRestServer.addSingletonResource(instance);
 
@@ -93,7 +92,7 @@ public class TcpClientFactorySmokeTest {
     }
 
     @Test
-    public void testProxy() throws IOException {
+    public void testProxy() throws Exception {
 
         tcpRestServer.addResource(HelloWorldResource.class);
 

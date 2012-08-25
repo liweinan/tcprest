@@ -9,6 +9,7 @@ import io.tcprest.mapper.Mapper;
 import io.tcprest.mapper.MapperHelper;
 import io.tcprest.protocol.NullObj;
 import io.tcprest.protocol.TcpRestProtocol;
+import io.tcprest.server.SSLParam;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -30,7 +31,7 @@ public class TcpRestClientProxy implements InvocationHandler {
 
     private Converter converter = new DefaultConverter();
 
-    public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers) {
+    public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam) {
         //add default mappers
         mappers = MapperHelper.DEFAULT_MAPPERS;
 
@@ -38,8 +39,7 @@ public class TcpRestClientProxy implements InvocationHandler {
             mappers.putAll(extraMappers);
         }
 
-        tcpRestClient = new DefaultTcpRestClient(deletgatedClassName, host, port);
-
+        tcpRestClient = new DefaultTcpRestClient(sslParam, deletgatedClassName, host, port);
     }
 
     public void setMappers(Map<String, Mapper> mappers) {
@@ -51,7 +51,11 @@ public class TcpRestClientProxy implements InvocationHandler {
     }
 
     public TcpRestClientProxy(String deletgatedClassName, String host, int port) {
-        this(deletgatedClassName, host, port, null);
+        this(deletgatedClassName, host, port, null, null);
+    }
+
+    public TcpRestClientProxy(String deletgatedClassName, String host, int port, SSLParam sslParam) {
+        this(deletgatedClassName, host, port, null, sslParam);
     }
 
     public Object invoke(Object o, Method method, Object[] params) throws Throwable {

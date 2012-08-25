@@ -98,12 +98,16 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
         this.logger = logger;
     }
 
-    public SingleThreadTcpRestServer() throws IOException {
+    public SingleThreadTcpRestServer() throws Exception {
         this(TcpRestServerConfig.DEFAULT_PORT);
     }
 
-    public SingleThreadTcpRestServer(int port) throws IOException {
-        this(new ServerSocket(port));
+    public SingleThreadTcpRestServer(int port) throws Exception {
+        this(TcpRestServerFactory.getServerSocket(port, null));
+    }
+
+    public SingleThreadTcpRestServer(int port, SSLParam sslParam) throws Exception {
+        this(TcpRestServerFactory.getServerSocket(port, sslParam));
     }
 
     public SingleThreadTcpRestServer(ServerSocket socket) {

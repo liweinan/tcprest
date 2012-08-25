@@ -16,10 +16,7 @@ public interface TcpRestClient {
      * @return The un-processed response from server
      * @throws IOException
      */
-    public String sendRequest(String request, int timeout) throws IOException;
+    public String sendRequest(String request, int timeout) throws Exception;
 
     public String getDeletgatedClassName();
-
-
-
 }

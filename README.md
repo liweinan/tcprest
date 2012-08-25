@@ -32,6 +32,35 @@ And then you could call the server like using ordinary java class:
 
 TcpRest will handle all the rest of the work for you.
 
+## SSL Support
+
+TcpRest supports SSL in communication level and it's very easy to use. You can use SSLParam to configure your server and client. Here is an example for two way handshake:
+
+    SSLParam serverSSLParam = new SSLParam();
+    serverSSLParam.setTrustStorePath("/Users/weli/projs/tcprest/src/main/resources/server_ks");
+    serverSSLParam.setKeyStorePath("/Users/weli/projs/tcprest/src/main/resources/server_ks");
+    serverSSLParam.setKeyStoreKeyPass("123123");
+    serverSSLParam.setNeedClientAuth(true);
+
+You can register your SSL settings into TcpRestServer:
+
+    tcpRestServer = new SingleThreadTcpRestServer(8443, serverSSLParam);
+
+Client side configuration is similar to server side, all the extra work you need to do is to create a SSLParam and put your settings in:
+
+	SSLParam clientSSLParam = new SSLParam();
+	clientSSLParam.setTrustStorePath("/Users/weli/projs/tcprest/src/main/resources/client_ks");
+	clientSSLParam.setKeyStorePath("/Users/weli/projs/tcprest/src/main/resources/client_ks");
+	clientSSLParam.setKeyStoreKeyPass("456456");
+	clientSSLParam.setNeedClientAuth(true);
+
+Then you can register the settings into TcpRestClientFactory:
+
+    TcpRestClientFactory factory =
+            new TcpRestClientFactory(HelloWorld.class, "localhost", tcpRestServer.getServerPort(), extraMappers, clientSSLParam);
+
+Now your client and server will use SSL to communicate.
+
 ## Design
 
 ### Zero Dependency

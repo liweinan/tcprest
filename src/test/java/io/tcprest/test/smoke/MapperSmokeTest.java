@@ -44,12 +44,12 @@ public class MapperSmokeTest extends TcpClientFactorySmokeTest {
 
 	@Test
 	public void testArrayListMapper() {
-		List l = new ArrayList();
-		l.add(1);
-		l.add(2);
-		l.add(3);
+		List list = new ArrayList();
+		list.add(1);
+		list.add(2);
+		list.add(3);
 		RawTypeMapper mapper = new RawTypeMapper();
-		System.out.println(mapper.objectToString(l));
+		System.out.println(mapper.objectToString(list));
 	}
 
 	public interface RawType {

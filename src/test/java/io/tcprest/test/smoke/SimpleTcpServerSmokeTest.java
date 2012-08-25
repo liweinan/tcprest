@@ -30,7 +30,7 @@ public class SimpleTcpServerSmokeTest {
 
 
     @Before
-    public void startTcpRestServer() throws IOException {
+    public void startTcpRestServer() throws Exception {
         int port = Math.abs(new Random().nextInt()) % 10000 + 8000;
         tcpRestServer = new SingleThreadTcpRestServer(port);
         tcpRestServer.up();

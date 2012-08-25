@@ -2,8 +2,6 @@ package io.tcprest.test.smoke;
 
 import io.tcprest.conveter.Converter;
 import io.tcprest.conveter.DefaultConverter;
-import io.tcprest.exception.MapperNotFoundException;
-import io.tcprest.exception.ParseException;
 import io.tcprest.extractor.DefaultExtractor;
 import io.tcprest.extractor.Extractor;
 import io.tcprest.invoker.DefaultInvoker;
@@ -13,8 +11,6 @@ import io.tcprest.server.Context;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.test.HelloWorldResource;
 import org.junit.Test;
-
-import java.io.IOException;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
@@ -27,7 +23,7 @@ import static junit.framework.Assert.assertNotNull;
 public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
     @Test
-    public void testDefaultExtractAndInvoke() throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InstantiationException, IOException, ParseException, MapperNotFoundException {
+    public void testDefaultExtractAndInvoke() throws Exception {
         SingleThreadTcpRestServer server = new SingleThreadTcpRestServer();
         server.addResource(HelloWorldResource.class);
         Extractor extractor = new DefaultExtractor(server);
