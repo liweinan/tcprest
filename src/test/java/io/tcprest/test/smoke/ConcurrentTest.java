@@ -3,6 +3,9 @@ package io.tcprest.test.smoke;
 import io.tcprest.client.TcpRestClientFactory;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author Weinan Li
@@ -12,6 +15,7 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
 
     private TcpRestClientFactory factory;
 
+    @Test
     public void multipleClientsTest() {
         tcpRestServer.addResource(HelloWorldResource.class);
 
@@ -25,14 +29,13 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
                 public void run() {
                     try {
                         HelloWorld client = (HelloWorld) factory.getInstance();
-                        client.helloWorld();
+                        assertEquals("Hello, world!", client.helloWorld());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
             };
             t.start();
-
         }
     }
 }
