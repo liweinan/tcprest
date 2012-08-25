@@ -51,8 +51,6 @@ public class TcpClientFactorySmokeTest {
 
         assertEquals("Hello, world!", client.helloWorld());
         assertEquals("a,2,true123.0111", client.allTypes("a", 2, true, (short) 1, 2L, 3.0, (byte) 'o'));
-
-//        assertEquals("Hello, 张三", client.sayHelloTo("张三"));
     }
 
     @Test(expected = Exception.class)
@@ -145,7 +143,5 @@ public class TcpClientFactorySmokeTest {
         for (int i = 0; i < in.length; i++) {
             assertEquals(in[i], out[i]);
         }
-
-
     }
 }
