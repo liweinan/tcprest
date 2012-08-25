@@ -13,7 +13,7 @@ import java.security.KeyStore;
  * @author Weinan Li
  * @created_at 08 25 2012
  */
-public class TcpRestServerFactory {
+public class TcpRestServerSocketFactory {
 
     public static ServerSocket getServerSocket(int port, SSLParam sslParam) throws Exception {
         if (sslParam == null)

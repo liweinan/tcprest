@@ -104,11 +104,11 @@ public class SingleThreadTcpRestServer extends Thread implements TcpRestServer {
     }
 
     public SingleThreadTcpRestServer(int port) throws Exception {
-        this(TcpRestServerFactory.getServerSocket(port, null));
+        this(TcpRestServerSocketFactory.getServerSocket(port, null));
     }
 
     public SingleThreadTcpRestServer(int port, SSLParam sslParam) throws Exception {
-        this(TcpRestServerFactory.getServerSocket(port, sslParam));
+        this(TcpRestServerSocketFactory.getServerSocket(port, sslParam));
     }
 
     public SingleThreadTcpRestServer(ServerSocket socket) {

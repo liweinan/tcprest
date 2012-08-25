@@ -24,12 +24,6 @@ public class DefaultTcpRestClient implements TcpRestClient {
     private int port;
     private SSLParam sslParam;
 
-    public DefaultTcpRestClient(String deletgatedClassName, String host, int port) {
-        this.deletgatedClassName = deletgatedClassName;
-        this.host = host;
-        this.port = port;
-    }
-
     public DefaultTcpRestClient(SSLParam sslParam, String deletgatedClassName, String host, int port) {
         this.deletgatedClassName = deletgatedClassName;
         this.host = host;
@@ -48,7 +42,6 @@ public class DefaultTcpRestClient implements TcpRestClient {
         return response;
     }
 
-
     public String sendRequest(String request, int timeout) throws Exception {
         if (sslParam == null) {
             Socket clientSocket = new Socket(host, port);
@@ -63,9 +56,9 @@ public class DefaultTcpRestClient implements TcpRestClient {
         System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParam.getTrustStorePath()));
         Socket socket = null;
         if (sslParam.isNeedClientAuth()) {
-            socket = clientWithCert(sslParam, host, port, timeout);
+            socket = sslClientWithCert(sslParam, host, port, timeout);
         } else {
-            socket = clientWithoutCert(host, port, timeout);
+            socket = sslClientWithoutCert(host, port, timeout);
         }
 
         return sendRequest(request, socket);
@@ -75,7 +68,7 @@ public class DefaultTcpRestClient implements TcpRestClient {
         return deletgatedClassName;
     }
 
-    private Socket clientWithoutCert(String host, int port, int timeout) throws Exception {
+    private Socket sslClientWithoutCert(String host, int port, int timeout) throws Exception {
         SocketFactory sf = SSLSocketFactory.getDefault();
         Socket socket = sf.createSocket(host, port);
         if (timeout > 0)
@@ -83,7 +76,7 @@ public class DefaultTcpRestClient implements TcpRestClient {
         return socket;
     }
 
-    private Socket clientWithCert(SSLParam sslParam, String host, int port, int timeout) throws Exception {
+    private Socket sslClientWithCert(SSLParam sslParam, String host, int port, int timeout) throws Exception {
         SSLContext context = SSLContext.getInstance("TLS");
         KeyStore ks = KeyStore.getInstance("jceks");
 

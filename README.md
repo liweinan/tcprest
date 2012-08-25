@@ -99,11 +99,11 @@ Note:
 
 For ordinary resources(non-singleton), you must provide a constructor with no parameters. Here is an example:
 
-	    public HelloWorldResource();
+    public HelloWorldResource();
 
 If you only have constructor like:
 
-	    public HelloWorldResource(String arg);
+    public HelloWorldResource(String arg);
 
 Adding resource to server will cause problem:
 
