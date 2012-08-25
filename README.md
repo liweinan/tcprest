@@ -37,8 +37,8 @@ TcpRest will handle all the rest of the work for you.
 TcpRest supports SSL in communication level and it's very easy to use. You can use SSLParam to configure your server and client, and here is an example for two way handshake. First you need to configure server to use your SSL materials by creating a SSLParam instance:
 
     SSLParam serverSSLParam = new SSLParam();
-    serverSSLParam.setTrustStorePath("/Users/weli/projs/tcprest/src/main/resources/server_ks");
-    serverSSLParam.setKeyStorePath("/Users/weli/projs/tcprest/src/main/resources/server_ks");
+    serverSSLParam.setTrustStorePath("classpath:server_ks");
+    serverSSLParam.setKeyStorePath("classpath:server_ks");
     serverSSLParam.setKeyStoreKeyPass("123123");
     serverSSLParam.setNeedClientAuth(true);
 
@@ -49,8 +49,8 @@ Then you can register it into TcpRestServer:
 Client side configuration is similar to server side, all the extra work you need to do is to create a SSLParam and put your settings in:
 
 	SSLParam clientSSLParam = new SSLParam();
-	clientSSLParam.setTrustStorePath("/Users/weli/projs/tcprest/src/main/resources/client_ks");
-	clientSSLParam.setKeyStorePath("/Users/weli/projs/tcprest/src/main/resources/client_ks");
+	clientSSLParam.setTrustStorePath("classpath:client_ks");
+	clientSSLParam.setKeyStorePath("classpath:client_ks");
 	clientSSLParam.setKeyStoreKeyPass("456456");
 	clientSSLParam.setNeedClientAuth(true);
 

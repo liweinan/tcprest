@@ -9,7 +9,7 @@ import io.tcprest.mapper.Mapper;
 import io.tcprest.mapper.MapperHelper;
 import io.tcprest.protocol.NullObj;
 import io.tcprest.protocol.TcpRestProtocol;
-import io.tcprest.server.SSLParam;
+import io.tcprest.ssl.SSLParam;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;

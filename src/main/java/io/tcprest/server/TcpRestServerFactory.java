@@ -1,9 +1,11 @@
 package io.tcprest.server;
 
+import io.tcprest.commons.PropertyProcessor;
+import io.tcprest.ssl.SSLParam;
+
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLServerSocket;
-import java.io.FileInputStream;
 import java.net.ServerSocket;
 import java.security.KeyStore;
 
@@ -18,11 +20,11 @@ public class TcpRestServerFactory {
             return new ServerSocket(port);
 
         System.setProperty("javax.net.debug", "ssl,handshake");
-        System.setProperty("javax.net.ssl.trustStore", sslParam.getTrustStorePath());
+        System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParam.getTrustStorePath()));
         javax.net.ssl.SSLContext context = javax.net.ssl.SSLContext.getInstance("TLS");
 
         KeyStore ks = KeyStore.getInstance("jceks");
-        ks.load(new FileInputStream(sslParam.getKeyStorePath()), null);
+        ks.load(PropertyProcessor.getFileInputStream(sslParam.getKeyStorePath()), null);
         KeyManagerFactory kf = KeyManagerFactory.getInstance("SunX509");
         kf.init(ks, sslParam.getKeyStoreKeyPass().toCharArray());
 

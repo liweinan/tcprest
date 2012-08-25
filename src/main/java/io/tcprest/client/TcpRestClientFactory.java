@@ -1,7 +1,7 @@
 package io.tcprest.client;
 
 import io.tcprest.mapper.Mapper;
-import io.tcprest.server.SSLParam;
+import io.tcprest.ssl.SSLParam;
 
 import java.lang.reflect.Proxy;
 import java.util.Map;

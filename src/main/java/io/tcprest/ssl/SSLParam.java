@@ -1,4 +1,4 @@
-package io.tcprest.server;
+package io.tcprest.ssl;
 
 /**
  * @author Weinan Li

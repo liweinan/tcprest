@@ -10,6 +10,7 @@ import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
 import io.tcprest.mapper.Mapper;
 import io.tcprest.mapper.MapperHelper;
+import io.tcprest.ssl.SSLParam;
 
 import java.io.BufferedReader;
 import java.io.IOException;

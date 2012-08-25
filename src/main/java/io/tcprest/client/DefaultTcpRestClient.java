@@ -1,12 +1,16 @@
 package io.tcprest.client;
 
-import io.tcprest.server.SSLParam;
+import io.tcprest.commons.PropertyProcessor;
+import io.tcprest.ssl.SSLParam;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.KeyStore;
 
@@ -56,7 +60,7 @@ public class DefaultTcpRestClient implements TcpRestClient {
         }
 
         // Set the key store to use for validating the server cert.
-        System.setProperty("javax.net.ssl.trustStore", sslParam.getTrustStorePath());
+        System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParam.getTrustStorePath()));
         Socket socket = null;
         if (sslParam.isNeedClientAuth()) {
             socket = clientWithCert(sslParam, host, port, timeout);
@@ -83,7 +87,8 @@ public class DefaultTcpRestClient implements TcpRestClient {
         SSLContext context = SSLContext.getInstance("TLS");
         KeyStore ks = KeyStore.getInstance("jceks");
 
-        ks.load(new FileInputStream(sslParam.getKeyStorePath()), null);
+        FileInputStream fi = PropertyProcessor.getFileInputStream(sslParam.getKeyStorePath());
+        ks.load(fi, null);
         KeyManagerFactory kf = KeyManagerFactory.getInstance("SunX509");
         kf.init(ks, sslParam.getKeyStoreKeyPass().toCharArray());
         context.init(kf.getKeyManagers(), null, null);

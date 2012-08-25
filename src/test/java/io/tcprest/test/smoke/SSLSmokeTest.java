@@ -1,7 +1,7 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
-import io.tcprest.server.SSLParam;
+import io.tcprest.ssl.SSLParam;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
 import io.tcprest.test.HelloWorld;
@@ -24,8 +24,8 @@ public class SSLSmokeTest {
     @Before
     public void startTcpRestServer() throws Exception {
         SSLParam serverSSLParam = new SSLParam();
-        serverSSLParam.setTrustStorePath("/Users/weli/projs/tcprest/src/main/resources/server_ks");
-        serverSSLParam.setKeyStorePath("/Users/weli/projs/tcprest/src/main/resources/server_ks");
+        serverSSLParam.setTrustStorePath("classpath:server_ks");
+        serverSSLParam.setKeyStorePath("classpath:server_ks");
         serverSSLParam.setKeyStoreKeyPass("123123");
         serverSSLParam.setNeedClientAuth(true);
 
@@ -44,8 +44,8 @@ public class SSLSmokeTest {
         tcpRestServer.addResource(HelloWorldResource.class);
 
         SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("/Users/weli/projs/tcprest/src/main/resources/client_ks");
-        clientSSLParam.setKeyStorePath("/Users/weli/projs/tcprest/src/main/resources/client_ks");
+        clientSSLParam.setTrustStorePath("classpath:client_ks");
+        clientSSLParam.setKeyStorePath("classpath:client_ks");
         clientSSLParam.setKeyStoreKeyPass("456456");
         clientSSLParam.setNeedClientAuth(true);
 
