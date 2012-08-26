@@ -39,9 +39,9 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         return ssc.socket().getLocalPort();
     }
 
-    public void up() {
+    public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
-        new Thread() {
+        Thread t = new Thread() {
             public void run() {
                 try {
                     Selector sel = Selector.open();
@@ -97,7 +97,21 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                 }
 
             }
-        }.start();
+        };
+        t.setDaemon(setDaemon);
+        t.start();
+        try {
+            if (t.isDaemon()) {
+                // TODO add logic that could let server down in daemon mode
+                t.join(); // hold current thread, don't let it quit
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+    }
+
+    public void up() {
+        up(false);
     }
 
     /**
@@ -143,10 +157,12 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                 drainCharBuf(cb, builder);
             }
         }
-        // Flush any remaining state from the decoder, being careful // to detect output buffer overflow(s)
+        // Flush any remaining state from the decoder, being careful
+        // to detect output buffer overflow(s)
         while (decoder.flush(cb) == CoderResult.OVERFLOW) {
             drainCharBuf(cb, builder);
         }
+
         // Drain any chars remaining in the output buffer
         drainCharBuf(cb, builder);
     }
@@ -163,8 +179,9 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
      */
     private static void drainCharBuf(CharBuffer cb, StringBuilder builder)
             throws IOException {
-        cb.flip();
         // Prepare buffer for draining
+        cb.flip();
+
         // This writes the chars contained in the CharBuffer but
         // doesn't actually modify the state of the buffer.
         // If the char buffer was being drained by calls to get(),
@@ -176,10 +193,29 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
     }
 
     public void down() {
+        // todo All the already opened channels are not closed properly
         status = TcpRestServerStatus.CLOSING;
         try {
             ssc.close();
         } catch (IOException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+    }
+
+    /**
+     * Use following command to start:
+     * <pre>
+     * mvn -q exec:java -Dexec.mainClass="io.tcprest.server.NioTcpRestServer"
+     * </pre>
+     */
+    public static void main(String args[]) {
+        // todo add config processing code that could load resources
+        NioTcpRestServer server = null;
+        try {
+            // fixme
+            server = new NioTcpRestServer();
+            server.up(true);
+        } catch (Exception e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
     }
