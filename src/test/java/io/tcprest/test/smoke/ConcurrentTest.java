@@ -16,7 +16,7 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
 
     private TcpRestClientFactory factory;
 
-    private static final int THREAD_NUM = 50;
+    private static final int THREAD_NUM = 100;
 
     @Test
     public void multipleClientsTest() throws Exception {
