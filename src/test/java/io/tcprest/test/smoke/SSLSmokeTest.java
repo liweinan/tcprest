@@ -1,18 +1,17 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
-import io.tcprest.ssl.SSLParam;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
+import io.tcprest.ssl.SSLParam;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import java.util.Random;
-
-import static org.junit.Assert.assertEquals;
 
 /**
  * @author Weinan Li
@@ -21,7 +20,7 @@ import static org.junit.Assert.assertEquals;
 public class SSLSmokeTest {
     protected TcpRestServer tcpRestServer;
 
-    @Before
+    @BeforeMethod
     public void startTcpRestServer() throws Exception {
         SSLParam serverSSLParam = new SSLParam();
         serverSSLParam.setTrustStorePath("classpath:server_ks");
@@ -33,7 +32,7 @@ public class SSLSmokeTest {
         tcpRestServer.up();
     }
 
-    @After
+    @AfterMethod
     public void stopTcpRestServer() throws Exception {
         tcpRestServer.down();
     }
@@ -54,7 +53,7 @@ public class SSLSmokeTest {
 
         HelloWorld client = (HelloWorld) factory.getInstance();
 
-        assertEquals("Hello, World", client.sayHelloTo("World"));
+        Assert.assertEquals("Hello, World", client.sayHelloTo("World"));
 
     }
 }

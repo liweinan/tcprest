@@ -1,7 +1,6 @@
 package io.tcprest.test.sandbox;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 /**
  * @author Weinan Li
@@ -9,8 +8,7 @@ import org.junit.Test;
  */
 public class ClassPathTest {
 
-    @Test
-    @Ignore
+    @Test(enabled=false)
     public void testClasspath() {
         System.out.println(System.getProperty("java.class.path"));
     }

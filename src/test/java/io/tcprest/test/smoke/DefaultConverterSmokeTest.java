@@ -6,7 +6,7 @@ import io.tcprest.exception.MapperNotFoundException;
 import io.tcprest.mapper.MapperHelper;
 import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.test.HelloWorldResource;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import static junit.framework.Assert.assertEquals;
 

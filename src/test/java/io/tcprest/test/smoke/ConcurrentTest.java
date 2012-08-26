@@ -1,63 +1,78 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
+import io.tcprest.server.NioTcpRestServer;
+import io.tcprest.server.SingleThreadTcpRestServer;
+import io.tcprest.server.TcpRestServer;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Factory;
+import org.testng.annotations.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 /**
  * @author Weinan Li
  * @date 08 06 2012
  */
-public class ConcurrentTest extends TcpClientFactorySmokeTest {
+public class ConcurrentTest {
 
-    private TcpRestClientFactory factory;
+    public ConcurrentTest(TcpRestServer tcpRestServer) {
+        this.tcpRestServer = tcpRestServer;
+    }
 
-    private static final int THREAD_NUM = 100;
+    @BeforeTest
+    public void startTcpRestServer()
+            throws Exception {
+        tcpRestServer.up();
+    }
+
+    @AfterTest
+    public void stopTcpRestServer()
+            throws Exception {
+        tcpRestServer.down();
+    }
+
+    @Factory
+    public static Object[] create()
+            throws Exception {
+        List result = new ArrayList();
+        result.add(new ConcurrentTest(new SingleThreadTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
+        result.add(new ConcurrentTest(new NioTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
+        return result.toArray();
+    }
 
     @Test
-    public void multipleClientsTest() throws Exception {
-        long singleThreadServerUsedTime = 0;
-        long nioServerUsedTime = 0;
+    public void multipleClientsTest()
+            throws Exception {
+        Thread threads[] = new Thread[100];
+        System.out.println((new StringBuilder()).append("-----------------------------------").append(tcpRestServer.getClass().getCanonicalName()).append("--------------------------------").toString());
+        tcpRestServer.addResource(HelloWorldResource.class);
+        factory = new TcpRestClientFactory(HelloWorld.class, "localhost", tcpRestServer.getServerPort());
+        for (int n = 0; n < 100; n++) {
+            threads[n] = new Thread() {
+                public void run() {
+                    HelloWorld client = (HelloWorld) factory.getInstance();
+                    Assert.assertEquals("Hello, world!", client.helloWorld());
+                }
+            };
 
-        for (int i = 0; i < 2; i++) {
-            long start = System.currentTimeMillis();
-            Thread[] threads = new Thread[THREAD_NUM];
-            System.out.println("-----------------------------------" + testServers[i].getClass().getCanonicalName() + "--------------------------------");
-            testServers[i].addResource(HelloWorldResource.class);
-
-            factory =
-                    new TcpRestClientFactory(HelloWorld.class, "localhost",
-                            testServers[i].getServerPort());
-
-            for (int n = 0; n < THREAD_NUM; n++) {
-                threads[n] = new Thread() {
-                    @Override
-                    public void run() {
-                        HelloWorld client = (HelloWorld) factory.getInstance();
-                        assertEquals("Hello, world!", client.helloWorld());
-                    }
-                };
-                threads[n].start();
-            }
-
-            for (Thread t : threads) {
-                t.join();
-            }
-            if (i == 0)
-                singleThreadServerUsedTime = System.currentTimeMillis() - start;
-            else
-                nioServerUsedTime = System.currentTimeMillis() - start;
-
+            threads[n].start();
         }
-        System.out.println("singleThreadServerUsedTime: " + singleThreadServerUsedTime);
-        System.out.println("nioServerUsedTime: " + nioServerUsedTime);
 
-        // NioServer should be faster than SingleThreadServer
-        assertTrue((nioServerUsedTime - singleThreadServerUsedTime) < 0);
+        for (int n = 0; n < 100; n++) {
+            threads[n].join();
+        }
 
     }
+
+    private TcpRestClientFactory factory;
+    private static final int THREAD_NUM = 100;
+    protected TcpRestServer tcpRestServer;
+
 }

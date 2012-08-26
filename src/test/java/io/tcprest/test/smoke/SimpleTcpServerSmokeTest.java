@@ -6,9 +6,10 @@ import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
 import io.tcprest.test.HelloWorldResource;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -16,8 +17,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Random;
-
-import static org.junit.Assert.assertEquals;
 
 /**
  * @author Weinan Li
@@ -29,7 +28,7 @@ public class SimpleTcpServerSmokeTest {
     protected Socket clientSocket;
 
 
-    @Before
+    @BeforeMethod
     public void startTcpRestServer() throws Exception {
         int port = Math.abs(new Random().nextInt()) % 10000 + 8000;
         tcpRestServer = new SingleThreadTcpRestServer(port);
@@ -37,7 +36,7 @@ public class SimpleTcpServerSmokeTest {
         clientSocket = new Socket("localhost", port);
     }
 
-    @After
+    @AfterMethod
     public void stopTcpRestServer() throws IOException {
         tcpRestServer.down();
         clientSocket.close();
@@ -55,7 +54,7 @@ public class SimpleTcpServerSmokeTest {
         writer.flush();
 
         String response = reader.readLine();
-        assertEquals("Hello, world!", converter.decodeParam(response));
+        Assert.assertEquals("Hello, world!", converter.decodeParam(response));
 
     }
 
@@ -71,7 +70,7 @@ public class SimpleTcpServerSmokeTest {
 
         String response = reader.readLine();
 
-        assertEquals("Hello, Jack!", converter.decodeParam(response));
+        Assert.assertEquals("Hello, Jack!", converter.decodeParam(response));
 
     }
 
@@ -92,7 +91,7 @@ public class SimpleTcpServerSmokeTest {
         writer.flush();
 
         String response = reader.readLine();
-        assertEquals("One,2,true", converter.decodeParam(response));
+        Assert.assertEquals("One,2,true", converter.decodeParam(response));
 
     }
 

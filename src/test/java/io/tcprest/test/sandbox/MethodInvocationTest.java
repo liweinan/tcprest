@@ -1,13 +1,13 @@
 package io.tcprest.test.sandbox;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+
 
 /**
  * @author Weinan Li
@@ -27,8 +27,7 @@ public class MethodInvocationTest {
         }
     }
 
-    @Ignore
-    @Test
+    @Test(enabled=false)
     public void testMethodInvocation() throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
         {
             Object obj = ABC.class.newInstance();
@@ -49,5 +48,7 @@ public class MethodInvocationTest {
             }
         }
     }
+
+
 
 }

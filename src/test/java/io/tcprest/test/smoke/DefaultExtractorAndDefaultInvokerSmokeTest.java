@@ -10,7 +10,7 @@ import io.tcprest.protocol.TcpRestProtocol;
 import io.tcprest.server.Context;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.test.HelloWorldResource;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;

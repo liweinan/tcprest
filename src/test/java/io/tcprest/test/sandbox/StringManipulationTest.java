@@ -1,8 +1,7 @@
 package io.tcprest.test.sandbox;
 
 import io.tcprest.protocol.TcpRestProtocol;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import static junit.framework.Assert.assertEquals;
 
@@ -12,8 +11,7 @@ import static junit.framework.Assert.assertEquals;
  */
 public class StringManipulationTest {
 
-    @Ignore
-    @Test
+    @Test(enabled=false)
     public void testIndexOf() {
         String str = "abc";
         int idx = str.indexOf('/');

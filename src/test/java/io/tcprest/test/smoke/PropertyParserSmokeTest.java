@@ -1,9 +1,10 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.commons.PropertyParser;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * @author Weinan Li

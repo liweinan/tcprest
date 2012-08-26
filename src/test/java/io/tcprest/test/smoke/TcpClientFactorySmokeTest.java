@@ -9,11 +9,11 @@ import io.tcprest.test.Counter;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
 import io.tcprest.test.SingletonCounterResource;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.annotations.*;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import static junit.framework.Assert.assertEquals;
@@ -23,49 +23,51 @@ import static junit.framework.Assert.assertEquals;
  * @date Jul 30 2012
  */
 public class TcpClientFactorySmokeTest {
-    protected SingleThreadTcpRestServer singleThreadTcpRestServer;
-    protected NioTcpRestServer nioTcpRestServer;
-    protected TcpRestServer[] testServers;
+    protected TcpRestServer tcpRestServer;
 
-    @Before
-    public void startTcpRestServer() throws Exception {
-
-        singleThreadTcpRestServer = new SingleThreadTcpRestServer(Math.abs(new Random().nextInt()) % 10000 + 8000);
-        nioTcpRestServer = new NioTcpRestServer(Math.abs(new Random().nextInt()) % 10000 + 8000);
-        singleThreadTcpRestServer.up();
-        nioTcpRestServer.up();
-
-        testServers = new TcpRestServer[]{singleThreadTcpRestServer, nioTcpRestServer};
+    public TcpClientFactorySmokeTest(TcpRestServer tcpRestServer) {
+        this.tcpRestServer = tcpRestServer;
     }
 
-    @After
+    @Factory
+    public static Object[] create()
+            throws Exception {
+        List result = new ArrayList();
+        result.add(new TcpClientFactorySmokeTest(new SingleThreadTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
+        result.add(new TcpClientFactorySmokeTest(new NioTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
+        return result.toArray();
+    }
+
+    @BeforeTest
+    public void startTcpRestServer() throws Exception {
+        tcpRestServer.up();
+    }
+
+    @AfterTest
     public void stopTcpRestServer() throws Exception {
-        singleThreadTcpRestServer.down();
-        nioTcpRestServer.down();
+        tcpRestServer.down();
     }
 
 
     @Test
     public void testClient() throws Exception {
 
-        for (TcpRestServer tcpRestServer : testServers) {
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
-            tcpRestServer.addResource(HelloWorldResource.class);
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        tcpRestServer.addResource(HelloWorldResource.class);
 
-            TcpRestClientFactory factory =
-                    new TcpRestClientFactory(HelloWorld.class, "localhost",
-                            tcpRestServer.getServerPort());
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(HelloWorld.class, "localhost",
+                        tcpRestServer.getServerPort());
 
-            HelloWorld client = (HelloWorld) factory.getInstance();
+        HelloWorld client = (HelloWorld) factory.getInstance();
 
-            assertEquals("Hello, world!", client.helloWorld());
-            assertEquals("a,2,true123.0111", client.allTypes("a", 2, true, (short) 1, 2L, 3.0, (byte) 'o'));
-        }
+        assertEquals("Hello, world!", client.helloWorld());
+        assertEquals("a,2,true123.0111", client.allTypes("a", 2, true, (short) 1, 2L, 3.0, (byte) 'o'));
     }
 
-    @Test(expected = Exception.class)
+
+    @Test(expectedExceptions = Exception.class)
     public void clientSideTimeoutTest() {
-        TcpRestServer tcpRestServer = singleThreadTcpRestServer;
         System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
 
         tcpRestServer.addResource(HelloWorldResource.class);
@@ -79,63 +81,46 @@ public class TcpClientFactorySmokeTest {
 
     }
 
-    @Test(expected = Exception.class)
-    public void clientSideTimeoutNioTcpRestServerTest() {
-        TcpRestServer tcpRestServer = nioTcpRestServer;
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
-
-        tcpRestServer.addResource(HelloWorldResource.class);
-
-        TcpRestClientFactory factory =
-                new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        tcpRestServer.getServerPort());
-
-        HelloWorld client = (HelloWorld) factory.getInstance();
-        client.timeout();
-
-    }
 
     @Test
     public void testSingletonResource() throws Exception {
-        for (TcpRestServer tcpRestServer : testServers) {
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
 
-            Object instance = new SingletonCounterResource(2);
-            tcpRestServer.addSingletonResource(instance);
+        Object instance = new SingletonCounterResource(2);
+        tcpRestServer.addSingletonResource(instance);
 
-            TcpRestClientFactory factory =
-                    new TcpRestClientFactory(Counter.class, "localhost",
-                            tcpRestServer.getServerPort());
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(Counter.class, "localhost",
+                        tcpRestServer.getServerPort());
 
-            Counter client = factory.getInstance();
-            assertEquals(2, client.getCounter());
+        Counter client = factory.getInstance();
+        assertEquals(2, client.getCounter());
 
-            client.increaseCounter();
-            assertEquals(3, client.getCounter());
+        client.increaseCounter();
+        assertEquals(3, client.getCounter());
 
-            tcpRestServer.deleteSingletonResource(instance);
+        tcpRestServer.deleteSingletonResource(instance);
 
-            tcpRestServer.addResource(SingletonCounterResource.class);
-            assertEquals(0, client.getCounter());
-            client.increaseCounter();
-            assertEquals(0, client.getCounter());
-        }
+        tcpRestServer.addResource(SingletonCounterResource.class);
+        assertEquals(0, client.getCounter());
+        client.increaseCounter();
+        assertEquals(0, client.getCounter());
     }
+
 
     @Test
     public void testProxy() throws Exception {
-        for (TcpRestServer tcpRestServer : testServers) {
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
 
-            tcpRestServer.addResource(HelloWorldResource.class);
+        tcpRestServer.addResource(HelloWorldResource.class);
 
-            HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
-                    new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
-                    tcpRestServer.getServerPort()));
+        HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
+                new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
+                tcpRestServer.getServerPort()));
 
-            assertEquals("Hello, world!", client.helloWorld());
-            assertEquals("x,2,false", client.oneTwoThree("x", 2, false));
-        }
+        assertEquals("Hello, world!", client.helloWorld());
+        assertEquals("x,2,false", client.oneTwoThree("x", 2, false));
+
     }
 
     private interface NullParam {
@@ -155,59 +140,56 @@ public class TcpClientFactorySmokeTest {
 
     @Test
     public void testNullParameter() {
-        for (TcpRestServer tcpRestServer : testServers) {
 
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
 
-            tcpRestServer.addSingletonResource(new NullParamResource());
+        tcpRestServer.addSingletonResource(new NullParamResource());
 
-            TcpRestClientFactory factory =
-                    new TcpRestClientFactory(NullParam.class, "localhost",
-                            tcpRestServer.getServerPort());
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(NullParam.class, "localhost",
+                        tcpRestServer.getServerPort());
 
-            NullParam client = factory.getInstance();
+        NullParam client = factory.getInstance();
 
 
-            assertEquals("onetwo", client.nullMethod("one", null, "two"));
-        }
+        assertEquals("onetwo", client.nullMethod("one", null, "two"));
+
     }
 
     @Test
     public void testArray() {
-        for (TcpRestServer tcpRestServer : testServers) {
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
-            tcpRestServer.addSingletonResource(new HelloWorldResource());
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        tcpRestServer.addSingletonResource(new HelloWorldResource());
 
-            HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
-                    new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
-                    tcpRestServer.getServerPort()));
+        HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
+                new Class[]{HelloWorld.class}, new TcpRestClientProxy(HelloWorld.class.getCanonicalName(), "localhost",
+                tcpRestServer.getServerPort()));
 
-            String[] in = new String[]{"a", "b", "c"};
-            String[] out = client.getArray(in);
-            for (int i = 0; i < in.length; i++) {
-                assertEquals(in[i], out[i]);
-            }
+        String[] in = new String[]{"a", "b", "c"};
+        String[] out = client.getArray(in);
+        for (int i = 0; i < in.length; i++) {
+            assertEquals(in[i], out[i]);
         }
     }
+
 
     @Test
     public void largeDataTest() {
         StringBuilder builder = new StringBuilder();
         String[] alpha = {"a", "b", "c", "d", "e", "f"};
-        for (int i = 0; i <1024*10; i++) {
+        for (int i = 0; i < 1024 * 10; i++) {
             builder.append(alpha[i % alpha.length]);
         }
         String req = builder.toString();
 
-        for (TcpRestServer tcpRestServer : testServers) {
-            tcpRestServer.addSingletonResource(new HelloWorldResource());
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
-            TcpRestClientFactory factory =
-                    new TcpRestClientFactory(HelloWorld.class, "localhost",
-                            tcpRestServer.getServerPort());
+        tcpRestServer.addSingletonResource(new HelloWorldResource());
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(HelloWorld.class, "localhost",
+                        tcpRestServer.getServerPort());
 
-            HelloWorld client = (HelloWorld) factory.getInstance();
-            assertEquals(req, client.echo(req));
-        }
+        HelloWorld client = (HelloWorld) factory.getInstance();
+        assertEquals(req, client.echo(req));
+
     }
 }
