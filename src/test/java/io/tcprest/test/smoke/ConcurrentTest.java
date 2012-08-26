@@ -43,6 +43,7 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
                 };
                 threads[n].start();
             }
+
             for (Thread t : threads) {
                 t.join();
             }

@@ -7,7 +7,7 @@ package io.tcprest.logger;
 public class LoggerFactory {
 
     public static Logger getDefaultLogger() {
-//        return new SystemOutLogger();
-        return new NullLogger();
+        return new SystemOutLogger();
+//        return new NullLogger();
     }
 }

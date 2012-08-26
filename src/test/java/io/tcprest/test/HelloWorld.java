@@ -25,4 +25,6 @@ public interface HelloWorld {
 
 	public String[] getArray(String[] in);
 
+    public String echo(String in);
+
 }

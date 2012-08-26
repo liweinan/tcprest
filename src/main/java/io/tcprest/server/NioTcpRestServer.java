@@ -74,7 +74,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
 
                                 buffer.clear();
 
-                                StringBuffer requestBuf = new StringBuffer();
+                                StringBuilder requestBuf = new StringBuilder();
 
                                 while (_sc.read(buffer) > 0) {
                                     buffer.flip();
@@ -84,6 +84,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                                     requestBuf.append(charBuffer);
                                     buffer.clear();
                                 }
+
                                 logger.debug("incoming request: " + requestBuf.toString());
                                 String request = requestBuf.toString();
                                 String response = processRequest(request.trim());

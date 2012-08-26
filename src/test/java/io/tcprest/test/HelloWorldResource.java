@@ -48,5 +48,8 @@ public class HelloWorldResource implements HelloWorld {
         return in;
     }
 
+    public String echo(String in) {
+        return in;
+    }
 
 }

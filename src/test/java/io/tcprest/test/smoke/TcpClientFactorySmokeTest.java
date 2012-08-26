@@ -189,4 +189,25 @@ public class TcpClientFactorySmokeTest {
             }
         }
     }
+
+    @Test
+    public void largeDataTest() {
+        StringBuilder builder = new StringBuilder();
+        String[] alpha = {"a", "b", "c", "d", "e", "f"};
+        for (int i = 0; i <1024*10; i++) {
+            builder.append(alpha[i % alpha.length]);
+        }
+        String req = builder.toString();
+
+        for (TcpRestServer tcpRestServer : testServers) {
+            tcpRestServer.addSingletonResource(new HelloWorldResource());
+            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+            TcpRestClientFactory factory =
+                    new TcpRestClientFactory(HelloWorld.class, "localhost",
+                            tcpRestServer.getServerPort());
+
+            HelloWorld client = (HelloWorld) factory.getInstance();
+            assertEquals(req, client.echo(req));
+        }
+    }
 }
