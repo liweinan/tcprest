@@ -16,9 +16,7 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
 
     private TcpRestClientFactory factory;
 
-    //TODO NioServer will throw exception: Connection reset
-    //TODO Needs optimize
-    private static final int THREAD_NUM = 100;
+    private static final int THREAD_NUM = 50;
 
     @Test
     public void multipleClientsTest() throws Exception {

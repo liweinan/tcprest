@@ -76,8 +76,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
 
                                 StringBuffer requestBuf = new StringBuffer();
 
-                                int count = 0;
-                                while ((count = _sc.read(buffer)) > 0) {
+                                while (_sc.read(buffer) > 0) {
                                     buffer.flip();
                                     Charset charset = Charset.forName("UTF-8");
                                     CharsetDecoder decoder = charset.newDecoder();
@@ -89,13 +88,16 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                                 String request = requestBuf.toString();
                                 String response = processRequest(request.trim());
 
-                                // TODO put into seperate channel
-                                _sc.write(ByteBuffer.wrap(response.getBytes()));
 
-                                // TODO check logic
-                                if (count == 0)
-                                    _sc.close();
+                                key.interestOps(SelectionKey.OP_WRITE);
+                                key.attach(response);
 
+                            }
+
+                            if (key.isWritable()) {
+                                SocketChannel sc = (SocketChannel) key.channel();
+                                sc.write(ByteBuffer.wrap(((String) key.attachment()).getBytes()));
+                                sc.close();
                             }
 
                             iter.remove();

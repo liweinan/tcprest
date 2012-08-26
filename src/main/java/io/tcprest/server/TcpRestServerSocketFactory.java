@@ -20,7 +20,7 @@ public class TcpRestServerSocketFactory {
             return new ServerSocket(port);
         }
 
-        System.setProperty("javax.net.debug", "ssl,handshake");
+//        System.setProperty("javax.net.debug", "ssl,handshake");
         System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParam.getTrustStorePath()));
         javax.net.ssl.SSLContext context = javax.net.ssl.SSLContext.getInstance("TLS");
 
