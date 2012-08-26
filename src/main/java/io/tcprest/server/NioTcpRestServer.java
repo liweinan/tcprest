@@ -1,7 +1,7 @@
 package io.tcprest.server;
 
-import io.tcprest.ssl.SSLParam;
-
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -9,104 +9,115 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.util.Iterator;
 
-public class NioTcpRestServer extends SingleThreadTcpRestServer {
+/**
+ * NioTcpRestServer does not support SSL
+ *
+ * @author Weinan Li
+ * @created 08 26 2012
+ */
+public class NioTcpRestServer extends AbstractTcpRestServer {
 
-	public NioTcpRestServer() throws Exception {
-		super();
-	}
+    private ServerSocketChannel ssc;
 
-	public NioTcpRestServer(int port) throws Exception {
-		super(port);
-	}
+    public NioTcpRestServer() throws Exception {
+        this(TcpRestServerConfig.DEFAULT_PORT);
+    }
 
-	public NioTcpRestServer(int port, SSLParam sslParam) throws Exception {
-		super(port, sslParam);
-	}
+    public NioTcpRestServer(int port) throws Exception {
+        ssc = ServerSocketChannel.open();
+        ServerSocket sc = ssc.socket();
+        sc.bind(new InetSocketAddress(port));
+        ssc.configureBlocking(false);
 
-	public NioTcpRestServer(ServerSocket socket) {
-		super(socket);
-	}
+        logger.info("NioServerSocket initialized: " + ssc.socket());
+    }
 
-	private ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
 
-	@Override
-	public void run() {
-		
-		try {			
-			ServerSocketChannel ssc = serverSocket.getChannel();	
-			ssc.configureBlocking(false);
-			Selector sel = Selector.open();
-			ssc.register(sel, SelectionKey.OP_ACCEPT);
+    public int getServerPort() {
+        return ssc.socket().getLocalPort();
+    }
 
-			while (true) {
-				int n = sel.select();
+    public void up() {
+        status = TcpRestServerStatus.RUNNING;
+        new Thread() {
+            public void run() {
+                try {
+                    Selector sel = Selector.open();
+                    ssc.register(sel, SelectionKey.OP_ACCEPT);
 
-				if (n == 0)
-					continue;
+                    while (true) {
+                        int readyCount = sel.select();
 
-				Iterator iter = sel.selectedKeys().iterator();
-				while (iter.hasNext()) {
-					SelectionKey key = (SelectionKey) iter.next();
+                        if (readyCount == 0)
+                            continue;
 
-					if (key.isAcceptable()) {
-						ServerSocketChannel _ssc = (ServerSocketChannel) key
-								.channel();
-						SocketChannel _sc = _ssc.accept();
+                        Iterator iter = sel.selectedKeys().iterator();
+                        while (iter.hasNext()) {
+                            SelectionKey key = (SelectionKey) iter.next();
 
-						_sc.configureBlocking(false);
-						_sc.register(sel, SelectionKey.OP_READ);
+                            if (key.isAcceptable()) {
+                                ServerSocketChannel _ssc = (ServerSocketChannel) key.channel();
+                                SocketChannel _sc = _ssc.accept();
 
-					}
+                                _sc.configureBlocking(false);
+                                _sc.register(sel, SelectionKey.OP_READ);
 
-					if (key.isReadable()) {
-						SocketChannel _sc = (SocketChannel) key.channel();
+                            }
 
-						buffer.clear();
+                            if (key.isReadable()) {
+                                SocketChannel _sc = (SocketChannel) key.channel();
 
-						StringBuffer requestBuf = new StringBuffer();
+                                buffer.clear();
 
-						while (_sc.read(buffer) > 0) {
-							buffer.flip();
+                                StringBuffer requestBuf = new StringBuffer();
 
-							CharBuffer charBuf = buffer.asCharBuffer();
+                                int count = 0;
+                                while ((count = _sc.read(buffer)) > 0) {
+                                    buffer.flip();
+                                    Charset charset = Charset.forName("UTF-8");
+                                    CharsetDecoder decoder = charset.newDecoder();
+                                    CharBuffer charBuffer = decoder.decode(buffer);
+                                    requestBuf.append(charBuffer);
+                                    buffer.clear();
+                                }
+                                logger.debug("incoming request: " + requestBuf.toString());
+                                String request = requestBuf.toString();
+                                String response = processRequest(request.trim());
 
-							while (charBuf.hasRemaining()) {
-								requestBuf.append(charBuf.get());
-							}
+                                // TODO put into seperate channel
+                                _sc.write(ByteBuffer.wrap(response.getBytes()));
 
-							buffer.clear();
-						}
+                                // TODO check logic
+                                if (count == 0)
+                                    _sc.close();
 
-						String request = requestBuf.toString();
-						String response = processRequest(request);
+                            }
 
-						_sc.write(ByteBuffer.wrap(response.getBytes()));
+                            iter.remove();
+                        }
+                    }
+                } catch (Exception e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
 
-						_sc.close();
+            }
+        }.start();
+    }
 
-					}
-
-					iter.remove();
-				}
-			}
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-	}
-
-	@Override
-	public void up() {
-		status = TcpRestServerStatus.RUNNING;
-		this.start();
-	}
-
-	@Override
-	public void down() {
-		status = TcpRestServerStatus.CLOSING;
-	}
+    // TODO check logic
+    public void down() {
+        status = TcpRestServerStatus.CLOSING;
+        try {
+            ssc.close();
+        } catch (IOException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+    }
 
 }

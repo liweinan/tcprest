@@ -16,8 +16,9 @@ import java.security.KeyStore;
 public class TcpRestServerSocketFactory {
 
     public static ServerSocket getServerSocket(int port, SSLParam sslParam) throws Exception {
-        if (sslParam == null)
+        if (sslParam == null) {
             return new ServerSocket(port);
+        }
 
         System.setProperty("javax.net.debug", "ssl,handshake");
         System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParam.getTrustStorePath()));

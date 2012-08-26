@@ -1,6 +1,7 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
+import io.tcprest.server.TcpRestServer;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
 import org.junit.Test;
@@ -17,25 +18,29 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
 
     @Test
     public void multipleClientsTest() {
-        tcpRestServer.addResource(HelloWorldResource.class);
 
-        factory =
-                new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        tcpRestServer.getServerPort());
+        for (TcpRestServer tcpRestServer : testServers) {
+            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+            tcpRestServer.addResource(HelloWorldResource.class);
 
-        for (int i = 0; i < 100; i++) {
-            Thread t = new Thread() {
-                @Override
-                public void run() {
-                    try {
-                        HelloWorld client = (HelloWorld) factory.getInstance();
-                        assertEquals("Hello, world!", client.helloWorld());
-                    } catch (Exception e) {
-                        e.printStackTrace();
+            factory =
+                    new TcpRestClientFactory(HelloWorld.class, "localhost",
+                            tcpRestServer.getServerPort());
+
+            for (int i = 0; i < 100; i++) {
+                Thread t = new Thread() {
+                    @Override
+                    public void run() {
+                        try {
+                            HelloWorld client = (HelloWorld) factory.getInstance();
+                            assertEquals("Hello, world!", client.helloWorld());
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
-                }
-            };
-            t.start();
+                };
+                t.start();
+            }
         }
     }
 }

@@ -7,7 +7,6 @@ import io.tcprest.exception.ParseException;
 import io.tcprest.logger.Logger;
 import io.tcprest.logger.LoggerFactory;
 import io.tcprest.server.Context;
-import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
 
 import java.lang.reflect.Method;
@@ -42,7 +41,7 @@ public class DefaultExtractor implements Extractor {
 
     private final Converter converter = new DefaultConverter();
 
-    public DefaultExtractor(SingleThreadTcpRestServer server) {
+    public DefaultExtractor(TcpRestServer server) {
         this.tcpRestServer = server;
     }
 
