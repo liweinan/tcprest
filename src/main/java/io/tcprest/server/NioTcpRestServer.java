@@ -1,5 +1,7 @@
 package io.tcprest.server;
 
+import io.tcprest.classloader.FilePathClassLoader;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -233,6 +235,9 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         try {
             // fixme
             server = new NioTcpRestServer();
+            ClassLoader cl = new FilePathClassLoader("/Users/weli/projs/tcprest/target/test-classes/");
+            Class resourceClass = cl.loadClass("io.tcprest.test.HelloWorldResource");
+            server.addResource(resourceClass);
             server.up(true);
         } catch (Exception e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
