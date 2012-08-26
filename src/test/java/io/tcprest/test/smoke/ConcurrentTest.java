@@ -1,12 +1,12 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
-import io.tcprest.server.TcpRestServer;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * @author Weinan Li
@@ -16,31 +16,49 @@ public class ConcurrentTest extends TcpClientFactorySmokeTest {
 
     private TcpRestClientFactory factory;
 
-    @Test
-    public void multipleClientsTest() {
+    //TODO NioServer will throw exception: Connection reset
+    //TODO Needs optimize
+    private static final int THREAD_NUM = 100;
 
-        for (TcpRestServer tcpRestServer : testServers) {
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
-            tcpRestServer.addResource(HelloWorldResource.class);
+    @Test
+    public void multipleClientsTest() throws Exception {
+        long singleThreadServerUsedTime = 0;
+        long nioServerUsedTime = 0;
+
+        for (int i = 0; i < 2; i++) {
+            long start = System.currentTimeMillis();
+            Thread[] threads = new Thread[THREAD_NUM];
+            System.out.println("-----------------------------------" + testServers[i].getClass().getCanonicalName() + "--------------------------------");
+            testServers[i].addResource(HelloWorldResource.class);
 
             factory =
                     new TcpRestClientFactory(HelloWorld.class, "localhost",
-                            tcpRestServer.getServerPort());
+                            testServers[i].getServerPort());
 
-            for (int i = 0; i < 100; i++) {
-                Thread t = new Thread() {
+            for (int n = 0; n < THREAD_NUM; n++) {
+                threads[n] = new Thread() {
                     @Override
                     public void run() {
-                        try {
-                            HelloWorld client = (HelloWorld) factory.getInstance();
-                            assertEquals("Hello, world!", client.helloWorld());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                        HelloWorld client = (HelloWorld) factory.getInstance();
+                        assertEquals("Hello, world!", client.helloWorld());
                     }
                 };
-                t.start();
+                threads[n].start();
             }
+            for (Thread t : threads) {
+                t.join();
+            }
+            if (i == 0)
+                singleThreadServerUsedTime = System.currentTimeMillis() - start;
+            else
+                nioServerUsedTime = System.currentTimeMillis() - start;
+
         }
+        System.out.println("singleThreadServerUsedTime: " + singleThreadServerUsedTime);
+        System.out.println("nioServerUsedTime: " + nioServerUsedTime);
+
+        // NioServer should be faster than SingleThreadServer
+        assertTrue((nioServerUsedTime - singleThreadServerUsedTime) < 0);
+
     }
 }
