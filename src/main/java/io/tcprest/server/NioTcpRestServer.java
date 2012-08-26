@@ -10,7 +10,9 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.UnsupportedCharsetException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * NioTcpRestServer does not support SSL
@@ -21,6 +23,8 @@ import java.util.Iterator;
 public class NioTcpRestServer extends AbstractTcpRestServer {
 
     private ServerSocketChannel ssc;
+    private final List<SocketChannel> runningChannels = new ArrayList<SocketChannel>();
+    private Thread worker = null;
 
     public NioTcpRestServer() throws Exception {
         this(TcpRestServerConfig.DEFAULT_PORT);
@@ -41,73 +45,84 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
 
     public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
-        Thread t = new Thread() {
+        worker = new Thread() {
             public void run() {
-                try {
-                    Selector sel = Selector.open();
-                    ssc.register(sel, SelectionKey.OP_ACCEPT);
+                while (worker == Thread.currentThread()) {
+                    try {
+                        Selector sel = Selector.open();
+                        ssc.register(sel, SelectionKey.OP_ACCEPT);
 
-                    while (true) {
-                        int readyCount = sel.select();
+                        while (true) {
+                            int readyCount = sel.select();
 
-                        if (readyCount == 0)
-                            continue;
+                            if (readyCount == 0)
+                                continue;
 
-                        Iterator iter = sel.selectedKeys().iterator();
-                        while (iter.hasNext()) {
-                            SelectionKey key = (SelectionKey) iter.next();
+                            Iterator iter = sel.selectedKeys().iterator();
+                            while (iter.hasNext()) {
+                                SelectionKey key = (SelectionKey) iter.next();
 
-                            if (key.isAcceptable()) {
-                                ServerSocketChannel _ssc = (ServerSocketChannel) key.channel();
-                                SocketChannel _sc = _ssc.accept();
+                                if (key.isAcceptable()) {
+                                    ServerSocketChannel _ssc = (ServerSocketChannel) key.channel();
+                                    SocketChannel _sc = _ssc.accept();
 
-                                _sc.configureBlocking(false);
-                                _sc.register(sel, SelectionKey.OP_READ);
+                                    _sc.configureBlocking(false);
+                                    _sc.register(sel, SelectionKey.OP_READ);
 
+                                }
+
+                                if (key.isReadable()) {
+                                    SocketChannel _sc = (SocketChannel) key.channel();
+                                    synchronized (runningChannels) {
+                                        runningChannels.add(_sc);
+                                    }
+                                    StringBuilder requestBuf = new StringBuilder();
+                                    decodeChannel(_sc, requestBuf, Charset.forName("UTF-8"));
+
+                                    logger.debug("incoming request: " + requestBuf.toString());
+                                    String request = requestBuf.toString();
+                                    String response = processRequest(request.trim());
+
+
+                                    key.interestOps(SelectionKey.OP_WRITE);
+                                    key.attach(response);
+
+                                }
+
+                                if (key.isWritable()) {
+                                    SocketChannel sc = (SocketChannel) key.channel();
+                                    sc.write(ByteBuffer.wrap(((String) key.attachment()).getBytes()));
+                                    sc.close();
+                                    synchronized (runningChannels) {
+                                        runningChannels.remove(sc);
+                                    }
+                                }
+
+                                iter.remove();
                             }
-
-                            if (key.isReadable()) {
-                                SocketChannel _sc = (SocketChannel) key.channel();
-
-                                StringBuilder requestBuf = new StringBuilder();
-                                decodeChannel(_sc, requestBuf, Charset.forName("UTF-8"));
-
-                                logger.debug("incoming request: " + requestBuf.toString());
-                                String request = requestBuf.toString();
-                                String response = processRequest(request.trim());
-
-
-                                key.interestOps(SelectionKey.OP_WRITE);
-                                key.attach(response);
-
-                            }
-
-                            if (key.isWritable()) {
-                                SocketChannel sc = (SocketChannel) key.channel();
-                                sc.write(ByteBuffer.wrap(((String) key.attachment()).getBytes()));
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        for (SocketChannel sc : runningChannels) {
+                            try {
                                 sc.close();
+                            } catch (IOException e1) {
+                                e1.printStackTrace();
                             }
-
-                            iter.remove();
                         }
                     }
-                } catch (Exception e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
                 }
-
             }
         };
-        t.setDaemon(setDaemon);
-        t.start();
-        try {
-            if (t.isDaemon()) {
-                // TODO add logic that could let server down in daemon mode
-                t.join(); // hold current thread, don't let it quit
+        worker.start();
+        if (setDaemon) {
+            try {
+                worker.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
-        } catch (InterruptedException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
+
     }
 
     public void up() {
@@ -197,6 +212,10 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         status = TcpRestServerStatus.CLOSING;
         try {
             ssc.close();
+            for (SocketChannel sc : runningChannels) {
+                sc.close();
+            }
+            worker = null;
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }

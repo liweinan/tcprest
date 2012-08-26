@@ -13,6 +13,8 @@ public interface TcpRestServer {
 
     public void up();
 
+    public void up(boolean setDaemon);
+
     public void down();
 
     void addResource(Class resourceClass);

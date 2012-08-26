@@ -50,8 +50,12 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
     }
 
     public void up() {
+        up(false);
+    }
+
+    public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
-        new Thread() {
+        Thread t = new Thread() {
             public void run() {
                 PrintWriter writer = null;
                 try {
@@ -116,7 +120,9 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
                     logger.info("Server stopped.");
                 }
             }
-        }.start();
+        };
+        t.setDaemon(setDaemon);
+        t.start();
     }
 
     public void down() {
