@@ -120,7 +120,6 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         // decoder.onMalformedInput(CodingErrorAction.REPLACE);
         // decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
 
-        // Allocate radically different input and output buffer sizes // for testing purposes
         ByteBuffer bb = ByteBuffer.allocateDirect(1024);
         CharBuffer cb = CharBuffer.allocate(1024);
 
@@ -176,7 +175,6 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         cb.clear(); // Prepare buffer to be filled again
     }
 
-    // TODO check logic
     public void down() {
         status = TcpRestServerStatus.CLOSING;
         try {
