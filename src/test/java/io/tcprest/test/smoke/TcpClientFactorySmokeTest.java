@@ -65,18 +65,34 @@ public class TcpClientFactorySmokeTest {
 
     @Test(expected = Exception.class)
     public void clientSideTimeoutTest() {
-        for (TcpRestServer tcpRestServer : testServers) {
-            System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        TcpRestServer tcpRestServer = singleThreadTcpRestServer;
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
 
-            tcpRestServer.addResource(HelloWorldResource.class);
+        tcpRestServer.addResource(HelloWorldResource.class);
 
-            TcpRestClientFactory factory =
-                    new TcpRestClientFactory(HelloWorld.class, "localhost",
-                            tcpRestServer.getServerPort());
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(HelloWorld.class, "localhost",
+                        tcpRestServer.getServerPort());
 
-            HelloWorld client = (HelloWorld) factory.getInstance();
-            client.timeout();
-        }
+        HelloWorld client = (HelloWorld) factory.getInstance();
+        client.timeout();
+
+    }
+
+    @Test(expected = Exception.class)
+    public void clientSideTimeoutNioTcpRestServerTest() {
+        TcpRestServer tcpRestServer = nioTcpRestServer;
+        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+
+        tcpRestServer.addResource(HelloWorldResource.class);
+
+        TcpRestClientFactory factory =
+                new TcpRestClientFactory(HelloWorld.class, "localhost",
+                        tcpRestServer.getServerPort());
+
+        HelloWorld client = (HelloWorld) factory.getInstance();
+        client.timeout();
+
     }
 
     @Test
@@ -134,6 +150,7 @@ public class TcpClientFactorySmokeTest {
                 return one + empty + two;
             }
         }
+
     }
 
     @Test
