@@ -15,6 +15,8 @@ import java.nio.charset.UnsupportedCharsetException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * NioTcpRestServer does not support SSL
@@ -45,6 +47,75 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         return ssc.socket().getLocalPort();
     }
 
+    private static final Executor workers = Executors.newCachedThreadPool();
+
+    private class ReadChannelWorker implements Runnable {
+
+        private SelectionKey key;
+
+        public ReadChannelWorker(SelectionKey key) {
+            this.key = key;
+        }
+
+        public void run() {
+            SocketChannel _sc = null;
+            try {
+                _sc = (SocketChannel) key.channel();
+                synchronized (runningChannels) {
+                    runningChannels.add(_sc);
+                }
+                StringBuilder requestBuf = new StringBuilder();
+                decodeChannel(_sc, requestBuf, Charset.forName("UTF-8"));
+
+                logger.debug("incoming request: " + requestBuf.toString());
+                String request = requestBuf.toString();
+                String response = processRequest(request.trim());
+
+                key.attach(response);
+                key.interestOps(SelectionKey.OP_WRITE); // ready for writing response
+                key.selector().wakeup();
+            } catch (Exception e) {
+                try {
+                    if (_sc != null) {
+                        synchronized (runningChannels) {
+                            runningChannels.remove(_sc);
+                            _sc.close();
+                        }
+                    }
+                } catch (Exception e2) {
+                }
+            }
+        }
+    }
+
+    private class WriteChannelWorker implements Runnable {
+
+        private SelectionKey key;
+
+        public WriteChannelWorker(SelectionKey key) {
+            this.key = key;
+        }
+
+        public void run() {
+            SocketChannel sc = null;
+            try {
+                sc = (SocketChannel) key.channel();
+                sc.write(ByteBuffer.wrap(((String) key.attachment()).getBytes()));
+            } catch (Exception e) {
+            } finally {
+                if (sc != null) {
+                    try {
+                        sc.close(); // response sent, close channel
+                        synchronized (runningChannels) {
+                            runningChannels.remove(sc);
+                        }
+                    } catch (Exception e2) {
+                    }
+                }
+            }
+        }
+    }
+
     public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
         worker = new Thread() {
@@ -70,34 +141,16 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
 
                                     _sc.configureBlocking(false);
                                     _sc.register(sel, SelectionKey.OP_READ);
-
                                 }
 
                                 if (key.isReadable()) {
-                                    SocketChannel _sc = (SocketChannel) key.channel();
-                                    synchronized (runningChannels) {
-                                        runningChannels.add(_sc);
-                                    }
-                                    StringBuilder requestBuf = new StringBuilder();
-                                    decodeChannel(_sc, requestBuf, Charset.forName("UTF-8"));
-
-                                    logger.debug("incoming request: " + requestBuf.toString());
-                                    String request = requestBuf.toString();
-                                    String response = processRequest(request.trim());
-
-
-                                    key.interestOps(SelectionKey.OP_WRITE);
-                                    key.attach(response);
-
+                                    key.interestOps(key.interestOps() & (~SelectionKey.OP_READ));
+                                    workers.execute(new ReadChannelWorker(key));
                                 }
 
                                 if (key.isWritable()) {
-                                    SocketChannel sc = (SocketChannel) key.channel();
-                                    sc.write(ByteBuffer.wrap(((String) key.attachment()).getBytes()));
-                                    sc.close();
-                                    synchronized (runningChannels) {
-                                        runningChannels.remove(sc);
-                                    }
+                                    key.interestOps(key.interestOps() & (~SelectionKey.OP_WRITE));
+                                    workers.execute(new WriteChannelWorker(key));
                                 }
 
                                 iter.remove();
@@ -119,7 +172,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         worker.start();
         if (setDaemon) {
             try {
-                worker.join();
+                worker.join(); // The main thread will be suspended here.
             } catch (InterruptedException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
