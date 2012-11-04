@@ -15,7 +15,10 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static junit.framework.Assert.assertEquals;
 
@@ -34,8 +37,9 @@ public class MapperSmokeTest {
     public static Object[] create()
             throws Exception {
         List result = new ArrayList();
-        result.add(new MapperSmokeTest(new SingleThreadTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
-        result.add(new MapperSmokeTest(new NioTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
+        result.add(new MapperSmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
+        result.add(new MapperSmokeTest(new NioTcpRestServer(PortGenerator.get())));
+//        result.add(new MapperSmokeTest(new NettyTcpRestServer(PortGenerator.get())));
         return result.toArray();
     }
 
@@ -105,7 +109,7 @@ public class MapperSmokeTest {
         System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
         // We don't put Color mapper into server,
         // so server will fallback to use RawTypeMapper to decode Color.class
-        // because Color is serializable now.
+        // because Color is serializable.
         tcpRestServer.addSingletonResource(new RawTypeResource());
 
         TcpRestClientFactory factory = new TcpRestClientFactory(RawType.class,

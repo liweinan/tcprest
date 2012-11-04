@@ -1,7 +1,5 @@
 package io.tcprest.server;
 
-import io.tcprest.classloader.FilePathClassLoader;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -172,7 +170,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         worker.start();
         if (setDaemon) {
             try {
-                worker.join(); // The main thread will be suspended here.
+                worker.join();
             } catch (InterruptedException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
@@ -263,7 +261,6 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
     }
 
     public void down() {
-        // todo All the already opened channels are not closed properly
         status = TcpRestServerStatus.CLOSING;
         try {
             ssc.close();
@@ -272,28 +269,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
             }
             worker = null;
         } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-        }
-    }
-
-    /**
-     * Use following command to start:
-     * <pre>
-     * mvn -q exec:java -Dexec.mainClass="io.tcprest.server.NioTcpRestServer"
-     * </pre>
-     */
-    public static void main(String args[]) {
-        // todo add config processing code that could load resources
-        NioTcpRestServer server = null;
-        try {
-            // fixme
-            server = new NioTcpRestServer();
-            ClassLoader cl = new FilePathClassLoader("/Users/weli/projs/tcprest/target/test-classes/");
-            Class resourceClass = cl.loadClass("io.tcprest.test.HelloWorldResource");
-            server.addResource(resourceClass);
-            server.up(true);
-        } catch (Exception e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
     }
 

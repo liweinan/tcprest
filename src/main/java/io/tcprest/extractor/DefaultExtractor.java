@@ -50,8 +50,12 @@ public class DefaultExtractor implements Extractor {
         // get class and method from request
 
         // We do some sanity check firstly
-        if (request == null || (request.lastIndexOf(')') != request.length() - 1)) {
+        if (request == null)
             throw new ParseException("***DefaultExtractor: cannot parse request: " + request);
+        else {
+            request = request.replaceAll("(\\r|\\n)", "");
+            if (request.lastIndexOf(')') != request.length() - 1)
+                throw new ParseException("***DefaultExtractor: cannot parse request: " + request);
         }
 
         // search first '/'
@@ -123,7 +127,7 @@ public class DefaultExtractor implements Extractor {
 
         // search method
         // todo cannot handle method with same name correctly now
-        logger.debug("target method name: " +  methodName);
+        logger.debug("target method name: " + methodName);
         for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
             logger.debug("scanning method: " + mtd.getName());
             if (mtd.getName().equals(methodName.trim())) {

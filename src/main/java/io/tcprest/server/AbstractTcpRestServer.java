@@ -42,9 +42,8 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
         synchronized (resourceClasses) {
             if (resourceClasses.containsKey(resourceClass.getCanonicalName())) {
                 logger.warn("Resource already exists for: " + resourceClass.getCanonicalName());
-                return;
             }
-
+            deleteResource(resourceClass);
             resourceClasses.put(resourceClass.getCanonicalName(), resourceClass);
         }
     }

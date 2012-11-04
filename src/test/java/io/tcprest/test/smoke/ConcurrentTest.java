@@ -14,13 +14,17 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Weinan Li
  * @date 08 06 2012
  */
 public class ConcurrentTest {
+
+    public static final int THRESHOLD = 10;
+    private TcpRestClientFactory factory;
+    protected TcpRestServer tcpRestServer;
 
     public ConcurrentTest(TcpRestServer tcpRestServer) {
         this.tcpRestServer = tcpRestServer;
@@ -41,38 +45,44 @@ public class ConcurrentTest {
     @Factory
     public static Object[] create()
             throws Exception {
-        List result = new ArrayList();
-        result.add(new ConcurrentTest(new SingleThreadTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
-        result.add(new ConcurrentTest(new NioTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
-        return result.toArray();
+        List results = new ArrayList();
+        results.add(new ConcurrentTest(new SingleThreadTcpRestServer(PortGenerator.get())));
+        Thread.sleep(5 * THRESHOLD);
+        results.add(new ConcurrentTest(new NioTcpRestServer(PortGenerator.get())));
+//        results.add(new ConcurrentTest(new NettyTcpRestServer(PortGenerator.get())));
+        return results.toArray();
     }
+
 
     @Test
     public void multipleClientsTest()
             throws Exception {
-        Thread threads[] = new Thread[100];
+        final AtomicInteger counter = new AtomicInteger();
+
+        Thread threads[] = new Thread[THRESHOLD];
         System.out.println((new StringBuilder()).append("-----------------------------------").append(tcpRestServer.getClass().getCanonicalName()).append("--------------------------------").toString());
         tcpRestServer.addResource(HelloWorldResource.class);
         factory = new TcpRestClientFactory(HelloWorld.class, "localhost", tcpRestServer.getServerPort());
-        for (int n = 0; n < 100; n++) {
+        for (int n = 0; n < THRESHOLD; n++) {
+            Thread.sleep(5);
             threads[n] = new Thread() {
                 public void run() {
                     HelloWorld client = (HelloWorld) factory.getInstance();
                     Assert.assertEquals("Hello, world!", client.helloWorld());
+                    counter.incrementAndGet();
                 }
             };
 
             threads[n].start();
         }
 
-        for (int n = 0; n < 100; n++) {
+        for (int n = 0; n < THRESHOLD; n++) {
             threads[n].join();
         }
 
+        Assert.assertEquals(counter.get(), THRESHOLD);
+
     }
 
-    private TcpRestClientFactory factory;
-    private static final int THREAD_NUM = 100;
-    protected TcpRestServer tcpRestServer;
 
 }

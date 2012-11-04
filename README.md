@@ -63,10 +63,6 @@ Now your client and server will use SSL to communicate.
 
 ## Design
 
-### Zero Dependency
-
-TcpRest will not depended on any libraries other than JDK itself. For testing purpose it can depend on JUnit. All the components that relies on other opensource libraries will goes into *TcpRestPlus* project.
-
 The system contains several core components:
 
 ### Resource
