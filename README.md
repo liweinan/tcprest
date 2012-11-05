@@ -135,7 +135,7 @@ In addition, TcpRest should allow developers to write their own implementations 
 
 * Resource could be registered into server at runtime
 
-The framework should allow users to register new webservices at runtime:
+TcpRest allows you to register new resources at runtime:
 
 	tcpRestServer.addResource(someResourceClass);
 
@@ -195,7 +195,7 @@ We can put all the knowledge we've learnt above into SingleThreadTcpRestServer:
 
 The above pseudocode show how the server work: It uses extractor to convert request from string to context object, and then invoker will invoke the relative method in mapped class and return back the response to server. Finally the server write response to client.
 
-But with only the above codes, we can only trasmitting string values between server and client, that's not enough to map a java class into a network based communication, because network can only send/receive strings instead of java objects. So we need some tools to do the data transformation to us. The following two components are for this purpose:
+But with only the above codes, we can only send/receive string values between server and client, that's not enough to map a java class into a network based communication. So we need some tools to do the data transformation to us. The following two components are for this purpose:
 
 ### Mapper
 
@@ -280,7 +280,7 @@ The mapper should also be registered to client side for decoding the response fr
 
 #### RawTypeMapper
 
-TcpRest supports all serializable types by RawTypeMapper and you don't have to write mapper for it. We can modify the above example to remove ColorMapper. All we need to do is to make Color serializable:
+TcpRest supports all serializable types via RawTypeMapper. That means you don't have to write mapper for the class that implements Serializable. Take the Color class for example, we can modify it to eliminate the needing of ColorMapper. All we need to do is to make Color serializable:
 
     public class Color implements Serializable {
 	    ...

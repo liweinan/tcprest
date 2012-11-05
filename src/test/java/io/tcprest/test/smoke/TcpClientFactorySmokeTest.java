@@ -9,12 +9,14 @@ import io.tcprest.test.Counter;
 import io.tcprest.test.HelloWorld;
 import io.tcprest.test.HelloWorldResource;
 import io.tcprest.test.SingletonCounterResource;
-import org.testng.annotations.*;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Factory;
+import org.testng.annotations.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import static junit.framework.Assert.assertEquals;
 
@@ -33,8 +35,10 @@ public class TcpClientFactorySmokeTest {
     public static Object[] create()
             throws Exception {
         List result = new ArrayList();
-        result.add(new TcpClientFactorySmokeTest(new SingleThreadTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
-        result.add(new TcpClientFactorySmokeTest(new NioTcpRestServer(Math.abs((new Random()).nextInt()) % 10000 + 8000)));
+        result.add(new TcpClientFactorySmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
+        result.add(new TcpClientFactorySmokeTest(new NioTcpRestServer(PortGenerator.get())));
+        // TODO Netty Server still not pass largeDataTest()
+//        result.add(new TcpClientFactorySmokeTest(new NettyTcpRestServer(PortGenerator.get())));
         return result.toArray();
     }
 

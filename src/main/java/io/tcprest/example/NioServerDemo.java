@@ -10,7 +10,7 @@ import io.tcprest.server.NioTcpRestServer;
  * mvn -q exec:java -Dexec.mainClass="io.tcprest.server.NioTcpRestServer"
  * </pre>
  */
-public class NioServer {
+public class NioServerDemo {
     public static void main(String args[]) {
         NioTcpRestServer server = null;
         try {

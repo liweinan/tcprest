@@ -3,6 +3,7 @@ package io.tcprest.test.smoke;
 import io.tcprest.client.TcpRestClientFactory;
 import io.tcprest.mapper.Mapper;
 import io.tcprest.mapper.RawTypeMapper;
+import io.tcprest.server.NettyTcpRestServer;
 import io.tcprest.server.NioTcpRestServer;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
@@ -39,7 +40,7 @@ public class MapperSmokeTest {
         List result = new ArrayList();
         result.add(new MapperSmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
         result.add(new MapperSmokeTest(new NioTcpRestServer(PortGenerator.get())));
-//        result.add(new MapperSmokeTest(new NettyTcpRestServer(PortGenerator.get())));
+        result.add(new MapperSmokeTest(new NettyTcpRestServer(PortGenerator.get())));
         return result.toArray();
     }
 

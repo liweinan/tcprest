@@ -11,7 +11,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Load class from file system, it will load the interfaces and superclasses of target class autmatically.
+ * Load class from file system, it will load the interfaces and superclasses of target class automatically.
  * Please ensure all the necessary resources are located in dir/sub-dir of the target class.
  *
  * @author Weinan Li

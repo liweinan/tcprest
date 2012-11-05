@@ -31,14 +31,9 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
         up(false);
     }
 
-    public static NettyTcpRestServer getInstance() {
-        return new NettyTcpRestServer();
-    }
-
     public NettyTcpRestServer() {
         this.port = TcpRestServerConfig.DEFAULT_PORT;
     }
-
 
     public NettyTcpRestServer(int port) {
         this.port = port;
@@ -54,19 +49,19 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
 
         final NettyTcpRestProtocolHandler handler = new NettyTcpRestProtocolHandler(this);
 
-        final ChannelPipeline pipeline = Channels.pipeline();
-        pipeline.addLast("stringDecoder", new StringDecoder((CharsetUtil.UTF_8)));
-        pipeline.addLast("tcpRestProtocolHandler", handler);
-        pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.UTF_8));
+        bootstrap.setOption("child.tcpNoDelay", true);
+        bootstrap.setOption("child.keepAlive", true);
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             public ChannelPipeline getPipeline() {
+                ChannelPipeline pipeline = Channels.pipeline();
+                pipeline.addLast("stringDecoder", new StringDecoder((CharsetUtil.UTF_8)));
+                pipeline.addLast("tcpRestProtocolHandler", handler);
+                pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.UTF_8));
                 return pipeline;
             }
         });
 
-        bootstrap.setOption("child.tcpNoDelay", true);
-        bootstrap.setOption("child.keepAlive", true);
         allChannels.add(bootstrap.bind(new InetSocketAddress(port)));
     }
 

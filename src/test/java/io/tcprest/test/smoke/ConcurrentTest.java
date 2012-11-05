@@ -1,6 +1,7 @@
 package io.tcprest.test.smoke;
 
 import io.tcprest.client.TcpRestClientFactory;
+import io.tcprest.server.NettyTcpRestServer;
 import io.tcprest.server.NioTcpRestServer;
 import io.tcprest.server.SingleThreadTcpRestServer;
 import io.tcprest.server.TcpRestServer;
@@ -49,7 +50,7 @@ public class ConcurrentTest {
         results.add(new ConcurrentTest(new SingleThreadTcpRestServer(PortGenerator.get())));
         Thread.sleep(5 * THRESHOLD);
         results.add(new ConcurrentTest(new NioTcpRestServer(PortGenerator.get())));
-//        results.add(new ConcurrentTest(new NettyTcpRestServer(PortGenerator.get())));
+        results.add(new ConcurrentTest(new NettyTcpRestServer(PortGenerator.get())));
         return results.toArray();
     }
 

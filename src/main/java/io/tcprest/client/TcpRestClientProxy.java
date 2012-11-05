@@ -32,7 +32,6 @@ public class TcpRestClientProxy implements InvocationHandler {
     private Converter converter = new DefaultConverter();
 
     public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam) {
-        //add default mappers
         mappers = MapperHelper.DEFAULT_MAPPERS;
 
         if (extraMappers != null) {

@@ -8,8 +8,6 @@ import java.io.*;
  * @author Weinan Li
  * @created_at 08 20 2012
  */
-// TODO add doc for RawTypeMapper usage
-// TODO Add support that no need mapper for Serizalizble object
 public class RawTypeMapper implements Mapper {
     public Object stringToObject(String param) {
         try {
@@ -17,9 +15,9 @@ public class RawTypeMapper implements Mapper {
             ObjectInputStream is = new ObjectInputStream(source);
             return is.readObject();
         } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         return null;
     }
@@ -33,7 +31,7 @@ public class RawTypeMapper implements Mapper {
             os.close();
             return Base64.encode(target.toByteArray());
         } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         return null;
     }
