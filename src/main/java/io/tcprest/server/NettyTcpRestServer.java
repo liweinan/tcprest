@@ -1,13 +1,7 @@
 package io.tcprest.server;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.channel.ChannelFactory;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.group.ChannelGroupFuture;
-import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.string.StringDecoder;
 import org.jboss.netty.handler.codec.string.StringEncoder;
@@ -24,8 +18,12 @@ import java.util.concurrent.Executors;
 public class NettyTcpRestServer extends AbstractTcpRestServer {
 
     private ChannelFactory factory;
+
     private int port;
-    static final ChannelGroup allChannels = new DefaultChannelGroup("NettyTcpRestServer");
+    private ServerBootstrap bootstrap;
+    private Channel channel;
+
+//    static final ChannelGroup allChannels = new DefaultChannelGroup("NettyTcpRestServer");
 
     public void up() {
         up(false);
@@ -45,7 +43,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
                 Executors.newCachedThreadPool(),
                 Executors.newCachedThreadPool());
 
-        ServerBootstrap bootstrap = new ServerBootstrap(factory);
+         bootstrap = new ServerBootstrap(factory);
 
         final NettyTcpRestProtocolHandler handler = new NettyTcpRestProtocolHandler(this);
 
@@ -62,12 +60,13 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
             }
         });
 
-        allChannels.add(bootstrap.bind(new InetSocketAddress(port)));
+//        allChannels.add(bootstrap.bind(new InetSocketAddress(port)));
+        channel = bootstrap.bind(new InetSocketAddress(port));
     }
 
     public void down() {
-        ChannelGroupFuture future = allChannels.close();
-        future.awaitUninterruptibly();
+        channel.close().awaitUninterruptibly();
+        bootstrap.releaseExternalResources();
     }
 
     public int getServerPort() {
