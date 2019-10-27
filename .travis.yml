@@ -1,0 +1,14 @@
+language: java
+
+jdk:
+  - openjdk11
+
+services:
+  - postgresql
+
+install:
+  - mvn -B clean; java -version
+
+script:
+  - mvn test -B
+
