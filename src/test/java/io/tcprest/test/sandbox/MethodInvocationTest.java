@@ -30,7 +30,7 @@ public class MethodInvocationTest {
     @Test(enabled=false)
     public void testMethodInvocation() throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
         {
-            Object obj = ABC.class.newInstance();
+            Object obj = ABC.class.getDeclaredConstructor().newInstance();
             Method mtd = obj.getClass().getMethod("method1", String.class);
             assertNotNull(mtd);
             String response = (String) mtd.invoke(obj, "Hello, world!");
@@ -38,7 +38,7 @@ public class MethodInvocationTest {
         }
 
         {
-            Object obj = ABC.class.newInstance();
+            Object obj = ABC.class.getDeclaredConstructor().newInstance();
             for (Method mtd : obj.getClass().getMethods()) {
                 System.out.print(mtd.getName() + ": ");
                 for (Class clazz : mtd.getParameterTypes()) {
