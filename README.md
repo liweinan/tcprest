@@ -1,7 +1,5 @@
 # TcpRest
 
-[![Build Status](https://travis-ci.com/alchemy-studio/tcprest.svg?branch=master)](https://travis-ci.com/alchemy-studio/tcprest)
-
 TcpRest is a lightweight webservice framework.
 
 ## Introduction
