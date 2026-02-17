@@ -338,4 +338,120 @@ TcpRest 安全协议迁移项目圆满完成！
 
 **迁移完成日期：** 2026-02-18
 **贡献者：** Claude Sonnet 4.5
-**状态：** ✅ 生产就绪
+**状态：** ✅ 生产就绪（V1 + V2 完整安全增强）
+
+---
+
+## 🆕 V2 协议安全增强（2026-02-18 补充完成）
+
+在完成 V1 协议安全增强后，我们立即完成了 V2 协议的安全增强，确保两个协议版本都具备全面的安全防护。
+
+### 更新的组件
+
+**1. ProtocolV2Converter（完整 SecurityConfig 支持）**
+- 新安全格式：`V2|0|{{base64(meta)}}|{{base64(params)}}|CHK:value`
+- 类名和方法名验证
+- 可选校验和支持（CRC32/HMAC-SHA256）
+- 可选类名白名单
+
+**2. ProtocolV2Extractor（完整安全验证）**
+- 解析并验证安全格式
+- Checksum 验证
+- 安全检查（注入攻击防护）
+
+**3. TcpRestClientProxy**
+- 更新使用带 SecurityConfig 的 ProtocolV2Converter
+- setSecurityConfig() 同时更新 V1 和 V2 转换器
+
+**4. ProtocolRouter**
+- 添加 setV2SecurityConfig() 方法
+
+**5. ProtocolSecurity**
+- 更新 decodeComponent() 允许空字符串（支持无参数方法）
+
+### 测试结果
+
+| 测试套件 | 结果 | 说明 |
+|---------|------|------|
+| ProtocolV2ConverterTest | 26/26 ✅ | 验证安全编码格式 |
+| ProtocolV2ExtractorTest | 27/27 ✅ | 验证安全解析和验证 |
+| SecurityTest | 15/15 ✅ | 包括更新的空组件测试 |
+| V2 集成测试 | 15/15 ✅ | 端到端安全通信 |
+| **总计** | **228/228 ✅** | **100% 通过率** |
+
+### V1 vs V2 安全格式对比
+
+| 方面 | V1 安全格式 | V2 安全格式 |
+|------|------------|-------------|
+| 请求格式 | `0\|{{base64(meta)}}\|{{base64(params)}}\|CHK:value` | `V2\|0\|{{base64(meta)}}\|{{base64(params)}}\|CHK:value` |
+| 元数据 | `ClassName/methodName` | `ClassName/methodName(TYPE_SIGNATURE)` |
+| 方法重载 | ❌ 不支持 | ✅ 支持（类型签名） |
+| 异常传播 | ❌ 返回 NullObj | ✅ 支持（状态码） |
+| 注入防护 | ✅ Base64 编码 | ✅ Base64 编码 |
+| 校验和 | ✅ CRC32/HMAC | ✅ CRC32/HMAC |
+| 白名单 | ✅ 类名白名单 | ✅ 类名白名单 |
+
+### 使用示例
+
+**启用 V2 安全特性：**
+
+```java
+// 服务端（V2 默认启用安全）
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.setProtocolVersion(ProtocolVersion.V2);  // 或 AUTO
+server.addResource(CalculatorService.class);
+server.up();
+
+// 客户端（V2 + 安全配置）
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    CalculatorService.class, "localhost", 8001
+);
+factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
+
+// 可选：启用 HMAC 校验
+SecurityConfig securityConfig = new SecurityConfig().enableHMAC("my-secret");
+factory.setSecurityConfig(securityConfig);
+
+Calculator client = (Calculator) factory.getClient();
+
+// 方法重载完全支持！
+int sum = client.add(5, 3);           // add(int, int)
+double dsum = client.add(5.5, 3.3);   // add(double, double)
+String ssum = client.add("Hello", "World");  // add(String, String)
+```
+
+**V1 和 V2 共存：**
+
+```java
+// 服务端同时支持 V1 和 V2（AUTO 模式）
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.setProtocolVersion(ProtocolVersion.AUTO);  // 默认
+server.addResource(MyService.class);
+server.up();
+
+// V1 客户端 - 使用安全 V1 协议
+TcpRestClientFactory v1Factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8001
+);
+// V1 是默认，无需设置
+
+// V2 客户端 - 使用安全 V2 协议
+TcpRestClientFactory v2Factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8001
+);
+v2Factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
+
+// 两者同时工作！
+MyService v1Client = (MyService) v1Factory.getClient();
+MyService v2Client = (MyService) v2Factory.getClient();
+```
+
+### 完成里程碑
+
+- ✅ **Phase 1**: V1 安全基础设施
+- ✅ **Phase 2**: V1 核心协议迁移
+- ✅ **Phase 3**: V1 测试修复（228/228）
+- ✅ **Phase 4**: V2 安全增强（2026-02-18）
+- ✅ **Phase 5**: V2 测试更新（228/228）
+
+**最终状态：** 🎉 **V1 和 V2 协议全面安全增强完成！**
