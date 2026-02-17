@@ -2,6 +2,7 @@ package cn.huiwings.tcprest.client;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.mapper.Mapper;
+import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.ssl.SSLParam;
 
 import java.lang.reflect.Proxy;
@@ -19,6 +20,7 @@ public class TcpRestClientFactory {
     Map<String, Mapper> extraMappers;
     SSLParam sslParam;
     CompressionConfig compressionConfig;
+    ProtocolConfig protocolConfig = new ProtocolConfig(); // Default: V1
 
     public TcpRestClientFactory(Class<?> resourceClass, String host, int port) {
         this.resourceClass = resourceClass;
@@ -52,8 +54,16 @@ public class TcpRestClientFactory {
 
     public <T> T getInstance() {
         return (T) Proxy.newProxyInstance(resourceClass.getClassLoader(),
-                new Class[]{resourceClass}, new TcpRestClientProxy(resourceClass.getCanonicalName(), host, port, extraMappers, sslParam, compressionConfig));
+                new Class[]{resourceClass}, new TcpRestClientProxy(resourceClass.getCanonicalName(), host, port, extraMappers, sslParam, compressionConfig, protocolConfig));
 
+    }
+
+    /**
+     * Convenience method to get client instance.
+     * Alias for getInstance().
+     */
+    public <T> T getClient() {
+        return getInstance();
     }
 
     public void setCompressionConfig(CompressionConfig compressionConfig) {
@@ -81,6 +91,45 @@ public class TcpRestClientFactory {
      */
     public TcpRestClientFactory withCompression(CompressionConfig config) {
         this.compressionConfig = config;
+        return this;
+    }
+
+    /**
+     * Get protocol configuration.
+     *
+     * @return protocol configuration
+     */
+    public ProtocolConfig getProtocolConfig() {
+        return protocolConfig;
+    }
+
+    /**
+     * Set protocol configuration.
+     *
+     * @param protocolConfig protocol configuration
+     */
+    public void setProtocolConfig(ProtocolConfig protocolConfig) {
+        this.protocolConfig = protocolConfig != null ? protocolConfig : new ProtocolConfig();
+    }
+
+    /**
+     * Enable Protocol v2.
+     *
+     * @return this factory for chaining
+     */
+    public TcpRestClientFactory withProtocolV2() {
+        this.protocolConfig.setVersion(ProtocolVersion.V2);
+        return this;
+    }
+
+    /**
+     * Set protocol version.
+     *
+     * @param version protocol version
+     * @return this factory for chaining
+     */
+    public TcpRestClientFactory withProtocolVersion(ProtocolVersion version) {
+        this.protocolConfig.setVersion(version);
         return this;
     }
 
