@@ -1,7 +1,7 @@
 # TcpRest
 
-[![CI](https://github.com/Moicen/tcprest/actions/workflows/ci.yml/badge.svg)](https://github.com/Moicen/tcprest/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Moicen/tcprest/actions/workflows/codeql.yml/badge.svg)](https://github.com/Moicen/tcprest/actions/workflows/codeql.yml)
+[![CI](https://github.com/liweinan/tcprest/actions/workflows/ci.yml/badge.svg)](https://github.com/liweinan/tcprest/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/liweinan/tcprest/actions/workflows/codeql.yml/badge.svg)](https://github.com/liweinan/tcprest/actions/workflows/codeql.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Java Version](https://img.shields.io/badge/Java-11%2B-orange)](https://www.oracle.com/java/)
 

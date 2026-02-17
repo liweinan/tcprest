@@ -9,9 +9,9 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 10
     reviewers:
-      - "Moicen"
+      - "liweinan"
     assignees:
-      - "Moicen"
+      - "liweinan"
     labels:
       - "dependencies"
       - "maven"
@@ -42,9 +42,9 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 5
     reviewers:
-      - "Moicen"
+      - "liweinan"
     assignees:
-      - "Moicen"
+      - "liweinan"
     labels:
       - "dependencies"
       - "github-actions"
