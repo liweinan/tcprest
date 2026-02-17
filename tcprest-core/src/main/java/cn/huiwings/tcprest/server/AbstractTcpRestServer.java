@@ -10,6 +10,7 @@ import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.logger.LoggerFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
+import cn.huiwings.tcprest.protocol.ProtocolVersion;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -19,7 +20,7 @@ import java.util.Map;
  * @author Weinan Li
  * @created_at 08 26 2012
  */
-public abstract class AbstractTcpRestServer implements TcpRestServer {
+public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRegister {
 
     protected final Map<String, Mapper> mappers = new HashMap<>(MapperHelper.DEFAULT_MAPPERS);
 
@@ -35,6 +36,10 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     public Invoker invoker = new DefaultInvoker();
 
     protected CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
+
+    private ProtocolVersion protocolVersion = ProtocolVersion.AUTO; // Default: support both v1 and v2
+
+    private ProtocolRouter protocolRouter; // Lazy-initialized on first request
 
     public void addResource(Class resourceClass) {
         if (resourceClass == null) {
@@ -87,48 +92,24 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     protected String processRequest(String request) throws Exception {
         logger.debug("request: " + request);
 
-        // Decompress request if needed
-        String decompressedRequest = request;
-        if (request != null && (request.startsWith("0|") || request.startsWith("1|"))) {
-            try {
-                decompressedRequest = CompressionUtil.decompress(request);
-                if (CompressionUtil.isCompressed(request)) {
-                    logger.debug("Decompressed incoming request");
+        // Lazy-initialize protocol router
+        if (protocolRouter == null) {
+            synchronized (this) {
+                if (protocolRouter == null) {
+                    protocolRouter = new ProtocolRouter(
+                        protocolVersion,
+                        extractor,
+                        invoker,
+                        mappers,
+                        compressionConfig,
+                        logger
+                    );
                 }
-            } catch (IOException e) {
-                logger.error("Failed to decompress request: " + e.getMessage());
-                // Continue with original request as fallback
-                decompressedRequest = request;
             }
         }
 
-        // extract calling class and method from request
-        Context context = extractor.extract(decompressedRequest);
-        // invoke real method
-        Object responseObject = invoker.invoke(context);
-        logger.debug("***responseObject: " + responseObject);
-
-        // get returned object and encode it to string response
-        Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
-        String response = context.getConverter().encodeParam(responseMapper.objectToString(responseObject));
-
-        // Compress response if enabled
-        if (compressionConfig.isEnabled()) {
-            try {
-                String compressed = CompressionUtil.compress(response, compressionConfig);
-                if (CompressionUtil.isCompressed(compressed)) {
-                    double ratio = CompressionUtil.getCompressionRatio(response, compressed);
-                    logger.debug("Compressed response (saved " + String.format("%.1f", ratio) + "%)");
-                }
-                return compressed;
-            } catch (IOException e) {
-                logger.error("Failed to compress response: " + e.getMessage());
-                return "0|" + response; // Fallback with uncompressed prefix
-            }
-        } else {
-            // Add prefix for protocol compatibility
-            return "0|" + response;
-        }
+        // Use protocol router for v2 support or fallback to v1
+        return protocolRouter.processRequest(request, this);
     }
 
     public Map<String, Mapper> getMappers() {
@@ -169,6 +150,59 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     public void disableCompression() {
         this.compressionConfig.setEnabled(false);
         logger.info("Compression disabled");
+    }
+
+    /**
+     * Set protocol version for the server.
+     *
+     * @param version protocol version (V1, V2, or AUTO)
+     */
+    public void setProtocolVersion(ProtocolVersion version) {
+        if (version == null) {
+            throw new IllegalArgumentException("Protocol version cannot be null");
+        }
+        this.protocolVersion = version;
+        this.protocolRouter = null; // Reset router to pick up new version
+        logger.info("Protocol version set to: " + version);
+    }
+
+    /**
+     * Get current protocol version.
+     *
+     * @return protocol version
+     */
+    public ProtocolVersion getProtocolVersion() {
+        return protocolVersion;
+    }
+
+    /**
+     * Get resource instance by class name (ResourceRegister interface).
+     *
+     * @param className fully qualified class name
+     * @return resource instance, or null if not found
+     */
+    @Override
+    public Object getResource(String className) {
+        // Check singleton resources first
+        Object singleton = singletonResources.get(className);
+        if (singleton != null) {
+            return singleton;
+        }
+
+        // Resource classes require instantiation (handled by invoker)
+        return null;
+    }
+
+    /**
+     * Check if resource is registered (ResourceRegister interface).
+     *
+     * @param className fully qualified class name
+     * @return true if registered
+     */
+    @Override
+    public boolean hasResource(String className) {
+        return singletonResources.containsKey(className) ||
+               resourceClasses.containsKey(className);
     }
 
 }
