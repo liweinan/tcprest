@@ -254,12 +254,79 @@ TcpRest provides three server implementations:
 | `NioTcpRestServer` | tcprest-core | Medium traffic, non-blocking I/O | ❌ No |
 | `NettyTcpRestServer` | tcprest-netty | High traffic, production systems | ✅ Yes |
 
-**Example:**
+### Netty Server Usage (Recommended for Production)
+
+The Netty server provides the best performance and SSL support for production deployments.
+
+**Basic Setup:**
 ```java
-// High-performance Netty server
+import cn.huiwings.tcprest.server.NettyTcpRestServer;
+import cn.huiwings.tcprest.server.TcpRestServer;
+
+// Create high-performance Netty server
 TcpRestServer server = new NettyTcpRestServer(8001);
 server.addSingletonResource(new MyServiceImpl());
 server.up();
+```
+
+**With SSL/TLS:**
+```java
+import cn.huiwings.tcprest.ssl.SSLParam;
+
+SSLParam sslParam = new SSLParam();
+sslParam.setKeyStorePath("classpath:server_ks");
+sslParam.setKeyStoreKeyPass("password");
+sslParam.setTrustStorePath("classpath:server_ks");
+sslParam.setNeedClientAuth(true);  // Optional: mutual TLS
+
+TcpRestServer server = new NettyTcpRestServer(8443, sslParam);
+server.addSingletonResource(new MyServiceImpl());
+server.up();
+```
+
+**With Bind Address (Security Best Practice):**
+```java
+// Bind to specific IP for security
+TcpRestServer server = new NettyTcpRestServer(8001, "127.0.0.1");
+
+// Or combine with SSL
+TcpRestServer server = new NettyTcpRestServer(8443, "192.168.1.100", sslParam);
+```
+
+**With Protocol v2:**
+```java
+import cn.huiwings.tcprest.protocol.ProtocolVersion;
+
+TcpRestServer server = new NettyTcpRestServer(8001);
+server.setProtocolVersion(ProtocolVersion.V2);  // Enable method overloading and exceptions
+server.addSingletonResource(new MyServiceImpl());
+server.up();
+```
+
+**Complete Production Example:**
+```java
+// Production-ready setup: Netty + SSL + localhost binding + Protocol v2
+SSLParam sslParam = new SSLParam();
+sslParam.setKeyStorePath("classpath:server_ks");
+sslParam.setKeyStoreKeyPass("password");
+sslParam.setTrustStorePath("classpath:server_ks");
+
+TcpRestServer server = new NettyTcpRestServer(8443, "127.0.0.1", sslParam);
+server.setProtocolVersion(ProtocolVersion.V2);
+server.addSingletonResource(new UserServiceImpl());
+server.up();
+
+// Client connection
+SSLParam clientSSL = new SSLParam();
+clientSSL.setKeyStorePath("classpath:client_ks");
+clientSSL.setKeyStoreKeyPass("password");
+clientSSL.setTrustStorePath("classpath:client_ks");
+
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    UserService.class, "127.0.0.1", 8443, null, clientSSL
+);
+factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
+UserService client = factory.getClient();
 ```
 
 ## Common Use Cases
@@ -277,6 +344,108 @@ server.addSingletonResource(new MyServiceImpl());
 server.addResource(MyServiceImpl.class);
 // New instance created for each request
 ```
+
+### Complex Service Example
+
+Here's a realistic example demonstrating advanced features with Protocol v2:
+
+```java
+/**
+ * Shopping cart service with method overloading and exception handling.
+ */
+public interface ShoppingCartService {
+    // Cart operations
+    int createCart(String customerId);
+    boolean clearCart(int cartId);
+
+    // Method overloading - different signatures
+    boolean addProduct(int cartId, String name, double price, int quantity);
+    boolean addProduct(int cartId, String name, double price);  // quantity=1
+
+    // More overloading
+    boolean updateQuantity(int cartId, String product, int newQuantity);
+    boolean updateQuantity(int cartId, String product, int delta, boolean increment);
+
+    // Calculations
+    double getTotal(int cartId);
+    int getItemCount(int cartId);
+    double applyDiscount(int cartId, double percent);
+}
+
+/**
+ * Implementation with validation and business rules.
+ */
+public class ShoppingCartServiceImpl implements ShoppingCartService {
+    private static final double MAX_CART_VALUE = 10000.0;
+    private final Map<Integer, Cart> carts = new ConcurrentHashMap<>();
+
+    @Override
+    public boolean addProduct(int cartId, String name, double price, int qty) {
+        // Validation
+        if (price <= 0) {
+            throw new ValidationException("Price must be positive");
+        }
+        if (qty <= 0) {
+            throw new ValidationException("Quantity must be positive");
+        }
+
+        Cart cart = getCart(cartId);  // Throws if not found
+
+        // Business rule check
+        if (cart.getTotal() + (price * qty) > MAX_CART_VALUE) {
+            throw new BusinessException("Cart value exceeds maximum: " + MAX_CART_VALUE);
+        }
+
+        cart.addProduct(name, price, qty);
+        return true;
+    }
+
+    @Override
+    public boolean addProduct(int cartId, String name, double price) {
+        return addProduct(cartId, name, price, 1);  // Default quantity
+    }
+
+    // ... other methods
+}
+```
+
+**Server Setup:**
+```java
+TcpRestServer server = new NettyTcpRestServer(8001);
+server.setProtocolVersion(ProtocolVersion.V2);  // Required for overloading
+server.addSingletonResource(new ShoppingCartServiceImpl());
+server.up();
+```
+
+**Client Usage:**
+```java
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    ShoppingCartService.class, "localhost", 8001
+).withProtocolV2();
+
+ShoppingCartService cart = factory.getClient();
+
+// Create cart and add products
+int cartId = cart.createCart("customer123");
+cart.addProduct(cartId, "laptop", 1200.0, 1);     // Full signature
+cart.addProduct(cartId, "mouse", 25.0);           // Default quantity=1
+
+// Calculate total
+double total = cart.getTotal(cartId);  // 1225.0
+
+// Apply discount
+double discounted = cart.applyDiscount(cartId, 10.0);  // 1102.5
+
+// Exception handling works automatically
+try {
+    cart.addProduct(cartId, "bad", -10.0, 1);
+} catch (RuntimeException e) {
+    // Server exception is propagated to client
+    System.out.println(e.getMessage());  // "ValidationException: Price must be positive"
+}
+```
+
+**See Full Example:** [`ProtocolV2IntegrationTest.java`](tcprest-core/src/test/java/cn/huiwings/tcprest/test/integration/ProtocolV2IntegrationTest.java) for complete working code with tests.
 
 ### Custom Data Types with Mappers
 
