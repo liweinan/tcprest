@@ -1,6 +1,41 @@
 # TcpRest
 
-TcpRest is a lightweight webservice framework.
+[![Build Status](https://travis-ci.org/liweinan/tcprest.svg?branch=master)](https://travis-ci.org/liweinan/tcprest)
+
+TcpRest is a lightweight webservice framework that transforms POJOs into network-accessible services over TCP.
+
+## Multi-Module Architecture
+
+TcpRest is organized into two Maven modules:
+
+**tcprest-core**: Zero-dependency core module with pure JDK implementations
+- Server implementations: `SingleThreadTcpRestServer`, `NioTcpRestServer`
+- Client factory and proxy
+- No external runtime dependencies (only TestNG for tests)
+
+**tcprest-netty**: Optional high-performance Netty-based server
+- `NettyTcpRestServer` for high-concurrency scenarios
+- Depends on Netty 3.10.6.Final
+
+### Maven Dependencies
+
+For most use cases (zero dependencies):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-core</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+For high-performance Netty server:
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-netty</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
 
 ## Introduction
 
@@ -112,28 +147,75 @@ Obviously, by this registration method, you didn't provide any parameters of the
 TcpRestServer is the server of TcpRest. Its definition is shown as below:
 
 	public interface TcpRestServer {
-	
+
 		public void up();
-	
+
 		public void down();
-	
+
 		void addResource(Class resourceClass);
-		
+
 		void deleteResource(Class resourceClass);
 		...
 	}
 
-TcpRestServer is extensible. For example, you may use a SingleThreadTcpRestServer during project prototyping phase:
+#### Server Implementations
 
-	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
+TcpRest provides three server implementations:
 
-And then it could be changed the it to NioTcpRestServer to increase performance in productization environment:
+**SingleThreadTcpRestServer** (in tcprest-core)
+- Uses traditional blocking I/O with `ServerSocket`
+- Single-threaded request handling
+- Best for: Development, testing, low-concurrency scenarios
+- No external dependencies
 
-	TcpRestServer tcpRestServer = new NioTcpRestServer(8001);
+```java
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.up();
+```
 
-In addition, TcpRest should allow developers to write their own implementations of TcpRestServer.
+**NioTcpRestServer** (in tcprest-core)
+- Uses Java NIO with `Selector`
+- Non-blocking I/O with worker thread pool
+- Best for: Moderate concurrency without external dependencies
+- No external dependencies
 
-* Resource could be registered into server at runtime
+```java
+TcpRestServer server = new NioTcpRestServer(8001);
+server.up();
+```
+
+**NettyTcpRestServer** (in tcprest-netty)
+- Uses Netty 3.x framework
+- High-performance async I/O
+- Best for: High-concurrency production scenarios
+- Requires: Netty dependency
+
+```java
+TcpRestServer server = new NettyTcpRestServer(8001);
+server.up();
+```
+
+#### Proper Shutdown
+
+All servers support proper shutdown that releases ports and terminates threads:
+
+```java
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.up();
+
+// ... use server ...
+
+server.down();  // Shuts down within 5 seconds, releases port
+```
+
+The `down()` method:
+- Closes server socket to stop accepting new connections
+- Interrupts server thread(s)
+- Waits up to 5 seconds for graceful termination
+- Releases port for reuse
+- Is idempotent (can be called multiple times safely)
+
+#### Runtime Resource Management
 
 TcpRest allows you to register new resources at runtime:
 
@@ -372,4 +454,74 @@ Try to avoid using static variables in your resource class, or you will make gre
 ### Try to avoid using singleton resources.
 
 If you are using singleton resources, you have to ensure the thread safety by yourself, that's a great amount of work.
+
+## Migration Guide
+
+### Package Rename (io.tcprest → cn.huiwings.tcprest)
+
+Version 1.0 introduces a package rename. Update all imports:
+
+```java
+// Old (version 0.x)
+import io.tcprest.server.TcpRestServer;
+import io.tcprest.client.TcpRestClientFactory;
+
+// New (version 1.0+)
+import cn.huiwings.tcprest.server.TcpRestServer;
+import cn.huiwings.tcprest.client.TcpRestClientFactory;
+```
+
+### Module Structure Changes
+
+Version 1.0 splits the framework into multiple modules:
+
+**If you were using only core features (no Netty):**
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-core</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+**If you were using NettyTcpRestServer:**
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-netty</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+Note: `tcprest-netty` automatically includes `tcprest-core` as a transitive dependency.
+
+### Improved Shutdown Behavior
+
+Version 1.0 fixes critical shutdown bugs. Servers now properly:
+- Release ports immediately on shutdown
+- Terminate within 5 seconds maximum
+- Support restart on the same port
+
+No code changes needed - `server.down()` now works correctly!
+
+## Documentation
+
+For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Building
+
+```bash
+mvn clean install
+```
+
+## Testing
+
+```bash
+mvn test
+```
+
+To verify zero dependencies in tcprest-core:
+```bash
+mvn dependency:tree -pl tcprest-core
+```
 
