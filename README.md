@@ -172,28 +172,118 @@ The system contains several core components:
 
 A Resource is the server-side implementation class that handles remote method calls.
 
-**Interface definition** (shared between client and server):
+#### Interface and Implementation Requirements
+
+**1. Define a shared interface** (used by both client and server):
 ```java
 public interface HelloWorld {
     String helloWorld();
+    String sayHello(String name);
 }
 ```
 
-**Server implementation**:
+**2. Create server-side implementation** (must implement the interface):
 ```java
 public class HelloWorldResource implements HelloWorld {
+
+    // Required: no-argument constructor for non-singleton resources
+    public HelloWorldResource() {
+    }
+
+    @Override
     public String helloWorld() {
         return "Hello, world!";
+    }
+
+    @Override
+    public String sayHello(String name) {
+        return "Hello, " + name;
     }
 }
 ```
 
-**Registering the resource**:
+**3. Server registers the implementation class**:
 ```java
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
 server.up();
-server.addResource(HelloWorldResource.class);  // Register implementation
+server.addResource(HelloWorldResource.class);  // Register the implementation
 ```
+
+**4. Client uses the interface to create proxy**:
+```java
+TcpRestClientFactory factory =
+    new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);  // Use the interface
+HelloWorld client = factory.getInstance();
+```
+
+#### Important Rules
+
+1. **Implementation must implement interface**: The server-side class must implement the client-side interface
+   - ✅ Correct: `class HelloWorldResource implements HelloWorld`
+   - ❌ Wrong: `class HelloWorldResource` (no interface)
+
+2. **Method signatures must match exactly**: Interface and implementation must have identical method signatures
+   - Method names, parameter types, return types, and parameter order must match
+   - The framework uses reflection to find methods by name
+
+3. **No naming convention required**: Implementation class can have any name
+   - ✅ `HelloWorldResource implements HelloWorld`
+   - ✅ `HelloWorldImpl implements HelloWorld`
+   - ✅ `MyHelloService implements HelloWorld`
+   - The class name doesn't need to follow any pattern
+
+4. **One interface, one active implementation**: You can have multiple implementation classes for the same interface, but only register one at a time on the server
+   ```java
+   // ❌ Don't register multiple implementations of the same interface
+   server.addResource(HelloWorldResource.class);
+   server.addResource(AnotherHelloWorldImpl.class);  // Causes conflicts!
+
+   // ✅ Register only one implementation per interface
+   server.addResource(HelloWorldResource.class);
+   ```
+
+5. **No-argument constructor required** (for non-singleton resources):
+   ```java
+   public class HelloWorldResource implements HelloWorld {
+       public HelloWorldResource() {  // Required!
+       }
+   }
+   ```
+   - Singleton resources don't need this (see Singleton Resource section)
+
+6. **All parameter/return types must have Mappers**: Every data type used in the interface must have a registered Mapper or be serializable
+   - Primitive types are supported by default (int, String, boolean, etc.)
+   - Custom types need custom Mappers or must implement `Serializable`
+
+#### How Interface-Implementation Mapping Works
+
+When a client calls a remote method, here's what happens:
+
+1. **Client sends request using interface name**:
+   ```
+   Client calls: HelloWorld.helloWorld()
+   Request sent: "cn.huiwings.tcprest.test.HelloWorld/helloWorld()"
+   ```
+
+2. **Server searches for implementation**:
+   ```java
+   // Server checks all registered resources
+   // Finds: HelloWorldResource implements HelloWorld
+   // Maps: HelloWorld (interface) → HelloWorldResource (implementation)
+   ```
+
+3. **Server invokes the implementation method**:
+   ```java
+   HelloWorldResource resource = new HelloWorldResource();
+   String result = resource.helloWorld();  // Returns "Hello, world!"
+   ```
+
+4. **Server sends response back to client**:
+   ```
+   Response: "Hello, world!"
+   ```
+
+This design allows the client to depend only on the interface contract, while the server provides the concrete implementation.
 
 #### Singleton Resource
 
