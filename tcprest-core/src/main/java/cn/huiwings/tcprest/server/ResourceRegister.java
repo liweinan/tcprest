@@ -34,4 +34,11 @@ public interface ResourceRegister {
      * @return map of class name to singleton instance
      */
     Map<String, Object> getSingletonResources();
+
+    /**
+     * Get all resource classes.
+     *
+     * @return map of class name to resource class
+     */
+    Map<String, Class> getResourceClasses();
 }

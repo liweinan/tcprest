@@ -39,9 +39,9 @@ public class ProtocolV2IntegrationTest {
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2);
 
-        // Register singleton instances (server needs actual objects for interfaces)
-        server.addSingletonResource(new OverloadedCalculatorImpl());
-        server.addSingletonResource(new ExceptionTestServiceImpl());
+        // Register resource classes (can use addResource with implementation classes)
+        server.addResource(OverloadedCalculatorImpl.class);
+        server.addResource(ExceptionTestServiceImpl.class);
 
         server.up();
 
@@ -67,7 +67,7 @@ public class ProtocolV2IntegrationTest {
             server.down();
             server = null;
         }
-        Thread.sleep(1000); // Increased delay to ensure port is fully released
+        Thread.sleep(2000); // Long delay to ensure port is fully released before next test class
     }
 
     // ========== Test Method Overloading ==========

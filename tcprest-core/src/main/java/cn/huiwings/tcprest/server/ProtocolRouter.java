@@ -250,7 +250,8 @@ public class ProtocolRouter {
 
     /**
      * Find resource instance for target class.
-     * If target class is an interface, searches for implementation in singleton resources.
+     * Searches both resource classes and singleton resources.
+     * If target class is an interface, finds the implementation class.
      *
      * @param targetClass the target class or interface
      * @param resourceRegister resource register
@@ -258,30 +259,82 @@ public class ProtocolRouter {
      * @throws Exception if instance cannot be found or created
      */
     private Object findResourceInstance(Class<?> targetClass, ResourceRegister resourceRegister) throws Exception {
-        // Try direct lookup first
-        Object instance = resourceRegister.getResource(targetClass.getName());
+        String targetClassName = targetClass.getName();
+
+        // Step 1: Try direct singleton lookup
+        Object instance = resourceRegister.getResource(targetClassName);
         if (instance != null) {
             return instance;
         }
 
-        // If target class is an interface, search for implementation
-        if (targetClass.isInterface()) {
-            Map<String, Object> singletons = resourceRegister.getSingletonResources();
-            for (Object singleton : singletons.values()) {
-                // Check if singleton implements the target interface
-                for (Class<?> ifc : singleton.getClass().getInterfaces()) {
-                    if (ifc.getName().equals(targetClass.getName())) {
-                        logger.debug("Found implementation for interface: " + targetClass.getName() +
-                                   " -> " + singleton.getClass().getName());
-                        return singleton;
-                    }
+        // Step 2: If target is an interface, search for implementation
+        // Check both resource classes and singleton resources
+        Class<?> implClass = findImplementationClass(targetClassName, resourceRegister);
+
+        if (implClass != null) {
+            // Found implementation class
+            targetClassName = implClass.getName();
+
+            // Try singleton lookup again with implementation class name
+            instance = resourceRegister.getResource(targetClassName);
+            if (instance != null) {
+                return instance;
+            }
+
+            // Create new instance from implementation class
+            return v2Invoker.createInstance(implClass);
+        }
+
+        // Step 3: No implementation found, try to create instance directly
+        instance = v2Invoker.createInstance(targetClass);
+        return instance;
+    }
+
+    /**
+     * Find implementation class for an interface.
+     * Searches both resource classes and singleton resources.
+     *
+     * @param interfaceName the interface name
+     * @param resourceRegister resource register
+     * @return implementation class, or null if not found
+     */
+    private Class<?> findImplementationClass(String interfaceName, ResourceRegister resourceRegister) {
+        // Check resource classes
+        Map<String, Class> resourceClasses = resourceRegister.getResourceClasses();
+        for (Class<?> clazz : resourceClasses.values()) {
+            // Check if this class directly matches
+            if (clazz.getName().equals(interfaceName)) {
+                return clazz;
+            }
+            // Check if this class implements the interface
+            for (Class<?> ifc : clazz.getInterfaces()) {
+                if (ifc.getName().equals(interfaceName)) {
+                    logger.debug("Found resource class implementing interface: " + interfaceName +
+                               " -> " + clazz.getName());
+                    return clazz;
                 }
             }
         }
 
-        // No singleton found, try to create instance
-        instance = v2Invoker.createInstance(targetClass);
-        return instance;
+        // Check singleton resources
+        Map<String, Object> singletons = resourceRegister.getSingletonResources();
+        for (Object singleton : singletons.values()) {
+            Class<?> clazz = singleton.getClass();
+            // Check if this class directly matches
+            if (clazz.getName().equals(interfaceName)) {
+                return clazz;
+            }
+            // Check if this singleton implements the interface
+            for (Class<?> ifc : clazz.getInterfaces()) {
+                if (ifc.getName().equals(interfaceName)) {
+                    logger.debug("Found singleton implementing interface: " + interfaceName +
+                               " -> " + clazz.getName());
+                    return clazz;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

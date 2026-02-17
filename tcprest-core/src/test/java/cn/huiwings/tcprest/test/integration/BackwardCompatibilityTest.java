@@ -22,6 +22,8 @@ import static org.testng.Assert.*;
  *   <tr><td>V2</td><td>AUTO</td><td>✅ Works</td></tr>
  *   <tr><td>V2</td><td>V1 only</td><td>❌ Should fail</td></tr>
  * </table>
+ *
+ * <p><b>Note:</b> Tests run sequentially to avoid port conflicts.</p>
  */
 public class BackwardCompatibilityTest {
 
@@ -34,7 +36,7 @@ public class BackwardCompatibilityTest {
             server.down();
             server = null;
         }
-        Thread.sleep(1000); // Increased delay to ensure port is fully released
+        Thread.sleep(500); // Small delay for cleanup
     }
 
     // ========== V1 Client with Different Server Modes ==========
@@ -44,7 +46,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1);
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -64,7 +66,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO); // Default
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -82,7 +84,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2); // Only accept V2
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -109,7 +111,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2);
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -128,7 +130,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO);
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -147,7 +149,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1); // Only accept V1
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -175,7 +177,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO);
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -206,7 +208,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         // Don't set protocol version - should default to AUTO
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
@@ -232,7 +234,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1);
-        server.addSingletonResource(new SimpleService.Impl());
+        server.addResource(SimpleService.Impl.class);
         server.up();
         Thread.sleep(500);
 
