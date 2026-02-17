@@ -11,8 +11,7 @@ import cn.huiwings.tcprest.test.Color;
 import cn.huiwings.tcprest.test.ColorMapper;
 import cn.huiwings.tcprest.test.HelloWorld;
 import cn.huiwings.tcprest.test.HelloWorldResource;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.*;
 import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
@@ -44,16 +43,20 @@ public class MapperSmokeTest {
         return result.toArray();
     }
 
-    @BeforeMethod
+    @BeforeClass
     public void startTcpRestServer()
             throws Exception {
         tcpRestServer.up();
+        // Delay to ensure async servers (NioTcpRestServer, NettyTcpRestServer) are fully started
+        Thread.sleep(500);
     }
 
-    @AfterMethod
+    @AfterClass
     public void stopTcpRestServer()
             throws Exception {
         tcpRestServer.down();
+        // Wait for port to be fully released
+        Thread.sleep(300);
     }
 
     @Test

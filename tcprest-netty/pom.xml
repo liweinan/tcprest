@@ -41,6 +41,10 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <!-- Use TestNG XML configuration for strict sequential execution -->
+                    <suiteXmlFiles>
+                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                    </suiteXmlFiles>
                     <!-- Disable parallel test execution to avoid server port conflicts -->
                     <parallel>none</parallel>
                     <threadCount>1</threadCount>

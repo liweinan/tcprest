@@ -1,6 +1,6 @@
 package cn.huiwings.tcprest.test.smoke;
 
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 11 05 2012
@@ -9,7 +9,9 @@ import java.util.Random;
  */
 public class PortGenerator {
 
+    private static final AtomicInteger counter = new AtomicInteger(20000);
+
     public static int get() {
-        return Math.abs((new Random()).nextInt()) % 10000 + 8000;
+        return counter.getAndIncrement();
     }
 }

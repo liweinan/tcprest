@@ -1,0 +1,14 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<suite name="TcpRestNettyTestSuite" verbose="1" parallel="false" data-provider-thread-count="1" group-by-instances="true">
+    <test name="NettyModuleTests" parallel="false" preserve-order="true">
+        <classes>
+            <class name="cn.huiwings.tcprest.test.smoke.MapperSmokeTest">
+                <methods>
+                    <include name="extendMapperTest"/>
+                    <include name="testArrayListMapper"/>
+                    <include name="rawTypeTest"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+</suite>
