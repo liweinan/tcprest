@@ -90,7 +90,7 @@ public class ProtocolV2ConverterTest {
         String encoded = converter.encode(TestService.class, method, params);
 
         assertTrue(encoded.startsWith("V2|0|"));
-        assertTrue(encoded.contains("{{}}"));
+        assertTrue(encoded.contains("{{NULL}}"));  // NULL marker for null values
     }
 
     // Compression is handled separately (not in this converter)

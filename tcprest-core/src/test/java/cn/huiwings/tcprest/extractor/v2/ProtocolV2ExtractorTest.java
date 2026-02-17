@@ -91,7 +91,7 @@ public class ProtocolV2ExtractorTest {
 
     @Test
     public void testExtract_nullParameter() throws Exception {
-        String request = buildRequest("echo", "(Ljava/lang/String;)", "");
+        String request = buildRequest("echo", "(Ljava/lang/String;)", "NULL");  // NULL marker
 
         Context context = extractor.extract(request);
 
