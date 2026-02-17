@@ -8,6 +8,8 @@ import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.RawTypeMapper;
 import cn.huiwings.tcprest.protocol.NullObj;
 import cn.huiwings.tcprest.protocol.TcpRestProtocol;
+import cn.huiwings.tcprest.security.ProtocolSecurity;
+import cn.huiwings.tcprest.security.SecurityConfig;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -15,95 +17,191 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * TcpRest Protocol:
- * Class.method(arg1, arg2) should transform to: "Class/method({{arg1}}arg1ClassName,{{arg2}}arg2ClassName)"
- * <p/>
- * For example:
- * HelloWorldResource.sayHelloFromTo("Jack", "Lucy") should transform to:
- * "HelloWorldResource/sayHelloFromTo({{Jack}}java.lang.String,{{Lucy}}java.lang.String)"
+ * Security-Enhanced TcpRest Protocol Converter (V1).
+ *
+ * <p><b>New Protocol Format (2026-02-18):</b></p>
+ * <pre>
+ * Request:  0|COMP|{{base64(ClassName/methodName)}}|{{base64(params)}}|CHK:value
+ * Response: 0|{{base64(result)}}|CHK:value
+ * </pre>
+ *
+ * <p><b>Security Enhancements:</b></p>
+ * <ul>
+ *   <li>All variable content (class/method names, parameters) are Base64-encoded</li>
+ *   <li>Prevents injection attacks (path traversal, delimiter injection)</li>
+ *   <li>Optional integrity verification (CRC32/HMAC-SHA256)</li>
+ *   <li>Optional class name whitelist validation</li>
+ * </ul>
+ *
+ * <p><b>Breaking Change:</b> This version is NOT backward compatible with old protocol format.</p>
  *
  * @author Weinan Li
  * @date 07 31 2012
  */
 public class DefaultConverter implements Converter {
     private Logger logger = LoggerFactory.getDefaultLogger();
+    private SecurityConfig securityConfig;
 
     /**
-     * Convert a method call into a string according to TcpRest protocol that can be transmitted across network.
+     * Creates a converter with default security (no checksum, no whitelist).
+     */
+    public DefaultConverter() {
+        this.securityConfig = new SecurityConfig();
+    }
+
+    /**
+     * Creates a converter with custom security configuration.
      *
-     * @param clazz   Calling class
-     * @param method  Calling method
-     * @param params  parameters of calling method
-     * @param mappers mapper for each parameter
-     * @return
-     * @throws MapperNotFoundException
+     * @param securityConfig security configuration
+     */
+    public DefaultConverter(SecurityConfig securityConfig) {
+        this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+    }
+
+    /**
+     * Sets security configuration.
+     *
+     * @param securityConfig security configuration
+     */
+    public void setSecurityConfig(SecurityConfig securityConfig) {
+        this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+    }
+
+    /**
+     * Gets security configuration.
+     *
+     * @return security configuration
+     */
+    public SecurityConfig getSecurityConfig() {
+        return securityConfig;
+    }
+
+    /**
+     * Encodes a method call into secure protocol format.
+     *
+     * <p>Format: {@code 0|META|PARAMS|CHK:value}</p>
+     * <ul>
+     *   <li>META = base64(ClassName/methodName)</li>
+     *   <li>PARAMS = base64(param1:::param2:::...)</li>
+     *   <li>CHK:value = optional checksum</li>
+     * </ul>
+     *
+     * @param clazz   calling class
+     * @param method  calling method
+     * @param params  parameters
+     * @param mappers mappers
+     * @return encoded protocol string
      */
     public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException {
+        // Step 1: Build metadata (ClassName/methodName)
+        String className = clazz.getCanonicalName();
+        String methodName = method.getName();
+        String meta = className + "/" + methodName;
+
+        logger.debug("***DefaultConverter - encoding meta: " + meta);
+
+        // Step 2: Build parameters
         StringBuilder paramTokenBuffer = new StringBuilder();
-        if (params != null) {
+        if (params != null && params.length > 0) {
             for (Object param : params) {
-                if (param == null)
+                if (param == null) {
                     param = new NullObj();
+                }
                 logger.log("***DefaultConverter - encode for class: " + param.getClass());
 
                 Mapper mapper = getMapper(mappers, param.getClass());
+                String paramStr = mapper.objectToString(param);
 
-                paramTokenBuffer.append(encodeParam(mapper.objectToString(param))).append(TcpRestProtocol.PATH_SEPERATOR);
-
-                logger.debug("***DefaultConverter - paramTokenBuffer " + paramTokenBuffer.toString());
+                // Encode individual parameter
+                paramTokenBuffer.append(encodeParam(paramStr)).append(TcpRestProtocol.PARAM_SEPARATOR);
             }
 
-            return clazz.getCanonicalName() + "/" + method.getName() + "(" + paramTokenBuffer.
-                    substring(0, paramTokenBuffer.length() - TcpRestProtocol.PATH_SEPERATOR.length()) + ")";
-        } else {
-            return clazz.getCanonicalName() + "/" + method.getName() + "()";
+            // Remove trailing separator
+            paramTokenBuffer.setLength(paramTokenBuffer.length() - TcpRestProtocol.PARAM_SEPARATOR.length());
         }
 
+        String paramsEncoded = paramTokenBuffer.toString();
+        logger.debug("***DefaultConverter - encoded params: " + paramsEncoded);
 
-    }
+        // Step 3: Encode metadata and params using Base64
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+        String paramsBase64 = ProtocolSecurity.encodeComponent(paramsEncoded);
 
-    public Object[] decode(Method targetMethod, String paramsToken, Map<String, Mapper> mappers) throws MapperNotFoundException {
-        if (paramsToken == null || paramsToken.trim().length() < 1) {
-            return null;
-        } else {
-            String rawParams[] = paramsToken.trim().split(TcpRestProtocol.PATH_SEPERATOR);
-            List<Object> paramsHolder = new ArrayList<Object>();
-            int i = 0;
-            for (String rawParam : rawParams) {
-                String thisParam = decodeParam(rawParam);
-                logger.debug("param types: " + targetMethod.getParameterTypes()[i]);
-                Mapper mapper = getMapper(mappers, targetMethod.getParameterTypes()[i]);
+        // Step 4: Build protocol message
+        String message = "0" + TcpRestProtocol.COMPONENT_SEPARATOR +
+                        metaBase64 + TcpRestProtocol.COMPONENT_SEPARATOR +
+                        paramsBase64;
 
-                Object param = mapper.stringToObject(thisParam);
-
-                if (thisParam.equals(TcpRestProtocol.NULL)) {
-                    param = null;
-                }
-
-                paramsHolder.add(param);
-                i++;
-            }
-            return paramsHolder.toArray();
+        // Step 5: Add checksum if enabled
+        String checksum = ProtocolSecurity.calculateChecksum(message, securityConfig);
+        if (!checksum.isEmpty()) {
+            message += TcpRestProtocol.COMPONENT_SEPARATOR + checksum;
         }
+
+        logger.debug("***DefaultConverter - final message: " + message);
+        return message;
     }
 
     /**
-     * Encode a single parameter.
-     * For example: "abc" will transform into "{{abc}}java.lang.String"
+     * Decodes parameters from secure protocol format.
      *
-     * @param message
-     * @return
+     * @param targetMethod target method
+     * @param paramsBase64 base64-encoded params
+     * @param mappers      mappers
+     * @return decoded parameters
+     */
+    public Object[] decode(Method targetMethod, String paramsBase64, Map<String, Mapper> mappers) throws MapperNotFoundException {
+        if (paramsBase64 == null || paramsBase64.trim().isEmpty()) {
+            return null;
+        }
+
+        // Decode params block
+        String paramsDecoded = ProtocolSecurity.decodeComponent(paramsBase64.trim());
+
+        if (paramsDecoded.isEmpty()) {
+            return null;
+        }
+
+        // Split parameters
+        String[] rawParams = paramsDecoded.split(TcpRestProtocol.PARAM_SEPARATOR);
+        List<Object> paramsHolder = new ArrayList<Object>();
+
+        int i = 0;
+        for (String rawParam : rawParams) {
+            String thisParam = decodeParam(rawParam);
+            logger.debug("param types: " + targetMethod.getParameterTypes()[i]);
+            Mapper mapper = getMapper(mappers, targetMethod.getParameterTypes()[i]);
+
+            Object param = mapper.stringToObject(thisParam);
+
+            if (thisParam.equals(TcpRestProtocol.NULL)) {
+                param = null;
+            }
+
+            paramsHolder.add(param);
+            i++;
+        }
+
+        return paramsHolder.toArray();
+    }
+
+    /**
+     * Encodes a single parameter.
+     *
+     * <p>Format: {@code {{base64}}}
+     *
+     * @param message parameter value
+     * @return encoded parameter
      */
     public String encodeParam(String message) {
         return "{{" + Base64.encode(message.getBytes()) + "}}";
     }
 
-
     /**
-     * Decode a single parameter.
+     * Decodes a single parameter.
      *
-     * @param message the encoded message in format {{base64}}
-     * @return decoded string, or empty string if message is invalid
+     * @param message encoded parameter in format {{base64}}
+     * @return decoded string, or empty string if invalid
      */
     public String decodeParam(String message) {
         logger.debug("decodeParam: " + message);
@@ -136,9 +234,7 @@ public class DefaultConverter implements Converter {
         Mapper mapper = mappers.get(targetClazz.getCanonicalName());
 
         if (mapper == null) {
-            // now we try to find if the target param is serizialiable, if so we could use
-            // RawTypeMapper
-            //                    java.io.Serializable
+            // Try to find if the target param is serializable, if so we could use RawTypeMapper
             for (Class clazz : targetClazz.getInterfaces()) {
                 if (clazz.equals(java.io.Serializable.class) || clazz.isArray()) {
                     mapper = new RawTypeMapper();
@@ -170,7 +266,7 @@ public class DefaultConverter implements Converter {
                 return getMapper(mappers, Class.forName(targetClazzName));
             }
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + targetClazzName);
     }

@@ -617,3 +617,50 @@ Contributions are welcome! Please follow the guidelines in [CLAUDE.md](CLAUDE.md
 
 - **Issues**: Report bugs and request features via [GitHub Issues](https://github.com/liweinan/tcprest/issues)
 - **Documentation**: See [PROTOCOL.md](PROTOCOL.md) and [ARCHITECTURE.md](ARCHITECTURE.md)
+
+## Security (NEW - 2026-02-18)
+
+### Security-Enhanced Protocol
+
+TcpRest now includes comprehensive security features to protect against injection attacks and message tampering.
+
+#### Quick Security Setup
+
+```java
+import cn.huiwings.tcprest.security.SecurityConfig;
+
+// Basic security with CRC32 checksum
+SecurityConfig securityConfig = new SecurityConfig().enableCRC32();
+
+// Production security with HMAC
+SecurityConfig securityConfig = new SecurityConfig()
+    .enableHMAC("your-secret-key");
+
+// With class whitelist (recommended for public APIs)
+SecurityConfig securityConfig = new SecurityConfig()
+    .enableHMAC("your-secret-key")
+    .enableClassWhitelist()
+    .allowClass("com.example.PublicAPI");
+```
+
+#### Security Features
+
+| Feature | Description | Use Case |
+|---------|-------------|----------|
+| **Full Encoding** | Base64-encodes all protocol components | Prevents all injection attacks |
+| **CRC32 Checksum** | Fast integrity verification | Detect accidental corruption |
+| **HMAC-SHA256** | Cryptographic message authentication | Prevent malicious tampering |
+| **Class Whitelist** | Restrict accessible classes | Public API security |
+
+#### Protection Against Attacks
+
+✅ **Path Traversal** (`../../EvilClass`) - Base64 encoding prevents  
+✅ **Delimiter Injection** (`Class/method()/evil`) - Structure protected  
+✅ **Method Injection** (`method:::badParam`) - Cannot inject  
+✅ **Message Tampering** - HMAC detects modifications  
+✅ **Unauthorized Access** - Whitelist restricts classes
+
+**📖 Full Documentation:** See [SECURITY-PROTOCOL.md](SECURITY-PROTOCOL.md) for complete security guide.
+
+**⚠️ Breaking Change:** The security-enhanced protocol is NOT backward compatible. Migration guide available in security documentation.
+
