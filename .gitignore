@@ -6,3 +6,4 @@ target/
 # Process/migration documents (keep locally, don't commit)
 MIGRATION-*.md
 TODO-ANALYSIS.md
+SECURITY-PROTOCOL.md

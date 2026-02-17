@@ -563,41 +563,220 @@ Typical compression ratios for text data: 60-80% reduction
 
 ## Security Considerations
 
-### 1. Class Name Validation
+### Security Vulnerabilities Addressed
 
-**Risk:** Malicious clients could send arbitrary class names
-**Mitigation:** Only registered services are accessible
+TcpRest protocol has evolved to address several injection attack vectors:
+
+#### 1. Path Traversal Attack
+```
+Class: ../../evil/MaliciousClass
+```
+**Risk:** Attacker could access unauthorized classes using relative paths
+**Mitigation:** Base64 encoding + validation with `ProtocolSecurity.isValidClassName()`
+
+#### 2. Delimiter Injection
+```java
+ClassName: com.example.MyClass/evilMethod()
+// Would break parsing: "com.example.MyClass/evilMethod()/realMethod(...)"
+```
+**Risk:** Injecting protocol delimiters (`/`, `|`, `:::`) to manipulate parsing
+**Mitigation:** All variable content (class names, method names, parameters) are Base64-encoded
+
+#### 3. Method Name Injection
+```
+Method: getData():::maliciousParam
+```
+**Risk:** Inject fake parameters by manipulating method names
+**Mitigation:** Base64 encoding prevents delimiter injection
+
+#### 4. Message Tampering
+**Risk:** Messages modified in transit without detection
+**Mitigation:** Optional CRC32 (fast) or HMAC-SHA256 (cryptographic) checksums
+
+### Security Features
+
+#### Base64 Encoding (Built-in)
+All protocol components use **URL-safe Base64** encoding:
+- Replaces `+` with `-` and `/` with `_`
+- Omits padding `=` for cleaner format
+- Prevents all delimiter injection attacks
+
+#### Optional Security Enhancements (SecurityConfig)
+
+TcpRest supports optional security features via `SecurityConfig`:
 
 ```java
-// Client sends: "java.lang.Runtime/exec(...)"
-// Server: No such resource registered → ProtocolException
+import cn.huiwings.tcprest.security.SecurityConfig;
+
+// No security (default)
+SecurityConfig config = new SecurityConfig();
+
+// With CRC32 checksum (detects accidental corruption)
+SecurityConfig config = new SecurityConfig()
+    .enableCRC32();
+
+// With HMAC-SHA256 (cryptographic authentication)
+SecurityConfig config = new SecurityConfig()
+    .enableHMAC("my-secret-key-123");
+
+// With class whitelist (restrict callable classes)
+SecurityConfig config = new SecurityConfig()
+    .enableClassWhitelist()
+    .allowClass("com.example.SafeService")
+    .allowClasses("com.example.Service1", "com.example.Service2");
+
+// Combined security
+SecurityConfig config = new SecurityConfig()
+    .enableHMAC("secret")
+    .enableClassWhitelist()
+    .allowClass("com.example.Service");
 ```
 
-### 2. Method Access Control
+#### Checksum Format
 
-**Risk:** Invoking private or protected methods
-**Mitigation:** Only public methods of registered interfaces are callable
+When checksums are enabled, protocol messages include a `CHK:` suffix:
 
-### 3. Exception Information Leakage
+**V1 with checksum:**
+```
+0|{{base64_meta}}|{{base64_params}}|CHK:a1b2c3d4
+```
 
-**V1 Risk:** Swallows exceptions (no info leak, but poor UX)
-**V2 Risk:** Sends exception messages to client
+**V2 with checksum:**
+```
+V2|0|{{base64_meta}}|{{base64_params}}|CHK:def789
+```
 
-**Mitigation:** Sanitize sensitive info in exception messages
+#### Server-Side Security Configuration
 
 ```java
-// Bad: throw new Exception("Database password: " + pwd)
-// Good: throw new Exception("Database connection failed")
+import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
+import cn.huiwings.tcprest.security.SecurityConfig;
+
+// Create server
+TcpRestServer server = new SingleThreadTcpRestServer(8080);
+
+// Configure security
+SecurityConfig securityConfig = new SecurityConfig()
+    .enableHMAC("shared-secret-key")
+    .enableClassWhitelist()
+    .allowClass("com.example.PublicAPI")
+    .allowClass("com.example.UserService");
+
+server.setSecurityConfig(securityConfig);
+server.addResource(PublicAPI.class);
+server.addResource(UserService.class);
+server.up();
 ```
 
-### 4. Denial of Service
+#### Client-Side Security Configuration
 
-**Risk:** Large compressed payloads (zip bomb)
-**Mitigation:** Enforce size limits before decompression
+```java
+import cn.huiwings.tcprest.client.TcpRestClientFactory;
+import cn.huiwings.tcprest.security.SecurityConfig;
+
+// Create client factory
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8080
+);
+
+// Configure security (must match server)
+SecurityConfig securityConfig = new SecurityConfig()
+    .enableHMAC("shared-secret-key");
+
+factory.setSecurityConfig(securityConfig);
+
+MyService client = (MyService) factory.getInstance();
+String result = client.getData();
+```
+
+### Security Analysis
+
+| Attack Vector | Mitigation | Implementation |
+|---------------|------------|----------------|
+| Path Traversal (`../../EvilClass`) | Base64 encoding + validation | `ProtocolSecurity.isValidClassName()` |
+| Delimiter Injection (`Class/evil()/method`) | Base64 encoding | All components encoded |
+| Method Name Injection (`method:::param`) | Base64 encoding | Metadata fully encoded |
+| Message Tampering | Optional checksums | CRC32 or HMAC-SHA256 |
+| Unauthorized Class Access | Optional whitelist | `SecurityConfig.isClassAllowed()` |
+| Arbitrary Method Invocation | Resource registration | Only registered classes callable |
+| Private Method Access | Reflection filtering | Only public methods accessible |
+| Exception Information Leakage | Sanitization | Developer responsibility |
+| Denial of Service (zip bomb) | Size limits | `CompressionConfig.setMaxSize()` |
+
+### Performance Impact
+
+**Encoding Overhead:**
+- Base64 encoding: ~33% size increase (3 bytes → 4 bytes)
+- CRC32 checksum: ~8 bytes hex (~2% overhead for typical messages)
+- HMAC-SHA256: ~64 bytes hex (~5-10% overhead)
+
+**Computational Overhead:**
+- Base64 encode/decode: <1μs per component (JDK intrinsic)
+- CRC32 calculation: <1μs per message
+- HMAC-SHA256 calculation: <10μs per message
+
+**Total overhead: <5% for most workloads**
+
+### Security Best Practices
+
+#### 1. Enable Checksums in Production
+
+```java
+// Development (no checksum for easier debugging)
+SecurityConfig devConfig = new SecurityConfig();
+
+// Production (HMAC for security)
+SecurityConfig prodConfig = new SecurityConfig()
+    .enableHMAC(System.getenv("TCPREST_HMAC_SECRET"));
+```
+
+#### 2. Use Class Whitelist for Public APIs
+
+```java
+SecurityConfig config = new SecurityConfig()
+    .enableClassWhitelist()
+    .allowClass("com.company.publicapi.UserService")
+    .allowClass("com.company.publicapi.OrderService");
+    // Do NOT whitelist internal/admin classes
+```
+
+#### 3. Rotate HMAC Secrets Regularly
+
+```java
+// Use environment variable or secure config
+String secret = System.getenv("TCPREST_SECRET");
+if (secret == null || secret.isEmpty()) {
+    throw new IllegalStateException("TCPREST_SECRET must be set");
+}
+SecurityConfig config = new SecurityConfig().enableHMAC(secret);
+```
+
+#### 4. Sanitize Exception Messages
+
+```java
+// Bad: Leaks sensitive info
+throw new Exception("Database password: " + pwd);
+
+// Good: Generic error message
+throw new Exception("Database connection failed");
+```
+
+#### 5. Log Security Events
+
+```java
+try {
+    // Process request
+} catch (SecurityException e) {
+    logger.error("Security violation detected: " + e.getMessage());
+    // Consider: Alert security team, block IP after repeated violations
+}
+```
+
+#### 6. Enforce Compression Size Limits
 
 ```java
 CompressionConfig config = new CompressionConfig();
-config.setMaxSize(10 * 1024 * 1024);  // 10MB limit
+config.setMaxSize(10 * 1024 * 1024);  // 10MB limit prevents zip bombs
 ```
 
 ---
