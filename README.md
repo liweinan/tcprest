@@ -5,24 +5,62 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Java Version](https://img.shields.io/badge/Java-11%2B-orange)](https://www.oracle.com/java/)
 
-TcpRest is a lightweight webservice framework that transforms POJOs into network-accessible services over TCP.
+A lightweight, zero-dependency RPC framework that transforms POJOs into network-accessible services over TCP.
 
-## Multi-Module Architecture
+## Quick Start
 
-TcpRest is organized into two Maven modules:
+### 1. Define Your Service Interface
 
-**tcprest-core**: Zero-dependency core module with pure JDK implementations
-- Server implementations: `SingleThreadTcpRestServer`, `NioTcpRestServer`
-- Client factory and proxy
-- No external runtime dependencies (only TestNG for tests)
+```java
+public interface HelloWorld {
+    String helloWorld();
+    int add(int a, int b);
+}
+```
 
-**tcprest-netty**: Optional high-performance Netty-based server
-- `NettyTcpRestServer` for high-concurrency scenarios
-- Depends on Netty 4.1.131.Final
+### 2. Create Server Implementation
+
+```java
+public class HelloWorldImpl implements HelloWorld {
+    @Override
+    public String helloWorld() {
+        return "Hello, world!";
+    }
+
+    @Override
+    public int add(int a, int b) {
+        return a + b;
+    }
+}
+```
+
+### 3. Start the Server
+
+```java
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.addSingletonResource(new HelloWorldImpl());
+server.up();
+```
+
+### 4. Create a Client and Call Methods
+
+```java
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    HelloWorld.class, "localhost", 8001
+);
+HelloWorld client = factory.getClient();
+
+String greeting = client.helloWorld();    // "Hello, world!"
+int sum = client.add(10, 20);              // 30
+```
+
+That's it! TcpRest handles all serialization, networking, and deserialization automatically.
+
+## Installation
 
 ### Maven Dependencies
 
-For most use cases (zero dependencies):
+**For most use cases** (zero dependencies):
 ```xml
 <dependency>
     <groupId>cn.huiwings</groupId>
@@ -31,7 +69,7 @@ For most use cases (zero dependencies):
 </dependency>
 ```
 
-For high-performance Netty server:
+**For high-performance Netty server** (optional):
 ```xml
 <dependency>
     <groupId>cn.huiwings</groupId>
@@ -40,773 +78,290 @@ For high-performance Netty server:
 </dependency>
 ```
 
-## Introduction
+## Key Features
 
-TcpRest is a framework that can turn your POJO into a server/client pair.
+### Zero Dependencies
+The `tcprest-core` module has **zero runtime dependencies** - only JDK built-in APIs. This minimizes dependency conflicts and reduces security vulnerabilities.
 
-First, define an interface for the remote service:
+### Protocol v2 with Method Overloading
+
+Use Protocol v2 to support method overloading and proper exception handling:
 
 ```java
-public interface HelloWorld {
-    String helloWorld();
+// Service with overloaded methods
+public interface Calculator {
+    int add(int a, int b);           // Integer addition
+    double add(double a, double b);   // Double addition
+    String add(String a, String b);   // String concatenation
 }
+
+// Client (opt-in to v2)
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    Calculator.class, "localhost", 8001
+)
+    .withProtocolV2();  // Enable Protocol v2
+
+Calculator calc = factory.getClient();
+
+calc.add(5, 3);         // Calls int add(int, int) → 8
+calc.add(2.5, 3.5);     // Calls double add(double, double) → 6.0
+calc.add("Hello", "!"); // Calls String add(String, String) → "Hello!"
 ```
 
-Then create the server-side implementation:
+**Server Configuration:**
+```java
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.setProtocolVersion(ProtocolVersion.AUTO);  // Default: accept both v1 and v2
+server.addSingletonResource(new CalculatorImpl());
+server.up();
+```
+
+### Exception Handling (Protocol v2)
+
+With Protocol v2, exceptions are properly propagated to the client:
 
 ```java
-public class HelloWorldResource implements HelloWorld {
-    public String helloWorld() {
-        return "Hello, world!";
+// Server-side service
+public class UserService {
+    public void validateAge(int age) {
+        if (age < 0) {
+            throw new ValidationException("Age must be non-negative");
+        }
     }
 }
+
+// Client receives the exception
+try {
+    userService.validateAge(-1);
+} catch (RuntimeException e) {
+    // Exception message: "ValidationException: Age must be non-negative"
+}
 ```
 
-**Starting the server** takes three lines of code:
+### Data Compression
 
+Reduce bandwidth usage with automatic GZIP compression:
+
+**Server:**
 ```java
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.up();
-server.addResource(HelloWorldResource.class);  // Register implementation
-```
-
-**Creating the client** takes two lines:
-
-```java
-TcpRestClientFactory factory =
-    new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);  // Use interface
-HelloWorld client = factory.getInstance();
-```
-
-**Using the client** is just like calling a local method:
-
-```java
-String response = client.helloWorld();  // Returns "Hello, world!"
-```
-
-TcpRest handles all the serialization, networking, and deserialization automatically.
-
-## Data Compression Support
-
-TcpRest supports optional GZIP compression for network traffic optimization using JDK built-in compression (zero external dependencies).
-
-### Benefits
-
-Compression can significantly reduce network bandwidth usage:
-- **Repetitive data**: Up to 96% reduction
-- **JSON/XML**: 88-90% reduction
-- **General text**: 85-95% reduction
-
-### Usage
-
-**Enable compression on server:**
-```java
-TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.enableCompression(); // Use default settings
+server.enableCompression();  // Enable with defaults
 server.up();
 ```
 
-**Enable compression on client:**
+**Client:**
 ```java
-TcpRestClientFactory factory = new TcpRestClientFactory(MyService.class, "localhost", 8001)
-    .withCompression(); // Enable with default settings
-MyService client = factory.getInstance();
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8001
+)
+    .withCompression();  // Enable compression
+
+MyService client = factory.getClient();
 ```
 
-**Custom compression configuration:**
+**Custom configuration:**
 ```java
-// Server side
 CompressionConfig config = new CompressionConfig(
     true,   // enabled
-    1024,   // threshold in bytes (don't compress messages < 1KB)
-    9       // compression level (1=fastest, 9=best compression)
+    1024,   // threshold: only compress if message > 1KB
+    9       // level: 1=fastest, 9=best compression
 );
+
 server.setCompressionConfig(config);
-
-// Client side
-TcpRestClientFactory factory = new TcpRestClientFactory(MyService.class, "localhost", 8001)
-    .withCompression(config);
+// or
+factory.withCompression(config);
 ```
 
-### Backward Compatibility
+Compression is fully backward-compatible - compressed and uncompressed clients/servers can communicate seamlessly.
 
-The compression feature is **fully backward compatible**:
-- Compressed and uncompressed clients/servers can communicate seamlessly
-- Compression is disabled by default
-- Protocol uses prefix markers (`0|` for uncompressed, `1|` for compressed)
+### SSL/TLS Support
 
-## SSL Support
+Secure your communication with SSL:
 
-TcpRest supports SSL in communication level and it's very easy to use. You can use SSLParam to configure your server and client, and here is an example for two way handshake. First you need to configure server to use your SSL materials by creating a SSLParam instance:
-
-    SSLParam serverSSLParam = new SSLParam();
-    serverSSLParam.setTrustStorePath("classpath:server_ks");
-    serverSSLParam.setKeyStorePath("classpath:server_ks");
-    serverSSLParam.setKeyStoreKeyPass("123123");
-    serverSSLParam.setNeedClientAuth(true);
-
-Then you can register it into TcpRestServer:
-
-    tcpRestServer = new SingleThreadTcpRestServer(port, serverSSLParam);
-
-Client side configuration is similar to server side, all the extra work you need to do is to create a SSLParam and put your settings in:
-
-	SSLParam clientSSLParam = new SSLParam();
-	clientSSLParam.setTrustStorePath("classpath:client_ks");
-	clientSSLParam.setKeyStorePath("classpath:client_ks");
-	clientSSLParam.setKeyStoreKeyPass("456456");
-	clientSSLParam.setNeedClientAuth(true);
-
-Then you can register the settings into TcpRestClientFactory:
-
-    TcpRestClientFactory factory =
-            new TcpRestClientFactory(HelloWorld.class, host, port, extraMappers, clientSSLParam);
-
-Now your client and server will use SSL to communicate.
-
-## Design
-
-The system contains several core components:
-
-### Resource
-
-A Resource is the server-side implementation class that handles remote method calls.
-
-#### Interface and Implementation Requirements
-
-**1. Define a shared interface** (used by both client and server):
+**Server:**
 ```java
-public interface HelloWorld {
-    String helloWorld();
-    String sayHello(String name);
-}
-```
+SSLParam serverSSL = new SSLParam();
+serverSSL.setKeyStorePath("classpath:server_ks");
+serverSSL.setKeyStoreKeyPass("password");
+serverSSL.setTrustStorePath("classpath:server_ks");
+serverSSL.setNeedClientAuth(true);  // Optional: require client cert
 
-**2. Create server-side implementation** (must implement the interface):
-```java
-public class HelloWorldResource implements HelloWorld {
-
-    // Required: no-argument constructor for non-singleton resources
-    public HelloWorldResource() {
-    }
-
-    @Override
-    public String helloWorld() {
-        return "Hello, world!";
-    }
-
-    @Override
-    public String sayHello(String name) {
-        return "Hello, " + name;
-    }
-}
-```
-
-**3. Server registers the implementation class**:
-```java
-TcpRestServer server = new SingleThreadTcpRestServer(8001);
+TcpRestServer server = new SingleThreadTcpRestServer(8443, serverSSL);
+server.addSingletonResource(new MyServiceImpl());
 server.up();
-server.addResource(HelloWorldResource.class);  // Register the implementation
 ```
 
-**4. Client uses the interface to create proxy**:
+**Client:**
 ```java
-TcpRestClientFactory factory =
-    new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);  // Use the interface
-HelloWorld client = factory.getInstance();
+SSLParam clientSSL = new SSLParam();
+clientSSL.setKeyStorePath("classpath:client_ks");
+clientSSL.setKeyStoreKeyPass("password");
+clientSSL.setTrustStorePath("classpath:client_ks");
+
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8443, null, clientSSL
+);
+MyService client = factory.getClient();
 ```
 
-#### Important Rules
-
-1. **Implementation must implement interface**: The server-side class must implement the client-side interface
-   - ✅ Correct: `class HelloWorldResource implements HelloWorld`
-   - ❌ Wrong: `class HelloWorldResource` (no interface)
-
-2. **Method signatures must match exactly**: Interface and implementation must have identical method signatures
-   - Method names, parameter types, return types, and parameter order must match
-   - The framework uses reflection to find methods by name
-
-3. **No naming convention required**: Implementation class can have any name
-   - ✅ `HelloWorldResource implements HelloWorld`
-   - ✅ `HelloWorldImpl implements HelloWorld`
-   - ✅ `MyHelloService implements HelloWorld`
-   - The class name doesn't need to follow any pattern
-
-4. **One interface, one active implementation**: You can have multiple implementation classes for the same interface, but only register one at a time on the server
-   ```java
-   // ❌ Don't register multiple implementations of the same interface
-   server.addResource(HelloWorldResource.class);
-   server.addResource(AnotherHelloWorldImpl.class);  // Causes conflicts!
-
-   // ✅ Register only one implementation per interface
-   server.addResource(HelloWorldResource.class);
-   ```
-
-5. **No-argument constructor required** (for non-singleton resources):
-   ```java
-   public class HelloWorldResource implements HelloWorld {
-       public HelloWorldResource() {  // Required!
-       }
-   }
-   ```
-   - Singleton resources don't need this (see Singleton Resource section)
-
-6. **All parameter/return types must have Mappers**: Every data type used in the interface must have a registered Mapper or be serializable
-   - Primitive types are supported by default (int, String, boolean, etc.)
-   - Custom types need custom Mappers or must implement `Serializable`
-
-#### How Interface-Implementation Mapping Works
-
-When a client calls a remote method, here's what happens:
-
-1. **Client sends request using interface name**:
-   ```
-   Client calls: HelloWorld.helloWorld()
-   Request sent: "cn.huiwings.tcprest.test.HelloWorld/helloWorld()"
-   ```
-
-2. **Server searches for implementation**:
-   ```java
-   // Server checks all registered resources
-   // Finds: HelloWorldResource implements HelloWorld
-   // Maps: HelloWorld (interface) → HelloWorldResource (implementation)
-   ```
-
-3. **Server invokes the implementation method**:
-   ```java
-   HelloWorldResource resource = new HelloWorldResource();
-   String result = resource.helloWorld();  // Returns "Hello, world!"
-   ```
-
-4. **Server sends response back to client**:
-   ```
-   Response: "Hello, world!"
-   ```
-
-This design allows the client to depend only on the interface contract, while the server provides the concrete implementation.
-
-#### Singleton Resource
-
-Singleton resource is registered into server by:
-
-    tcpRestServer.addResource(new HelloWorldResource());
-
-Unlike ordinary resources, singleton resource will only have one instance on server. So you must *ensure the thread safety* of your resource by yourself.
-
-Note:
-
-For ordinary resources(non-singleton), you must provide a constructor with no parameters. Here is an example:
-
-    public HelloWorldResource();
-
-If you only have constructor like:
-
-    public HelloWorldResource(String arg);
-
-Adding resource to server will cause problem:
-
-	tcpRestServer.addResource(HelloWorldResource.class);
-
-Obviously, by this registration method, you didn't provide any parameters of the resource to the server. And for non-singleton resources, each time TcpRestServer will create a new instance of the resource to serve the clients.
-
-### TcpRestServer
-
-TcpRestServer is the server of TcpRest. Its definition is shown as below:
-
-	public interface TcpRestServer {
-
-		public void up();
-
-		public void down();
-
-		void addResource(Class resourceClass);
-
-		void deleteResource(Class resourceClass);
-		...
-	}
-
-#### Server Implementations
+### Server Implementations
 
 TcpRest provides three server implementations:
 
-**SingleThreadTcpRestServer** (in tcprest-core)
-- Uses traditional blocking I/O with `ServerSocket`
-- Single-threaded request handling
-- **SSL Support:** ✅ Yes (via JDK built-in SSL)
-- Best for: Development, testing, low-concurrency scenarios, SSL/TLS required
-- No external dependencies
+| Server | Module | Best For | SSL Support |
+|--------|--------|----------|-------------|
+| `SingleThreadTcpRestServer` | tcprest-core | Low traffic, simple deployment | ✅ Yes |
+| `NioTcpRestServer` | tcprest-core | Medium traffic, non-blocking I/O | ❌ No |
+| `NettyTcpRestServer` | tcprest-netty | High traffic, production systems | ✅ Yes |
 
+**Example:**
 ```java
-// Plain TCP
-TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.up();
-
-// With SSL/TLS
-SSLParam sslParam = new SSLParam();
-sslParam.setKeyStorePath("classpath:server_ks");
-sslParam.setKeyStoreKeyPass("password");
-TcpRestServer server = new SingleThreadTcpRestServer(8001, sslParam);
-server.up();
-```
-
-**NioTcpRestServer** (in tcprest-core)
-- Uses Java NIO with `Selector`
-- Non-blocking I/O with worker thread pool
-- **SSL Support:** ❌ No (Java NIO channels don't support SSL directly)
-- Best for: Moderate concurrency without SSL requirements
-- No external dependencies
-- **Note:** For SSL with NIO, use NettyTcpRestServer instead
-
-```java
-TcpRestServer server = new NioTcpRestServer(8001);
-server.up();
-```
-
-**NettyTcpRestServer** (in tcprest-netty)
-- Uses Netty 4.1.x framework (latest stable)
-- High-performance async I/O with EventLoopGroup architecture
-- **SSL Support:** ✅ Yes (via Netty SSL support)
-- **Large Payload Support:** ✅ Yes (up to 1MB via LineBasedFrameDecoder)
-- Best for: High-concurrency production scenarios, SSL with NIO
-- Requires: Netty 4.1.131.Final dependency
-
-```java
-// Plain TCP
+// High-performance Netty server
 TcpRestServer server = new NettyTcpRestServer(8001);
-server.up();
-
-// With SSL/TLS
-SSLParam sslParam = new SSLParam();
-sslParam.setKeyStorePath("classpath:server_ks");
-sslParam.setKeyStoreKeyPass("password");
-TcpRestServer server = new NettyTcpRestServer(8001, sslParam);
+server.addSingletonResource(new MyServiceImpl());
 server.up();
 ```
 
-**SSL Support Summary:**
-| Server Implementation | SSL Support | Best Use Case |
-|----------------------|-------------|---------------|
-| SingleThreadTcpRestServer | ✅ Yes | Development, testing, low-traffic SSL |
-| NioTcpRestServer | ❌ No | High-traffic without SSL |
-| NettyTcpRestServer | ✅ Yes | Production, high-traffic SSL |
+## Common Use Cases
 
-#### Proper Shutdown
+### Singleton vs Per-Request Resources
 
-All servers support proper shutdown that releases ports and terminates threads:
+**Singleton (recommended for stateless services):**
+```java
+server.addSingletonResource(new MyServiceImpl());
+// Same instance handles all requests
+```
+
+**Per-Request (for stateful services):**
+```java
+server.addResource(MyServiceImpl.class);
+// New instance created for each request
+```
+
+### Custom Data Types with Mappers
+
+Handle custom types by registering mappers:
 
 ```java
+public class PersonMapper implements Mapper {
+    @Override
+    public Object stringToObject(String s) {
+        String[] parts = s.split(",");
+        return new Person(parts[0], Integer.parseInt(parts[1]));
+    }
+
+    @Override
+    public String objectToString(Object o) {
+        Person p = (Person) o;
+        return p.getName() + "," + p.getAge();
+    }
+}
+
+// Register on server
+server.addMapper(Person.class.getCanonicalName(), new PersonMapper());
+
+// Register on client
+Map<String, Mapper> mappers = new HashMap<>();
+mappers.put(Person.class.getCanonicalName(), new PersonMapper());
+
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8001, mappers
+);
+```
+
+### Timeout Configuration
+
+Set custom timeouts for specific methods:
+
+```java
+public interface MyService {
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    String longRunningOperation();
+}
+```
+
+### Proper Shutdown
+
+Always shutdown servers gracefully:
+
+```java
+try {
+    server.up();
+    // ... server running ...
+} finally {
+    server.down();  // Releases ports and resources
+}
+```
+
+## Migration to Protocol v2
+
+Protocol v2 adds support for method overloading and exception handling. Migration is straightforward:
+
+**Phase 1: Update Server** (backward compatible)
+```java
+// Server accepts both v1 and v2 clients (default)
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.up();
-
-// ... use server ...
-
-server.down();  // Shuts down within 5 seconds, releases port
+server.setProtocolVersion(ProtocolVersion.AUTO);  // or omit, AUTO is default
 ```
 
-The `down()` method:
-- Closes server socket to stop accepting new connections
-- Interrupts server thread(s)
-- Waits up to 5 seconds for graceful termination
-- Releases port for reuse
-- Is idempotent (can be called multiple times safely)
-
-#### Runtime Resource Management
-
-TcpRest allows you to register new resources at runtime:
-
-	tcpRestServer.addResource(someResourceClass);
-
-It could also be removed at runtime:
-
-	tcpRestServer.deleteResource(someResourceClass);
-
-### Extractor
-
-TcpRestServer needs Extractor to process clients request and map the incoming string data into method call. TcpRestServer needs to be smart enough to know that user wants to call. The Extractor's role is to process client's request and generate a call context:
-
-	Context context = extractor.extract(request);
-
-### Context
-
-Context is an object that holds all of the information provided by incoming request:
-
-	public class Context {
-	    private Class targetClazz;
-	    private Method targetMethod;
-	    private List<Object> params;
-	    ...
-	}
-
-### Invoker
-
-Invoker will call the class method inside its invoke() method and return the response object to TcpRestServer.
-
-	public interface Invoker {
-	    public Object invoke(Context context);
-	}
-
-TcpRestServer will use the returned object from invoker and transform it into string response to client.
-
-We can put all the knowledge we've learnt above into SingleThreadTcpRestServer:
-
-	while (status.equals(TcpRestServerStatus.RUNNING)) {
-	    logger.log("Server started.");
-	    Socket socket = serverSocket.accept();
-	    logger.log("Client accepted.");
-	    BufferedReader reader = 
-	    	new BufferedReader(new InputStreamReader(socket.getInputStream()));
-	    Scanner scanner = new Scanner(reader);
-
-	    PrintWriter writer = new PrintWriter(socket.getOutputStream());
-	    while (scanner.hasNext()) {
-	        String request = scanner.nextLine();
-	        logger.log("request: " + request);
-	        // extract calling class and method from request
-	        Context context = extractor.extract(request);
-	        // invoke real method
-	        String response = (String) invoker.invoke(context);
-	        writer.println(response);
-	        writer.flush();
-	    }
-	}
-
-The above pseudocode show how the server work: It uses extractor to convert request from string to context object, and then invoker will invoke the relative method in mapped class and return back the response to server. Finally the server write response to client.
-
-But with only the above codes, we can only send/receive string values between server and client, that's not enough to map a java class into a network based communication. So we need some tools to do the data transformation to us. The following two components are for this purpose:
-
-### Mapper
-
-Mapper is the core component doing data serialization and deserialization. Here is its definition:
-
-	public interface Mapper {
-		public Object stringToObject(String param);
-	
-		public String objectToString(Object object);
-	}
-
-TcpRest provides mappers for following primitive data types by default:
-
-* byte
-* short
-* int
-* long
-* float
-* double
-* String
-* boolean
-
-For example:
-
-	public class IntegerMapper implements Mapper {
-
-	    public Object stringToObject(String param) {
-	        return Integer.valueOf(param);
-	    }
-
-	    public String objectToString(Object object) {
-	        return object.toString();
-	    }
-	}
-
-You can also create your own mapper for custom data types. Suppose you have a following data type:
-
-	public class Color {
-	    private String name;
-
-	    public Color(String name) {
-	        this.name = name;
-	    }
-
-	    public String getName() {
-	        return name;
-	    }
-
-	    public void setName(String name) {
-	        this.name = name;
-	    }
-	}
-
-You could create a mapper for it:
-
-	public class ColorMapper implements Mapper {
-	    public Object stringToObject(String param) {
-	        return new Color(param);
-	    }
-
-	    public String objectToString(Object object) {
-	        if (object instanceof Color) {
-	            return ((Color) object).getName();
-	        } else {
-	            return null;
-	        }
-
-	    }
-	}
-
-And then register the mapper to server:
-
-	tcpRestServer.addMapper(Color.class.getCanonicalName(), new ColorMapper());
-
-The mapper should also be registered to client side for decoding the response from server:
-
-	Map<String, Mapper> colorMapper = new HashMap<String, Mapper>();
-	colorMapper.put(Color.class.getCanonicalName(), new ColorMapper());
-	TcpRestClientFactory factory =
-	        new TcpRestClientFactory(HelloWorld.class, "localhost",
-	                ((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort(), colorMapper);
-
-#### RawTypeMapper
-
-TcpRest supports all serializable types via RawTypeMapper. That means you don't have to write mapper for the class that implements Serializable. Take the Color class for example, we can modify it to eliminate the needing of ColorMapper. All we need to do is to make Color serializable:
-
-    public class Color implements Serializable {
-	    ...
-    }
-
-Then TcpRest will handle the data mapping automatically. We can create a test for this:
-
-	public interface RawType {
-		public List getArrayList(List in);
-	}
-
-	public class RawTypeResource implements RawType {
-		public List getArrayList(List in) {
-			return in;
-		}
-	}
-
-	@Test
-	public void rawTypeTest() {
-		// We don't put Color mapper into server,
-		// so server will fallback to use RawTypeMapper to decode Color.class
-		// because Color is serializable now.
-		tcpRestServer.addSingletonResource(new RawTypeResource());
-
-		TcpRestClientFactory factory =
-				new TcpRestClientFactory(RawType.class, "localhost",
-						((SingleThreadTcpRestServer) tcpRestServer).getServerSocket().getLocalPort());
-
-		RawType client = (RawType) factory.getInstance();
-
-		List lst = new ArrayList();
-		lst.add(42);
-		lst.add(new Color("Red"));
-
-		List resp = client.getArrayList(lst);
-
-		assertEquals(42, resp.get(0));
-
-		Color c = new Color("Red");
-		assertEquals(c.getName(), ((Color) resp.get(1)).getName());
-	}
-
-In above example we can see the List type is also automatically supported because all List types are implicitly serializable.
-
-### Converter
-
-Converter is the the reverse operation of Extractor. TcpRest client library uses it for transforming a method call into TcpRest communication protocol.
-
-	public interface Converter {
-	    public String convert(Class clazz, Method method, Object[] params);
-	}
-
-Here is a brief introduction to TcpRest's protocol:
-
-If we make a call from client side:
-	Class.method(arg1, arg2)
-
-Tcp Rest will convert it to:
-
-	"Class/method({{<Base64 Encoded::arg1>}}:::{{<Base64 Encoded::arg2>}})"
-
-during network transmitting. For example:
-
-	HelloWorldResource.sayHelloFromTo("Jack", "Lucy")
-
-will be converted to the following string:
-
-	"HelloWorldResource/sayHelloFromTo({{SmFjaw==}}:::{{THVjeQ==}})"
-
-Please note that "THVjeQ==" and "SmFjaw==" are base64 encoded strings. TcpRestServer will try to find proper Mapper to decode the parameters.
-
-## Configuration
-
-### Timeout
-
-You can use @Timeout to annotate a method of the resource interface for client side:
-
-    @Timeout(second = 1)
-    public String yourMethod();
-
-When you invoke this method from client side, it will wait for 1 second for server to response. If the time expires client side will throw exception.
-
-## Usage Tips
-
-### Try to make your resource class re-entrant and immutable
-
-Try to avoid using static variables in your resource class, or you will make great effort to avoid concurrent problems. Because people may use your client interface in multi-threaded environments.
-
-### Try to avoid using singleton resources.
-
-If you are using singleton resources, you have to ensure the thread safety by yourself, that's a great amount of work.
-
-## Migration Guide
-
-### Package Rename (io.tcprest → cn.huiwings.tcprest)
-
-Version 1.0 introduces a package rename. Update all imports:
-
+**Phase 2: Update Clients** (gradual)
 ```java
-// Old (version 0.x)
-import io.tcprest.server.TcpRestServer;
-import io.tcprest.client.TcpRestClientFactory;
-
-// New (version 1.0+)
-import cn.huiwings.tcprest.server.TcpRestServer;
-import cn.huiwings.tcprest.client.TcpRestClientFactory;
+// Opt-in to v2 per client
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8001
+)
+    .withProtocolV2();  // Add this line
 ```
 
-### Module Structure Changes
-
-Version 1.0 splits the framework into multiple modules:
-
-**If you were using only core features (no Netty):**
-```xml
-<dependency>
-    <groupId>cn.huiwings</groupId>
-    <artifactId>tcprest-core</artifactId>
-    <version>1.0-SNAPSHOT</version>
-</dependency>
-```
-
-**If you were using NettyTcpRestServer:**
-```xml
-<dependency>
-    <groupId>cn.huiwings</groupId>
-    <artifactId>tcprest-netty</artifactId>
-    <version>1.0-SNAPSHOT</version>
-</dependency>
-```
-
-Note: `tcprest-netty` automatically includes `tcprest-core` as a transitive dependency.
-
-### Improved Shutdown Behavior
-
-Version 1.0 fixes critical shutdown bugs. Servers now properly:
-- Release ports immediately on shutdown
-- Terminate within 5 seconds maximum
-- Support restart on the same port
-
-No code changes needed - `server.down()` now works correctly!
-
-## Known Limitations
-
-TcpRest has some design limitations to be aware of:
-
-### 1. Protocol v1 Limitations (Method Overloading & Exception Handling)
-
-The current protocol (v1) has two related limitations that will be addressed together in a future protocol v2 design:
-
-#### 1.1 Method Overloading Not Supported
-
-The RPC protocol cannot distinguish between overloaded methods (same name, different parameters):
-
+**Phase 3: V2-Only** (optional, after all clients upgraded)
 ```java
-// ❌ Won't work correctly
-public interface Calculator {
-    int add(int a, int b);
-    double add(double a, double b);  // Cannot be invoked via RPC
-}
-
-// ✅ Use distinct method names instead
-public interface Calculator {
-    int addIntegers(int a, int b);
-    double addDecimals(double a, double b);
-}
+server.setProtocolVersion(ProtocolVersion.V2);  // Reject v1 clients
 ```
 
-**Why:** The protocol only includes method names, not parameter type signatures.
-
-**Workaround:** Always use unique method names in RPC interfaces.
-
-#### 1.2 No Server-Side Exception Propagation
-
-When a server-side exception occurs, clients receive no error information:
-
-```java
-// Server throws exception
-public String processData(String data) {
-    throw new ValidationException("Invalid data");  // Client gets timeout or null
-}
-
-// ✅ Return error objects instead
-public Result<String> processData(String data) {
-    try {
-        String result = process(data);
-        return Result.success(result);
-    } catch (ValidationException e) {
-        return Result.error(e.getMessage());
-    }
-}
-```
-
-**Why:** The protocol has no status code mechanism (like HTTP 200/500).
-
-**Workaround:** Return error/success wrapper objects instead of throwing exceptions.
-
-**Future:** Both limitations will be addressed in Protocol v2 with:
-- Method signatures for overloading support
-- Status codes for exception propagation
-- See [TODO-ANALYSIS.md](TODO-ANALYSIS.md#2-protocol-v2-design-method-overloading--exception-handling) for design details
-
-### 2. Thread Safety for Singleton Resources
-
-Singleton resources must be thread-safe when used with multi-threaded servers:
-
-```java
-@Singleton
-public class CounterResource {
-    private int count = 0;  // ❌ Not thread-safe
-
-    public void increment() {
-        count++;  // Race condition with NioTcpRestServer/NettyTcpRestServer
-    }
-}
-```
-
-**Workaround:** Use `AtomicInteger`, synchronization, or concurrent collections:
-
-```java
-@Singleton
-public class CounterResource {
-    private final AtomicInteger count = new AtomicInteger(0);  // ✅ Thread-safe
-
-    public void increment() {
-        count.incrementAndGet();
-    }
-}
-```
-
-For detailed analysis of all limitations, see [TODO-ANALYSIS.md](TODO-ANALYSIS.md).
+**Rollback:** Remove `.withProtocolV2()` to revert clients to v1.
 
 ## Documentation
 
-For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
+- **[PROTOCOL.md](PROTOCOL.md)** - Wire protocol specification, format details, and compatibility
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical design, implementation details, and internals
+- **[CLAUDE.md](CLAUDE.md)** - Development guidelines and coding standards
 
-## Building
+## Building from Source
 
 ```bash
+# Build all modules
 mvn clean install
-```
 
-## Testing
-
-```bash
+# Run tests
 mvn test
-```
 
-To verify zero dependencies in tcprest-core:
-```bash
+# Verify zero dependencies in core
 mvn dependency:tree -pl tcprest-core
 ```
 
+## Examples
+
+See the `src/test/java` directories for comprehensive examples:
+- **Basic usage**: `cn.huiwings.tcprest.test.smoke.*`
+- **Protocol v2**: `cn.huiwings.tcprest.test.integration.ProtocolV2IntegrationTest`
+- **Backward compatibility**: `cn.huiwings.tcprest.test.integration.BackwardCompatibilityTest`
+- **Compression**: `cn.huiwings.tcprest.test.compression.*`
+- **SSL**: `cn.huiwings.tcprest.test.ssl.*`
+
+## Requirements
+
+- **Java 11+**
+- **Maven 3.6+** (for building)
+
+## License
+
+Apache License 2.0 - See [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please follow the guidelines in [CLAUDE.md](CLAUDE.md).
+
+## Support
+
+- **Issues**: Report bugs and request features via [GitHub Issues](https://github.com/liweinan/tcprest/issues)
+- **Documentation**: See [PROTOCOL.md](PROTOCOL.md) and [ARCHITECTURE.md](ARCHITECTURE.md)
