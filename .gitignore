@@ -2,3 +2,7 @@
 *.iml
 target/
 .DS_Store
+
+# Process/migration documents (keep locally, don't commit)
+MIGRATION-*.md
+TODO-ANALYSIS.md
