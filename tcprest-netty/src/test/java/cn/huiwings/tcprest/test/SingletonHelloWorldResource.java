@@ -1,8 +1,9 @@
 package cn.huiwings.tcprest.test;
 
-import cn.huiwings.tcprest.annotations.Singleton;
-
-@Singleton
+/**
+ * Singleton implementation of HelloWorld interface.
+ * Must be registered using addSingletonResource() to maintain state across requests.
+ */
 public class SingletonHelloWorldResource implements HelloWorld {
     @Override
     public String helloWorld() {
