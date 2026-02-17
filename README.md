@@ -248,11 +248,16 @@ server.up();
 
 TcpRest provides three server implementations:
 
-| Server | Module | Best For | SSL Support |
-|--------|--------|----------|-------------|
-| `SingleThreadTcpRestServer` | tcprest-core | Low traffic, simple deployment | ✅ Yes |
-| `NioTcpRestServer` | tcprest-core | Medium traffic, non-blocking I/O | ❌ No |
-| `NettyTcpRestServer` | tcprest-netty | High traffic, production systems | ✅ Yes |
+| Server | Module | Best For | SSL Support | IPv6 Support | Serializable Auto-Mapper |
+|--------|--------|----------|-------------|--------------|--------------------------|
+| `SingleThreadTcpRestServer` | tcprest-core | Low traffic, simple deployment | ✅ Yes | ✅ Yes | ✅ Yes |
+| `NioTcpRestServer` | tcprest-core | Medium traffic, non-blocking I/O | ❌ No | ✅ Yes | ✅ Yes |
+| `NettyTcpRestServer` | tcprest-netty | High traffic, production systems | ✅ Yes | ✅ Yes | ✅ Yes |
+
+**Notes:**
+- **IPv6 Support**: All servers support IPv6 addresses (e.g., `::1` for localhost, `::` for all interfaces)
+- **Serializable Auto-Mapper**: Classes implementing `java.io.Serializable` don't need custom mappers - they work automatically
+- **Transient Support**: Fields marked `transient` are automatically excluded from serialization
 
 ### Netty Server Usage (Recommended for Production)
 
@@ -447,9 +452,47 @@ try {
 
 **See Full Example:** [`ProtocolV2IntegrationTest.java`](tcprest-core/src/test/java/cn/huiwings/tcprest/test/integration/ProtocolV2IntegrationTest.java) for complete working code with tests.
 
+**Pro Tip:** In this example, if your `Cart` and `Product` classes implement `Serializable`, you don't need any custom mappers - TcpRest will handle serialization automatically, including proper handling of `transient` fields.
+
+### Automatic Serialization (Recommended)
+
+**TcpRest automatically handles any class implementing `Serializable` - no mapper needed!**
+
+```java
+import java.io.Serializable;
+
+// Simply implement Serializable
+public class User implements Serializable {
+    private int id;
+    private String name;
+    private transient String password;  // Excluded from serialization
+
+    // Getters/setters...
+}
+
+// Works automatically - no mapper registration required!
+public interface UserService {
+    User getUser(int id);
+    List<User> getAllUsers();  // Collections work too
+}
+```
+
+**What's supported automatically:**
+- ✅ Any class implementing `Serializable`
+- ✅ Collections (`List`, `Map`, `Set`) - they're already Serializable
+- ✅ Arrays of any type
+- ✅ `transient` fields (automatically excluded)
+- ✅ Nested Serializable objects
+- ⚠️ Generic types (runtime type erasure applies, but works via Serializable)
+
+**When to use custom mappers:**
+- More efficient string representation (e.g., CSV format)
+- Human-readable wire format
+- Non-Serializable classes you can't modify
+
 ### Custom Data Types with Mappers
 
-Handle custom types by registering mappers:
+For more control, implement custom mappers:
 
 ```java
 public class PersonMapper implements Mapper {
