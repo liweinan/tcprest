@@ -18,7 +18,7 @@ TcpRest is organized into two Maven modules:
 
 **tcprest-netty**: Optional high-performance Netty-based server
 - `NettyTcpRestServer` for high-concurrency scenarios
-- Depends on Netty 3.10.6.Final
+- Depends on Netty 4.1.131.Final
 
 ### Maven Dependencies
 
@@ -42,33 +42,49 @@ For high-performance Netty server:
 
 ## Introduction
 
-TcpRest is a framework that can turn your POJO into a server/client pair. Suppose you have a java class like this:
+TcpRest is a framework that can turn your POJO into a server/client pair.
 
-    public class HelloWorldResource {
+First, define an interface for the remote service:
 
-        public String helloWorld() {
-            return "Hello, world!";
-        }
+```java
+public interface HelloWorld {
+    String helloWorld();
+}
+```
+
+Then create the server-side implementation:
+
+```java
+public class HelloWorldResource implements HelloWorld {
+    public String helloWorld() {
+        return "Hello, world!";
     }
+}
+```
 
-It needs three lines of code to turn it into a server:
+**Starting the server** takes three lines of code:
 
-	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
-	tcpRestServer.up();
-	tcpRestServer.addResource(HelloWorldResource.class);
+```java
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.up();
+server.addResource(HelloWorldResource.class);  // Register implementation
+```
 
+**Creating the client** takes two lines:
 
-For client side it needs two lines of code:
+```java
+TcpRestClientFactory factory =
+    new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);  // Use interface
+HelloWorld client = factory.getInstance();
+```
 
-	TcpRestClientFactory factory = 
-		new TcpRestClientFactory(HelloWorld.class, "localhost", 8001);
-	HelloWorld client = factory.getInstance();
+**Using the client** is just like calling a local method:
 
-And then you could call the server like using ordinary java class:
+```java
+String response = client.helloWorld();  // Returns "Hello, world!"
+```
 
-	client.helloWorld();
-
-TcpRest will handle all the rest of the work for you.
+TcpRest handles all the serialization, networking, and deserialization automatically.
 
 ## Data Compression Support
 
@@ -154,21 +170,30 @@ The system contains several core components:
 
 ### Resource
 
-Resource is the plain java class that you want to turn to a network API. Here is an example:
+A Resource is the server-side implementation class that handles remote method calls.
 
-	public class HelloWorldResource {
+**Interface definition** (shared between client and server):
+```java
+public interface HelloWorld {
+    String helloWorld();
+}
+```
 
-	    public String helloWorld() {
-	        return "Hello, world!";
-	    }
+**Server implementation**:
+```java
+public class HelloWorldResource implements HelloWorld {
+    public String helloWorld() {
+        return "Hello, world!";
+    }
+}
+```
 
-	}
-
-You can turn it into server by:
-
-	TcpRestServer tcpRestServer = new SingleThreadTcpRestServer(8001);
-	tcpRestServer.up();
-	tcpRestServer.addResource(HelloWorldResource.class);
+**Registering the resource**:
+```java
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.up();
+server.addResource(HelloWorldResource.class);  // Register implementation
+```
 
 #### Singleton Resource
 
@@ -248,14 +273,23 @@ server.up();
 ```
 
 **NettyTcpRestServer** (in tcprest-netty)
-- Uses Netty 3.x framework
-- High-performance async I/O
+- Uses Netty 4.1.x framework (latest stable)
+- High-performance async I/O with EventLoopGroup architecture
 - **SSL Support:** ✅ Yes (via Netty SSL support)
+- **Large Payload Support:** ✅ Yes (up to 1MB via LineBasedFrameDecoder)
 - Best for: High-concurrency production scenarios, SSL with NIO
-- Requires: Netty dependency
+- Requires: Netty 4.1.131.Final dependency
 
 ```java
+// Plain TCP
 TcpRestServer server = new NettyTcpRestServer(8001);
+server.up();
+
+// With SSL/TLS
+SSLParam sslParam = new SSLParam();
+sslParam.setKeyStorePath("classpath:server_ks");
+sslParam.setKeyStoreKeyPass("password");
+TcpRestServer server = new NettyTcpRestServer(8001, sslParam);
 server.up();
 ```
 
@@ -601,23 +635,7 @@ public interface Calculator {
 
 **Workaround:** Always use unique method names in RPC interfaces.
 
-### 2. NettyTcpRestServer Large Payload Limitation
-
-NettyTcpRestServer may fail with payloads larger than ~8KB due to request fragmentation:
-
-```java
-// May fail with NettyTcpRestServer on large data
-String largeData = generateString(10 * 1024);  // 10KB
-String result = client.processLargeData(largeData);  // ParseException
-```
-
-**Why:** Netty 3.10.6's frame decoder splits large messages, causing protocol parsing errors.
-
-**Workaround:** Use `SingleThreadTcpRestServer` or `NioTcpRestServer` for large payloads, or keep messages under 8KB.
-
-**Future:** Planned for v2.0 with Netty 4.x upgrade.
-
-### 3. Thread Safety for Singleton Resources
+### 2. Thread Safety for Singleton Resources
 
 Singleton resources must be thread-safe when used with multi-threaded servers:
 

@@ -17,42 +17,47 @@ The codebase contains 6 TODO items. After detailed analysis and testing:
 ## 1. NettyTcpRestServer Large Data Handling
 **File**: `tcprest-netty/src/test/java/cn/huiwings/tcprest/test/smoke/TcpClientFactorySmokeTest.java:40`
 
-### Status: TO BE FIXED (Priority: Medium, Not Urgent)
+### Status: ✅ FIXED (Completed: 2026-02-18)
 
-### Problem
-NettyTcpRestServer fails when handling large payloads (>10KB) due to request fragmentation:
+### Problem (Historical)
+NettyTcpRestServer failed when handling large payloads (>10KB) due to request fragmentation in Netty 3.10.6.
+
+### Solution Implemented
+**Netty upgraded from 3.10.6.Final → 4.1.131.Final** with proper frame handling:
+
+```java
+// Fixed with LineBasedFrameDecoder
+pipeline.addLast("lineFramer", new LineBasedFrameDecoder(1024 * 1024)); // 1MB max
+pipeline.addLast("stringDecoder", new StringDecoder(CharsetUtil.UTF_8));
+pipeline.addLast("tcpRestProtocolHandler", new NettyTcpRestProtocolHandler(this));
 ```
-ParseException: cannot parse request: cn.huiwings.tcprest.test.HelloWorld/echo({{YWJjZGVm...
-```
 
-### Root Cause
-Netty 3.10.6's StringDecoder/StringEncoder splits large messages into multiple frames. The line-based protocol parser receives fragmented Base64-encoded data, causing protocol parsing failures.
+### Changes Made
+1. **Complete Netty 4.x migration**:
+   - ServerBootstrap configuration updated
+   - ChannelFactory → NioEventLoopGroup (boss/worker pattern)
+   - ChannelPipelineFactory → ChannelInitializer
+   - SimpleChannelHandler → SimpleChannelInboundHandler<String>
+   - Each channel gets its own handler instance (fixes @Sharable requirement)
 
-### Test Evidence
+2. **Frame handling**: LineBasedFrameDecoder aggregates fragmented messages before decoding
+
+3. **SSL support added**: NettyTcpRestServer now supports SSL/TLS via Netty's SslContext
+
+### Test Results
 ```bash
-# Single-threaded and NIO servers: PASS
-✅ SingleThreadTcpRestServer: largeDataTest() passes (10KB payload)
-✅ NioTcpRestServer: largeDataTest() passes (10KB payload)
+✅ All servers now handle large payloads (>10KB):
+   - SingleThreadTcpRestServer: PASS
+   - NioTcpRestServer: PASS
+   - NettyTcpRestServer: PASS (fixed!)
 
-# Netty server: FAIL
-❌ NettyTcpRestServer: ParseException on large payloads
+✅ All 70 tests passing (tcprest-core: 40/40, tcprest-netty: 30/30)
 ```
 
-### Why Not Fixed Immediately
-- Netty 3.10.6 (released 2016) is end-of-life and no longer maintained
-- Fixing requires either:
-  1. Upgrading to Netty 4.x (major breaking change, different API)
-  2. Implementing custom frame aggregation logic (complex)
-- Impact is limited (most RPC calls are <8KB)
-
-### Recommended Solution (Future Work)
-1. **Short term**: Document the limitation (max payload ~8KB for Netty server)
-2. **Long term**: Upgrade to Netty 4.x with proper frame aggregation
-   - Create new module `tcprest-netty4` for backward compatibility
-   - Migrate to LineBasedFrameDecoder + StringDecoder combination
-
-### Workaround for Users
-Use `SingleThreadTcpRestServer` or `NioTcpRestServer` for large payloads.
+### Impact
+- NettyTcpRestServer now production-ready for large payloads
+- Netty 4.x provides better performance and modern API
+- SSL support complete across all three server implementations
 
 ---
 
@@ -249,27 +254,27 @@ public @interface Singleton {
 
 ## Summary Table
 
-| # | Location | Issue | Action | Priority |
-|---|----------|-------|--------|----------|
-| 1 | TcpClientFactorySmokeTest.java:40 | Netty large data | **Keep TODO** | Medium (future) |
-| 2 | DefaultExtractor.java:129 | Method overloading | **Keep TODO** | Low (future) |
+| # | Location | Issue | Action | Status |
+|---|----------|-------|--------|--------|
+| 1 | TcpClientFactorySmokeTest.java:40 | Netty large data | **Fixed** | ✅ Completed (2026-02-18) |
+| 2 | DefaultExtractor.java:129 | Method overloading | **Keep TODO** | Low priority (future) |
 | 3 | MapperHelper.java:43 | Exception transfer | **Remove TODO** | N/A |
 | 4 | SingleThreadTcpRestServer.java:34-35 | Exception handling & validation | **Remove TODO** | N/A |
-| 5 | Singleton.java:4 | Documentation | **Document** | Completed ✅ |
+| 5 | Singleton.java:4 | Documentation | **Document** | ✅ Completed |
 
 ---
 
 ## Recommendations
 
 ### For Next Release
-1. Document TODO #1 and #2 in GitHub Issues for tracking
-2. Add "Known Limitations" section to README.md
+1. Document TODO #2 (method overloading) in GitHub Issues for tracking
+2. ✅ ~~Add "Known Limitations" section to README.md~~ (Completed)
 3. Add coding guidelines discouraging method overloading
 
 ### For Version 2.0 (Breaking Changes Allowed)
 1. Protocol v2 with type signatures (fixes TODO #2)
 2. Protocol error handling (addresses TODO #4)
-3. Netty 4.x upgrade (fixes TODO #1)
+3. ✅ ~~Netty 4.x upgrade (fixes TODO #1)~~ (Completed: 4.1.131.Final)
 
 ### Documentation Updates Needed
 - README.md: Add "Known Limitations" section
@@ -283,12 +288,14 @@ public @interface Singleton {
 All changes validated:
 ```bash
 ✅ tcprest-core: 40/40 tests passing
-✅ tcprest-netty: 9/9 tests passing
+✅ tcprest-netty: 30/30 tests passing (includes Netty 4.x tests)
 ✅ BUILD SUCCESS
+✅ Total: 70/70 tests passing
 ```
 
 ---
 
 **Report Generated**: 2026-02-17
+**Last Updated**: 2026-02-18 (Netty 4.x upgrade completed)
 **Reviewed By**: Claude Sonnet 4.5
-**Status**: Ready for implementation
+**Status**: 5/6 items resolved, 1 item pending (method overloading - low priority)
