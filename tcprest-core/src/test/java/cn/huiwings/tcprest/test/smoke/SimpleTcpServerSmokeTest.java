@@ -3,6 +3,7 @@ package cn.huiwings.tcprest.test.smoke;
 import cn.huiwings.tcprest.conveter.Converter;
 import cn.huiwings.tcprest.conveter.DefaultConverter;
 import cn.huiwings.tcprest.protocol.TcpRestProtocol;
+import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.HelloWorldResource;
@@ -58,11 +59,24 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("cn.huiwings.tcprest.test.HelloWorldResource/helloWorld()");
+
+        // New secure format: 0|{{base64(meta)}}|{{base64(params)}}
+        String meta = "cn.huiwings.tcprest.test.HelloWorldResource/helloWorld";
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+        String paramsBase64 = ProtocolSecurity.encodeComponent(""); // Empty params
+        String request = "0|" + metaBase64 + "|" + paramsBase64;
+
+        writer.println(request);
         writer.flush();
 
         String response = reader.readLine();
-        Assert.assertEquals("Hello, world!", converter.decodeParam(stripCompressionPrefix(response)));
+
+        // Parse response: 0|{{base64(result)}}
+        String[] parts = ProtocolSecurity.splitChecksum(response);
+        String[] components = parts[0].split("\\|", -1);
+        String resultEncoded = components[1]; // This is {{base64(result)}}
+
+        Assert.assertEquals("Hello, world!", converter.decodeParam(resultEncoded));
 
     }
 
@@ -73,12 +87,27 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
+
+        // New secure format: 0|{{base64(meta)}}|{{base64(params)}}
+        String meta = "cn.huiwings.tcprest.test.HelloWorldResource/sayHelloTo";
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+
+        // Encode parameter: "Jack!" -> {{base64}} -> base64 again
+        String param = converter.encodeParam("Jack!");
+        String paramsBase64 = ProtocolSecurity.encodeComponent(param);
+        String request = "0|" + metaBase64 + "|" + paramsBase64;
+
+        writer.println(request);
         writer.flush();
 
         String response = reader.readLine();
 
-        Assert.assertEquals("Hello, Jack!", converter.decodeParam(stripCompressionPrefix(response)));
+        // Parse response: 0|{{base64(result)}}
+        String[] parts = ProtocolSecurity.splitChecksum(response);
+        String[] components = parts[0].split("\\|", -1);
+        String resultEncoded = components[1]; // This is {{base64(result)}}
+
+        Assert.assertEquals("Hello, Jack!", converter.decodeParam(resultEncoded));
 
     }
 
@@ -89,17 +118,31 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("cn.huiwings.tcprest.test.HelloWorldResource/oneTwoThree("
-                + converter.encodeParam("One")
-                + TcpRestProtocol.PATH_SEPERATOR
+
+        // New secure format: 0|{{base64(meta)}}|{{base64(params)}}
+        String meta = "cn.huiwings.tcprest.test.HelloWorldResource/oneTwoThree";
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+
+        // Encode multiple parameters: {{p1}}:::{{p2}}:::{{p3}} -> base64
+        String params = converter.encodeParam("One")
+                + TcpRestProtocol.PARAM_SEPARATOR
                 + converter.encodeParam("2")
-                + TcpRestProtocol.PATH_SEPERATOR
-                + converter.encodeParam("true")
-                + ")");
+                + TcpRestProtocol.PARAM_SEPARATOR
+                + converter.encodeParam("true");
+        String paramsBase64 = ProtocolSecurity.encodeComponent(params);
+        String request = "0|" + metaBase64 + "|" + paramsBase64;
+
+        writer.println(request);
         writer.flush();
 
         String response = reader.readLine();
-        Assert.assertEquals("One,2,true", converter.decodeParam(stripCompressionPrefix(response)));
+
+        // Parse response: 0|{{base64(result)}}
+        String[] parts = ProtocolSecurity.splitChecksum(response);
+        String[] components = parts[0].split("\\|", -1);
+        String resultEncoded = components[1]; // This is {{base64(result)}}
+
+        Assert.assertEquals("One,2,true", converter.decodeParam(resultEncoded));
 
     }
 

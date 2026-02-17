@@ -182,17 +182,11 @@ public class TcpRestClientProxy implements InvocationHandler {
         }
 
         String statusOrCompression = components[0];
-        String resultBase64 = components[1];
+        String resultEncoded = components[1]; // This is {{base64(result)}}
 
-        // Step 4: Decode result
-        String decodedResult;
-        try {
-            decodedResult = ProtocolSecurity.decodeComponent(resultBase64);
-        } catch (Exception e) {
-            // Fallback: try legacy decodeParam
-            logger.warn("***TcpRestClientProxy - failed to decode result as component, trying legacy format");
-            decodedResult = converter.decodeParam(response);
-        }
+        // Step 4: Decode result using converter.decodeParam()
+        // The result is in {{base64}} format, which is what encodeParam() produces
+        String decodedResult = converter.decodeParam(resultEncoded);
 
         logger.debug("***TcpRestClientProxy - decoded result: " + decodedResult);
 

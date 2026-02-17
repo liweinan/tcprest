@@ -6,6 +6,7 @@ import cn.huiwings.tcprest.extractor.DefaultExtractor;
 import cn.huiwings.tcprest.extractor.Extractor;
 import cn.huiwings.tcprest.invoker.DefaultInvoker;
 import cn.huiwings.tcprest.invoker.Invoker;
+import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.Context;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
@@ -49,7 +50,9 @@ public class ErrorHandlingTest {
         Extractor extractor = new DefaultExtractor(server);
 
         // Try to extract a method that doesn't exist - should throw NoSuchMethodException
-        Context ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/nonExistentMethod()");
+        String meta = "cn.huiwings.tcprest.test.HelloWorldResource/nonExistentMethod";
+        String request = "0|" + ProtocolSecurity.encodeComponent(meta) + "|" + ProtocolSecurity.encodeComponent("");
+        Context ctx = extractor.extract(request);
         Invoker invoker = new DefaultInvoker();
         invoker.invoke(ctx);
     }
@@ -77,7 +80,9 @@ public class ErrorHandlingTest {
         }
 
         // Server should still handle valid requests properly
-        Context ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/helloWorld()");
+        String meta = "cn.huiwings.tcprest.test.HelloWorldResource/helloWorld";
+        String request = "0|" + ProtocolSecurity.encodeComponent(meta) + "|" + ProtocolSecurity.encodeComponent("");
+        Context ctx = extractor.extract(request);
         String result = (String) invoker.invoke(ctx);
         assertEquals(result, "Hello, world!");
     }
