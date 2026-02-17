@@ -231,6 +231,175 @@ src/test/java/cn/huiwings/tcprest/test/
 └── smoke/                # End-to-end smoke tests
 ```
 
+#### 9.1 TestNG @Factory Pattern Guidelines (CRITICAL)
+
+**Problem:** Using `@Factory` to test multiple server implementations can cause test failures due to improper lifecycle management.
+
+**Rules for @Factory tests:**
+
+1. **Use @BeforeClass/@AfterClass, NOT @BeforeMethod/@AfterMethod**
+
+   ❌ **WRONG - Causes multiple restarts:**
+   ```java
+   @BeforeMethod  // BAD: Restarts server for EVERY test method
+   public void startServer() {
+       server.up();
+   }
+
+   @AfterMethod   // BAD: Stops server after EVERY test method
+   public void stopServer() {
+       server.down();
+   }
+   ```
+
+   ✅ **CORRECT - One startup per instance:**
+   ```java
+   @BeforeClass   // GOOD: Starts server once per @Factory instance
+   public void startServer() throws Exception {
+       tcpRestServer.up();
+       // Delay for async servers (NioTcpRestServer, NettyTcpRestServer)
+       Thread.sleep(500);
+   }
+
+   @AfterClass    // GOOD: Stops server once per @Factory instance
+   public void stopServer() throws Exception {
+       tcpRestServer.down();
+       // Wait for port release
+       Thread.sleep(300);
+   }
+   ```
+
+2. **Add startup/shutdown delays for async servers**
+
+   Async servers (NioTcpRestServer, NettyTcpRestServer) start worker threads that may not be immediately ready:
+
+   ```java
+   @BeforeClass
+   public void startServer() throws Exception {
+       tcpRestServer.up();
+       Thread.sleep(500);  // CRITICAL: Wait for async server to be fully ready
+   }
+
+   @AfterClass
+   public void stopServer() throws Exception {
+       tcpRestServer.down();
+       Thread.sleep(300);  // CRITICAL: Wait for port to be released
+   }
+   ```
+
+3. **Use testng.xml for strict sequential execution**
+
+   Create `src/test/resources/testng.xml`:
+   ```xml
+   <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+   <suite name="TestSuite" verbose="1" parallel="false"
+          data-provider-thread-count="1" group-by-instances="true">
+       <test name="Tests" parallel="false" preserve-order="true">
+           <classes>
+               <class name="cn.huiwings.tcprest.test.smoke.MapperSmokeTest">
+                   <methods>
+                       <include name="testMethod1"/>
+                       <include name="testMethod2"/>
+                   </methods>
+               </class>
+           </classes>
+       </test>
+   </suite>
+   ```
+
+   Configure surefire to use it:
+   ```xml
+   <plugin>
+       <groupId>org.apache.maven.plugins</groupId>
+       <artifactId>maven-surefire-plugin</artifactId>
+       <configuration>
+           <suiteXmlFiles>
+               <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+           </suiteXmlFiles>
+           <parallel>none</parallel>
+           <threadCount>1</threadCount>
+       </configuration>
+   </plugin>
+   ```
+
+4. **Avoid port conflicts across modules**
+
+   Each module should use a different port range:
+
+   ```java
+   // tcprest-core/PortGenerator.java
+   private static final AtomicInteger counter = new AtomicInteger(8000);
+
+   // tcprest-netty/PortGenerator.java
+   private static final AtomicInteger counter = new AtomicInteger(20000);
+   ```
+
+   **Use AtomicInteger, NOT Random** to ensure predictable, non-colliding ports:
+
+   ❌ **WRONG:**
+   ```java
+   public static int get() {
+       return Math.abs((new Random()).nextInt()) % 10000 + 8000;  // Can collide!
+   }
+   ```
+
+   ✅ **CORRECT:**
+   ```java
+   private static final AtomicInteger counter = new AtomicInteger(8000);
+
+   public static int get() {
+       return counter.getAndIncrement();  // Guaranteed unique
+   }
+   ```
+
+5. **Example: Proper @Factory test class**
+
+   ```java
+   public class MapperSmokeTest {
+       protected TcpRestServer tcpRestServer;
+
+       public MapperSmokeTest(TcpRestServer tcpRestServer) {
+           this.tcpRestServer = tcpRestServer;
+       }
+
+       @Factory
+       public static Object[] create() throws Exception {
+           List result = new ArrayList();
+           result.add(new MapperSmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
+           result.add(new MapperSmokeTest(new NioTcpRestServer(PortGenerator.get())));
+           result.add(new MapperSmokeTest(new NettyTcpRestServer(PortGenerator.get())));
+           return result.toArray();
+       }
+
+       @BeforeClass  // NOT @BeforeMethod!
+       public void startTcpRestServer() throws Exception {
+           tcpRestServer.up();
+           Thread.sleep(500);  // Wait for async startup
+       }
+
+       @AfterClass   // NOT @AfterMethod!
+       public void stopTcpRestServer() throws Exception {
+           tcpRestServer.down();
+           Thread.sleep(300);  // Wait for port release
+       }
+
+       @Test
+       public void testFeature() {
+           // Test implementation
+       }
+   }
+   ```
+
+#### 9.2 Common Test Failures and Solutions
+
+| Symptom | Root Cause | Solution |
+|---------|-----------|----------|
+| "Connection refused" on some runs | Server not fully started | Add `Thread.sleep(500)` after `server.up()` |
+| "Address already in use" | Port not released from previous test | Add `Thread.sleep(300)` after `server.down()` |
+| Random test failures (Run 1, 3 fail; Run 2 passes) | @Factory instances executing concurrently | Use `@BeforeClass/@AfterClass` + `testng.xml` with `group-by-instances="true"` |
+| Tests pass individually, fail together | Test concurrency issues | Configure surefire with `<parallel>none</parallel>` |
+| Port conflicts between modules | Same port range in different modules | Use different base ports (8000 for core, 20000 for netty) |
+
 ### 10. Documentation
 
 **Rule:** All public APIs must be documented.

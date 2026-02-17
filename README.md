@@ -1,6 +1,9 @@
 # TcpRest
 
-[![Build Status](https://travis-ci.org/liweinan/tcprest.svg?branch=master)](https://travis-ci.org/liweinan/tcprest)
+[![CI](https://github.com/Moicen/tcprest/actions/workflows/ci.yml/badge.svg)](https://github.com/Moicen/tcprest/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Moicen/tcprest/actions/workflows/codeql.yml/badge.svg)](https://github.com/Moicen/tcprest/actions/workflows/codeql.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Java Version](https://img.shields.io/badge/Java-11%2B-orange)](https://www.oracle.com/java/)
 
 TcpRest is a lightweight webservice framework that transforms POJOs into network-accessible services over TCP.
 

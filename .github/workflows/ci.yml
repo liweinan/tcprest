@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  build:
+    name: Build and Test (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        java: [ '11', '17', '21' ]
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK ${{ matrix.java }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Verify zero dependencies in core module
+      run: |
+        echo "Verifying tcprest-core has zero runtime dependencies..."
+        mvn dependency:tree -pl tcprest-core -Dscope=compile | tee dep-tree.txt
+        # Should only show the module itself, no dependencies
+        if grep -E '\+\-.*compile' dep-tree.txt; then
+          echo "ERROR: tcprest-core has compile dependencies!"
+          exit 1
+        fi
+        echo "✓ tcprest-core has zero dependencies"
+
+    - name: Build with Maven
+      run: mvn -B clean install -DskipTests
+
+    - name: Run tests
+      run: mvn -B test
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-jdk-${{ matrix.java }}
+        path: |
+          **/target/surefire-reports/*.xml
+          **/target/surefire-reports/*.txt
+        retention-days: 7
+
+    - name: Upload coverage to Codecov (JDK 11 only)
+      if: matrix.java == '11'
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./target/site/jacoco/jacoco.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 11
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Check for dependency updates
+      run: mvn versions:display-dependency-updates
+
+    - name: Check for plugin updates
+      run: mvn versions:display-plugin-updates
