@@ -26,6 +26,10 @@ import static org.testng.Assert.*;
  */
 public class ProtocolV2IntegrationTest {
 
+    // Use dedicated port range for this test class (20000-20999)
+    // Avoids conflicts with other tests and system services
+    private static final int BASE_PORT = 20000;
+
     private TcpRestServer server;
     private int port;
     private OverloadedCalculator calculatorClient;
@@ -33,7 +37,7 @@ public class ProtocolV2IntegrationTest {
 
     @BeforeClass
     public void setup() throws Exception {
-        port = PortGenerator.get();
+        port = BASE_PORT;
 
         // Start server in V2 mode with implementation classes
         server = new SingleThreadTcpRestServer(port);

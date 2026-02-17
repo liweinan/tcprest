@@ -27,8 +27,17 @@ import static org.testng.Assert.*;
  */
 public class BackwardCompatibilityTest {
 
+    // Use dedicated port range for this test class (21000-21999)
+    // Each test gets a unique port to avoid conflicts
+    private static final java.util.concurrent.atomic.AtomicInteger portCounter =
+        new java.util.concurrent.atomic.AtomicInteger(21000);
+
     private TcpRestServer server;
     private int port;
+
+    private int getUniquePort() {
+        return portCounter.getAndIncrement();
+    }
 
     @AfterMethod
     public void tearDown() throws Exception {
@@ -43,7 +52,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testV1Client_withV1Server() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1);
         server.addResource(SimpleService.Impl.class);
@@ -63,7 +72,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testV1Client_withAutoServer() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO); // Default
         server.addResource(SimpleService.Impl.class);
@@ -81,7 +90,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testV1Client_withV2Server_shouldFail() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2); // Only accept V2
         server.addResource(SimpleService.Impl.class);
@@ -108,7 +117,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testV2Client_withV2Server() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2);
         server.addResource(SimpleService.Impl.class);
@@ -127,7 +136,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testV2Client_withAutoServer() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO);
         server.addResource(SimpleService.Impl.class);
@@ -146,7 +155,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testV2Client_withV1Server_shouldFail() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1); // Only accept V1
         server.addResource(SimpleService.Impl.class);
@@ -174,7 +183,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testMixedClients_autoServer() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO);
         server.addResource(SimpleService.Impl.class);
@@ -205,7 +214,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testDefaultServer_isAuto() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         // Don't set protocol version - should default to AUTO
         server.addResource(SimpleService.Impl.class);
@@ -231,7 +240,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testDefaultClient_isV1() throws Exception {
-        port = PortGenerator.get();
+        port = getUniquePort();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1);
         server.addResource(SimpleService.Impl.class);
@@ -252,7 +261,7 @@ public class BackwardCompatibilityTest {
 
     @Test
     public void testServerProtocolVersion_getters() throws Exception {
-        server = new SingleThreadTcpRestServer(PortGenerator.get());
+        server = new SingleThreadTcpRestServer(getUniquePort());
 
         // Default should be AUTO
         assertEquals(server.getProtocolVersion(), ProtocolVersion.AUTO);
