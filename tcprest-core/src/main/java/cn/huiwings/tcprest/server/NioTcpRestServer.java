@@ -77,16 +77,62 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                 synchronized (runningChannels) {
                     runningChannels.add(_sc);
                 }
+
+                // Read until we get a complete line (non-blocking with short timeout)
                 StringBuilder requestBuf = new StringBuilder();
-                decodeChannel(_sc, requestBuf, Charset.forName("UTF-8"));
+                ByteBuffer bb = ByteBuffer.allocate(1024);
+                long deadline = System.currentTimeMillis() + 2000; // 2 second timeout
+                boolean lineComplete = false;
 
-                logger.debug("incoming request: " + requestBuf.toString());
-                String request = requestBuf.toString();
-                String response = processRequest(request.trim());
+                while (!lineComplete && System.currentTimeMillis() < deadline) {
+                    int bytesRead = _sc.read(bb);
 
-                key.attach(response);
-                key.interestOps(SelectionKey.OP_WRITE); // ready for writing response
-                key.selector().wakeup();
+                    if (bytesRead == -1) {
+                        // EOF
+                        synchronized (runningChannels) {
+                            runningChannels.remove(_sc);
+                            _sc.close();
+                        }
+                        return;
+                    }
+
+                    if (bytesRead > 0) {
+                        bb.flip();
+                        CharBuffer cb = Charset.forName("UTF-8").decode(bb);
+                        requestBuf.append(cb.toString());
+                        bb.clear();
+
+                        // Check for complete line
+                        if (requestBuf.indexOf("\n") >= 0 || requestBuf.indexOf("\r") >= 0) {
+                            lineComplete = true;
+                        }
+                    } else {
+                        // No data available, brief pause
+                        try {
+                            Thread.sleep(1);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                }
+
+                if (lineComplete) {
+                    // Process the request
+                    String request = requestBuf.toString();
+                    int newlineIndex = Math.max(request.indexOf('\n'), request.indexOf('\r'));
+                    if (newlineIndex >= 0) {
+                        request = request.substring(0, newlineIndex);
+                    }
+
+                    logger.debug("incoming request: " + request);
+                    String response = processRequest(request.trim());
+
+                    key.attach(response);
+                    // Enable write, selector will pick it up on next iteration
+                    key.interestOps(SelectionKey.OP_WRITE);
+                    key.selector().wakeup();
+                }
             } catch (Exception e) {
                 try {
                     if (_sc != null) {
@@ -220,31 +266,90 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         // Buffer starts empty; indicate input is needed
         CoderResult result = CoderResult.UNDERFLOW;
         boolean eof = false;
-        while (!eof) {
+        boolean lineComplete = false;
+        long startTime = System.currentTimeMillis();
+        final long TIMEOUT_MS = 5000; // 5 second timeout for reading complete line
+        int consecutiveEmptyReads = 0;
+        final int MAX_CONSECUTIVE_EMPTY = 50; // Allow some retries
+
+        // Read until we get a complete line (ends with \n or \r) or EOF or timeout
+        while (!eof && !lineComplete) {
+            // Check timeout
+            if (System.currentTimeMillis() - startTime > TIMEOUT_MS) {
+                break; // Timeout - use whatever we have
+            }
+
             // Input buffer underflow; decoder wants more input
             if (result == CoderResult.UNDERFLOW) {
                 // decoder consumed all input, prepare to refill
                 bb.clear();
-                // Fill the input buffer; watch for EOF
-                eof = (source.read(bb) == 0);
+                // Fill the input buffer (non-blocking read)
+                int bytesRead = source.read(bb);
+
+                if (bytesRead == -1) {
+                    // -1 means EOF (connection closed)
+                    eof = true;
+                    consecutiveEmptyReads = 0;
+                } else if (bytesRead == 0) {
+                    // No data available right now in non-blocking mode
+                    // Check if we already have a complete line
+                    if (builder.indexOf("\n") >= 0 || builder.indexOf("\r") >= 0) {
+                        lineComplete = true;
+                    } else {
+                        // Increment empty read counter
+                        consecutiveEmptyReads++;
+                        if (consecutiveEmptyReads >= MAX_CONSECUTIVE_EMPTY) {
+                            // Too many consecutive empty reads, yield briefly
+                            try {
+                                Thread.sleep(1);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                            consecutiveEmptyReads = 0;
+                        }
+                    }
+                } else {
+                    // Successfully read some data, reset counter
+                    consecutiveEmptyReads = 0;
+                }
+
                 // Prepare the buffer for reading by decoder
                 bb.flip();
+
+                // If buffer is empty and we haven't reached EOF, continue loop
+                if (bb.remaining() == 0 && !eof) {
+                    continue;
+                }
             }
+
             // Decode input bytes to output chars; pass EOF flag
             result = decoder.decode(bb, cb, eof);
-            // If output buffer is full, drain output
+
+            // If output buffer has content, drain it and check for newline
+            if (cb.position() > 0) {
+                drainCharBuf(cb, builder);
+                // Check if we've received a complete line (ends with \n or \r)
+                if (builder.indexOf("\n") >= 0 || builder.indexOf("\r") >= 0) {
+                    lineComplete = true;
+                }
+            }
+
+            // If output buffer is full, drain it
             if (result == CoderResult.OVERFLOW) {
                 drainCharBuf(cb, builder);
             }
         }
-        // Flush any remaining state from the decoder, being careful
-        // to detect output buffer overflow(s)
+
+        // Flush any remaining state from the decoder
         while (decoder.flush(cb) == CoderResult.OVERFLOW) {
             drainCharBuf(cb, builder);
         }
 
         // Drain any chars remaining in the output buffer
-        drainCharBuf(cb, builder);
+        if (cb.position() > 0) {
+            drainCharBuf(cb, builder);
+        }
     }
 
     /**
