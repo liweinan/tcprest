@@ -281,6 +281,15 @@ public class ProtocolRouter {
                 return instance;
             }
 
+            // Also try with canonical name (for inner classes: Foo.Bar vs Foo$Bar)
+            String canonicalName = implClass.getCanonicalName();
+            if (canonicalName != null && !canonicalName.equals(targetClassName)) {
+                instance = resourceRegister.getResource(canonicalName);
+                if (instance != null) {
+                    return instance;
+                }
+            }
+
             // Create new instance from implementation class
             return v2Invoker.createInstance(implClass);
         }
