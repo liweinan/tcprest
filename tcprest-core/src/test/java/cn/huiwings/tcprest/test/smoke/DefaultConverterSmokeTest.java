@@ -24,7 +24,7 @@ public class DefaultConverterSmokeTest {
                 new Object[]{"One", 2, true}, MapperHelper.DEFAULT_MAPPERS);
 
         System.out.println(request);
-        assertEquals("io.tcprest.test.HelloWorldResource/oneTwoThree(" + converter.encodeParam("One") + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("2") + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("true") + ")", request);
+        assertEquals("cn.huiwings.tcprest.test.HelloWorldResource/oneTwoThree(" + converter.encodeParam("One") + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("2") + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("true") + ")", request);
 
     }
 

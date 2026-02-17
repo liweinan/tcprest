@@ -28,7 +28,7 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
         server.addResource(HelloWorldResource.class);
         Extractor extractor = new DefaultExtractor(server);
 
-        Context ctx = extractor.extract("io.tcprest.test.HelloWorldResource/helloWorld()");
+        Context ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/helloWorld()");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("helloWorld"));
         Invoker invoker = new DefaultInvoker();
@@ -37,7 +37,7 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
         Converter converter = new DefaultConverter();
         // test arguments
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
+        ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloTo", String.class));
         assertNotNull(ctx.getParams());
@@ -46,7 +46,7 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
         assertEquals("Hello, Jack!", response);
 
         // test multiple arguments
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("Jack") + ""
+        ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("Jack") + ""
                 + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("Lucy") + ")");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
@@ -57,7 +57,7 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
 
 
         // test params with parentheses inside
-        ctx = extractor.extract("io.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("(me")
+        ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("(me")
                 + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("you)") + ")");
         assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
         assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));

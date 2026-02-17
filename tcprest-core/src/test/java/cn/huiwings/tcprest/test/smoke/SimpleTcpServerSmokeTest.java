@@ -42,6 +42,14 @@ public class SimpleTcpServerSmokeTest {
         clientSocket.close();
     }
 
+    // Helper to strip compression prefix from response
+    private String stripCompressionPrefix(String response) {
+        if (response != null && (response.startsWith("0|") || response.startsWith("1|"))) {
+            return response.substring(2);
+        }
+        return response;
+    }
+
     @Test
     public void testSimpleClient() throws IOException {
         tcpRestServer.addResource(HelloWorldResource.class);
@@ -50,11 +58,11 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("io.tcprest.test.HelloWorldResource/helloWorld()");
+        writer.println("cn.huiwings.tcprest.test.HelloWorldResource/helloWorld()");
         writer.flush();
 
         String response = reader.readLine();
-        Assert.assertEquals("Hello, world!", converter.decodeParam(response));
+        Assert.assertEquals("Hello, world!", converter.decodeParam(stripCompressionPrefix(response)));
 
     }
 
@@ -65,12 +73,12 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("io.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
+        writer.println("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
         writer.flush();
 
         String response = reader.readLine();
 
-        Assert.assertEquals("Hello, Jack!", converter.decodeParam(response));
+        Assert.assertEquals("Hello, Jack!", converter.decodeParam(stripCompressionPrefix(response)));
 
     }
 
@@ -81,7 +89,7 @@ public class SimpleTcpServerSmokeTest {
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        writer.println("io.tcprest.test.HelloWorldResource/oneTwoThree("
+        writer.println("cn.huiwings.tcprest.test.HelloWorldResource/oneTwoThree("
                 + converter.encodeParam("One")
                 + TcpRestProtocol.PATH_SEPERATOR
                 + converter.encodeParam("2")
@@ -91,7 +99,7 @@ public class SimpleTcpServerSmokeTest {
         writer.flush();
 
         String response = reader.readLine();
-        Assert.assertEquals("One,2,true", converter.decodeParam(response));
+        Assert.assertEquals("One,2,true", converter.decodeParam(stripCompressionPrefix(response)));
 
     }
 
