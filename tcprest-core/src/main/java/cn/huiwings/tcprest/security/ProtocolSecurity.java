@@ -56,8 +56,13 @@ public class ProtocolSecurity {
      * @throws SecurityException if decoding fails (invalid format)
      */
     public static String decodeComponent(String encoded) {
-        if (encoded == null || encoded.isEmpty()) {
-            throw new SecurityException("Encoded component cannot be null or empty");
+        if (encoded == null) {
+            throw new SecurityException("Encoded component cannot be null");
+        }
+
+        // Empty string is valid (represents empty content, e.g., no parameters)
+        if (encoded.isEmpty()) {
+            return "";
         }
 
         try {

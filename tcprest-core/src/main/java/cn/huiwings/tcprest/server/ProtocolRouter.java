@@ -80,10 +80,22 @@ public class ProtocolRouter {
         this.compressionConfig = compressionConfig;
         this.logger = logger;
 
-        // Initialize v2 components
+        // Initialize v2 components with default security (can be updated via setter)
         this.v2Extractor = new ProtocolV2Extractor();
         this.v2Invoker = new ProtocolV2Invoker();
         this.v2Converter = new ProtocolV2Converter();
+    }
+
+    /**
+     * Set security configuration for V2 protocol components.
+     *
+     * @param securityConfig security configuration
+     */
+    public void setV2SecurityConfig(cn.huiwings.tcprest.security.SecurityConfig securityConfig) {
+        if (securityConfig != null) {
+            this.v2Extractor.setSecurityConfig(securityConfig);
+            this.v2Converter.setSecurityConfig(securityConfig);
+        }
     }
 
     /**

@@ -2,32 +2,81 @@ package cn.huiwings.tcprest.extractor.v2;
 
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.TypeSignatureUtil;
+import cn.huiwings.tcprest.security.ProtocolSecurity;
+import cn.huiwings.tcprest.security.SecurityConfig;
 import cn.huiwings.tcprest.server.Context;
 
 import java.lang.reflect.Method;
 import java.util.Base64;
 
 /**
- * Protocol v2 extractor for parsing v2 format requests.
+ * Security-Enhanced Protocol v2 Extractor.
  *
  * <p>This extractor parses the enhanced v2 request format that includes
  * method signatures, enabling precise method selection for overloaded methods.</p>
  *
- * <p><b>Request Format:</b></p>
+ * <p><b>Secure Request Format (2026-02-18):</b></p>
  * <pre>
- * V2|0|ClassName/methodName(TYPE_SIGNATURE)(PARAMS)
+ * V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|{{base64(PARAMS)}}|CHK:value
  *
  * Examples:
- * V2|0|Calculator/add(II)({{MQ==}}:::{{Mg==}})
- * V2|0|Service/process(Ljava/lang/String;Z)({{aGVsbG8=}}:::{{dHJ1ZQ==}})
+ * V2|0|Q2FsY3VsYXRvci9hZGQoSUkp|e3tNUT09fX06Ojp7e01nPT19fQ|CHK:a1b2c3d4
+ * V2|0|U2VydmljZS9wcm9jZXNzKExqYXZhL2xhbmcvU3RyaW5nO1op|e3thR1ZzYkc4PX19Ojp7e2RISjFaUT09fX0|CHK:def567
  * </pre>
+ *
+ * <p><b>Security Features:</b></p>
+ * <ul>
+ *   <li>All metadata Base64-encoded (prevents injection)</li>
+ *   <li>Optional checksum verification (CRC32/HMAC)</li>
+ *   <li>Class name validation</li>
+ *   <li>Method name validation</li>
+ *   <li>Optional class whitelist</li>
+ * </ul>
  *
  * @since 1.1.0
  */
 public class ProtocolV2Extractor {
 
+    private SecurityConfig securityConfig;
+
     /**
-     * Extract context from v2 request.
+     * Create extractor with default security (no checksum, no whitelist).
+     */
+    public ProtocolV2Extractor() {
+        this.securityConfig = new SecurityConfig();
+    }
+
+    /**
+     * Create extractor with custom security configuration.
+     *
+     * @param securityConfig security configuration
+     */
+    public ProtocolV2Extractor(SecurityConfig securityConfig) {
+        this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+    }
+
+    /**
+     * Set security configuration.
+     *
+     * @param securityConfig security configuration
+     */
+    public void setSecurityConfig(SecurityConfig securityConfig) {
+        this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+    }
+
+    /**
+     * Get security configuration.
+     *
+     * @return security configuration
+     */
+    public SecurityConfig getSecurityConfig() {
+        return securityConfig;
+    }
+
+    /**
+     * Extract context from v2 request (secure format).
+     *
+     * <p>New secure format: V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|{{base64(PARAMS)}}|CHK:value</p>
      *
      * <p>Parses the request to extract:</p>
      * <ul>
@@ -53,25 +102,44 @@ public class ProtocolV2Extractor {
             throw new IllegalArgumentException("Not a v2 request: " + request);
         }
 
-        // Parse request parts: V2|0|ClassName/methodName(SIGNATURE)(PARAMS)
-        String[] parts = request.split("\\" + ProtocolV2Constants.SEPARATOR, 3);
-        if (parts.length < ProtocolV2Constants.MIN_REQUEST_PARTS) {
+        // Step 1: Split checksum if present
+        String[] checksumParts = ProtocolSecurity.splitChecksum(request);
+        String messageWithoutChecksum = checksumParts[0];
+        String checksum = checksumParts[1];
+
+        // Step 2: Verify checksum if present
+        if (!checksum.isEmpty()) {
+            if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+                throw new cn.huiwings.tcprest.exception.SecurityException(
+                    "Checksum verification failed - message may have been tampered with"
+                );
+            }
+        }
+
+        // Step 3: Parse request parts: V2|0|META|PARAMS
+        String[] parts = messageWithoutChecksum.split("\\" + ProtocolV2Constants.SEPARATOR, 4);
+        if (parts.length < 3) {
             throw new IllegalArgumentException("Invalid v2 request format: " + request);
         }
 
-        String methodCall = parts[ProtocolV2Constants.REQUEST_METHOD_CALL_INDEX];
+        String metaBase64 = parts[2];
+        String paramsBase64 = parts.length > 3 ? parts[3] : "";
 
-        // Parse class name and method signature
-        int slashIndex = methodCall.indexOf(ProtocolV2Constants.CLASS_METHOD_SEPARATOR);
+        // Step 4: Decode metadata (ClassName/methodName(TYPE_SIGNATURE))
+        String meta = ProtocolSecurity.decodeComponent(metaBase64);
+
+        // Step 5: Parse class name and method signature
+        int slashIndex = meta.indexOf(ProtocolV2Constants.CLASS_METHOD_SEPARATOR);
         if (slashIndex == -1) {
-            throw new IllegalArgumentException("Missing class/method separator: " + methodCall);
+            throw new IllegalArgumentException("Missing class/method separator: " + meta);
         }
 
-        String className = methodCall.substring(0, slashIndex);
-        String methodPart = methodCall.substring(slashIndex + 1);
+        String className = meta.substring(0, slashIndex);
+        String methodPart = meta.substring(slashIndex + 1);
 
+        // Step 6: Validate class name and method name
         // Parse method name and signature
-        // Format: methodName(SIGNATURE)(PARAMS)
+        // Format: methodName(SIGNATURE)
         int firstParenIndex = methodPart.indexOf('(');
         if (firstParenIndex == -1) {
             throw new IllegalArgumentException("Missing method signature: " + methodPart);
@@ -79,6 +147,28 @@ public class ProtocolV2Extractor {
 
         String methodName = methodPart.substring(0, firstParenIndex);
 
+        // Validate class name
+        if (!ProtocolSecurity.isValidClassName(className)) {
+            throw new cn.huiwings.tcprest.exception.SecurityException(
+                "Invalid class name format (possible injection attempt): " + className
+            );
+        }
+
+        // Check class whitelist if enabled
+        if (!securityConfig.isClassAllowed(className)) {
+            throw new cn.huiwings.tcprest.exception.SecurityException(
+                "Class not in whitelist: " + className
+            );
+        }
+
+        // Validate method name
+        if (!ProtocolSecurity.isValidMethodName(methodName)) {
+            throw new cn.huiwings.tcprest.exception.SecurityException(
+                "Invalid method name format (possible injection attempt): " + methodName
+            );
+        }
+
+        // Step 7: Parse signature
         // Find the signature (between first '(' and first ')')
         int signatureEnd = methodPart.indexOf(')', firstParenIndex);
         if (signatureEnd == -1) {
@@ -87,26 +177,19 @@ public class ProtocolV2Extractor {
 
         String signature = methodPart.substring(firstParenIndex, signatureEnd + 1);
 
-        // Find parameters (between second '(' and second ')')
-        int paramsStart = methodPart.indexOf('(', signatureEnd);
-        int paramsEnd = methodPart.lastIndexOf(')');
+        // Step 8: Decode parameters
+        String paramsStr = ProtocolSecurity.decodeComponent(paramsBase64);
 
-        if (paramsStart == -1 || paramsEnd == -1 || paramsEnd <= paramsStart) {
-            throw new IllegalArgumentException("Malformed parameters: " + methodPart);
-        }
-
-        String paramsStr = methodPart.substring(paramsStart + 1, paramsEnd);
-
-        // Load class
+        // Step 9: Load class
         Class<?> clazz = Class.forName(className);
 
-        // Find method by signature
+        // Step 10: Find method by signature
         Method method = TypeSignatureUtil.findMethodBySignature(clazz, methodName, signature);
 
-        // Parse parameters
+        // Step 11: Parse parameters
         Object[] params = parseParameters(paramsStr, method.getParameterTypes());
 
-        // Create and return context
+        // Step 12: Create and return context
         Context context = new Context();
         context.setTargetClass(clazz);
         context.setTargetMethod(method);

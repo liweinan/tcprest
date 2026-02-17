@@ -2,6 +2,7 @@ package cn.huiwings.tcprest.converter.v2;
 
 import cn.huiwings.tcprest.protocol.NullObj;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
+import cn.huiwings.tcprest.security.ProtocolSecurity;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -31,10 +32,9 @@ public class ProtocolV2ConverterTest {
 
         String encoded = converter.encode(TestService.class, method, params);
 
-        assertTrue(encoded.startsWith("V2|0|"));
-        assertTrue(encoded.contains("TestService/add(II)"));
-        assertTrue(encoded.contains("{{"));
-        assertTrue(encoded.contains("}}"));
+        // Verify secure format: V2|0|{{base64(meta)}}|{{base64(params)}}
+        String fullClassName = TestService.class.getName();
+        assertSecureV2Request(encoded, fullClassName + "/add(II)");
     }
 
     @Test
@@ -44,8 +44,8 @@ public class ProtocolV2ConverterTest {
 
         String encoded = converter.encode(TestService.class, method, params);
 
-        assertTrue(encoded.startsWith("V2|0|"));
-        assertTrue(encoded.contains("TestService/add(DD)"));
+        String fullClassName = TestService.class.getName();
+        assertSecureV2Request(encoded, fullClassName + "/add(DD)");
     }
 
     @Test
@@ -55,8 +55,8 @@ public class ProtocolV2ConverterTest {
 
         String encoded = converter.encode(TestService.class, method, params);
 
-        assertTrue(encoded.startsWith("V2|0|"));
-        assertTrue(encoded.contains("TestService/echo(Ljava/lang/String;)"));
+        String fullClassName = TestService.class.getName();
+        assertSecureV2Request(encoded, fullClassName + "/echo(Ljava/lang/String;)");
     }
 
     @Test
@@ -66,8 +66,8 @@ public class ProtocolV2ConverterTest {
 
         String encoded = converter.encode(TestService.class, method, params);
 
-        assertTrue(encoded.startsWith("V2|0|"));
-        assertTrue(encoded.contains("TestService/process(Ljava/lang/String;IZ)"));
+        String fullClassName = TestService.class.getName();
+        assertSecureV2Request(encoded, fullClassName + "/process(Ljava/lang/String;IZ)");
     }
 
     @Test
@@ -77,9 +77,8 @@ public class ProtocolV2ConverterTest {
 
         String encoded = converter.encode(TestService.class, method, params);
 
-        assertTrue(encoded.startsWith("V2|0|"));
-        assertTrue(encoded.contains("TestService/noParams()"));
-        assertTrue(encoded.endsWith("()"));
+        String fullClassName = TestService.class.getName();
+        assertSecureV2Request(encoded, fullClassName + "/noParams()");
     }
 
     @Test
@@ -89,8 +88,15 @@ public class ProtocolV2ConverterTest {
 
         String encoded = converter.encode(TestService.class, method, params);
 
-        assertTrue(encoded.startsWith("V2|0|"));
-        assertTrue(encoded.contains("{{NULL}}"));  // NULL marker for null values
+        // Verify secure format
+        String fullClassName = TestService.class.getName();
+        assertSecureV2Request(encoded, fullClassName + "/echo(Ljava/lang/String;)");
+
+        // Verify NULL parameter is encoded
+        String[] parts = ProtocolSecurity.splitChecksum(encoded)[0].split("\\|", 4);
+        String paramsBase64 = parts[3];
+        String decodedParams = ProtocolSecurity.decodeComponent(paramsBase64);
+        assertTrue(decodedParams.contains("{{NULL}}"), "Should contain NULL marker for null parameter");
     }
 
     // Compression is handled separately (not in this converter)
@@ -307,6 +313,34 @@ public class ProtocolV2ConverterTest {
 
     private String base64(String value) {
         return Base64.getEncoder().encodeToString(value.getBytes());
+    }
+
+    /**
+     * Helper method to verify secure V2 request format and extract metadata.
+     *
+     * <p>Format: V2|0|{{base64(meta)}}|{{base64(params)}}|CHK:value (optional)</p>
+     *
+     * @param encoded the encoded request
+     * @param expectedMeta the expected metadata (e.g., "TestService/add(II)")
+     */
+    private void assertSecureV2Request(String encoded, String expectedMeta) {
+        // Verify prefix
+        assertTrue(encoded.startsWith("V2|0|"), "Should start with V2|0|");
+
+        // Split checksum
+        String[] checksumParts = ProtocolSecurity.splitChecksum(encoded);
+        String messageWithoutChecksum = checksumParts[0];
+
+        // Split components: V2|0|metaBase64|paramsBase64
+        String[] parts = messageWithoutChecksum.split("\\|", 4);
+        assertTrue(parts.length >= 3, "Should have at least 3 parts");
+
+        // Decode metadata
+        String metaBase64 = parts[2];
+        String decodedMeta = ProtocolSecurity.decodeComponent(metaBase64);
+
+        // Verify metadata
+        assertEquals(decodedMeta, expectedMeta, "Metadata should match");
     }
 
     // ========== Test Helper Interface ==========

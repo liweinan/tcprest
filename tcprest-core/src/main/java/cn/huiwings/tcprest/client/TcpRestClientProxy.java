@@ -66,7 +66,7 @@ public class TcpRestClientProxy implements InvocationHandler {
 
         // Initialize converters with security config
         this.converter = new DefaultConverter(this.securityConfig);
-        this.v2Converter = new ProtocolV2Converter(); // TODO: Add SecurityConfig support to V2
+        this.v2Converter = new ProtocolV2Converter(this.securityConfig);
 
         tcpRestClient = new DefaultTcpRestClient(sslParam, deletgatedClassName, host, port);
     }
@@ -107,10 +107,9 @@ public class TcpRestClientProxy implements InvocationHandler {
         if (converter instanceof DefaultConverter) {
             ((DefaultConverter) converter).setSecurityConfig(this.securityConfig);
         }
-        // TODO: Add SecurityConfig support to ProtocolV2Converter
-        // if (v2Converter != null) {
-        //     v2Converter.setSecurityConfig(this.securityConfig);
-        // }
+        if (v2Converter != null) {
+            v2Converter.setSecurityConfig(this.securityConfig);
+        }
     }
 
     /**

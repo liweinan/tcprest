@@ -45,9 +45,11 @@ public class SecurityTest {
         assertEquals(decoded, original);
     }
 
-    @Test(expectedExceptions = SecurityException.class)
+    @Test
     public void testDecodeEmptyComponent() {
-        ProtocolSecurity.decodeComponent("");
+        // Empty string is valid (e.g., for methods with no parameters)
+        String decoded = ProtocolSecurity.decodeComponent("");
+        assertEquals(decoded, "", "Empty component should decode to empty string");
     }
 
     @Test(expectedExceptions = SecurityException.class)

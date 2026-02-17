@@ -1,5 +1,6 @@
 package cn.huiwings.tcprest.extractor.v2;
 
+import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.Context;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -213,12 +214,20 @@ public class ProtocolV2ExtractorTest {
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testExtract_missingSignature() throws Exception {
-        extractor.extract("V2|0|TestService/add");
+        // Invalid format: missing method signature
+        String meta = "TestService/add";  // Missing (SIGNATURE)
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+        String request = "V2|0|" + metaBase64 + "|";
+        extractor.extract(request);
     }
 
     @Test(expectedExceptions = ClassNotFoundException.class)
     public void testExtract_classNotFound() throws Exception {
-        String request = "V2|0|NonExistentClass/method()({{" + base64("test") + "}})";
+        // Non-existent class
+        String meta = "NonExistentClass/method()";
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+        String paramsBase64 = ProtocolSecurity.encodeComponent("{{" + base64("test") + "}}");
+        String request = "V2|0|" + metaBase64 + "|" + paramsBase64;
         extractor.extract(request);
     }
 
@@ -243,7 +252,11 @@ public class ProtocolV2ExtractorTest {
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testExtract_invalidParameterFormat() throws Exception {
-        String request = "V2|0|" + TestService.class.getName() + "/add(II)(INVALID_PARAM)";
+        // Invalid parameter format (not {{base64}})
+        String meta = TestService.class.getName() + "/add(II)";
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+        String paramsBase64 = ProtocolSecurity.encodeComponent("INVALID_PARAM");  // Missing {{}} wrapper
+        String request = "V2|0|" + metaBase64 + "|" + paramsBase64;
         extractor.extract(request);
     }
 
@@ -271,26 +284,38 @@ public class ProtocolV2ExtractorTest {
 
     // ========== Helper Methods ==========
 
+    /**
+     * Build secure V2 request.
+     *
+     * <p>New format: V2|0|{{base64(ClassName/methodName(SIGNATURE))}}|{{base64(PARAMS)}}</p>
+     *
+     * @param methodName method name
+     * @param signature method signature (e.g., "(II)")
+     * @param params base64-encoded parameters
+     * @return secure V2 request string
+     */
     private String buildRequest(String methodName, String signature, String... params) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("V2|0|");
-        sb.append(TestService.class.getName());
-        sb.append("/");
-        sb.append(methodName);
-        sb.append(signature);
-        sb.append("(");
+        // Step 1: Build metadata (ClassName/methodName(SIGNATURE))
+        String meta = TestService.class.getName() + "/" + methodName + signature;
 
+        // Step 2: Build parameters string
+        StringBuilder paramsBuilder = new StringBuilder();
         for (int i = 0; i < params.length; i++) {
             if (i > 0) {
-                sb.append(":::");
+                paramsBuilder.append(":::");
             }
-            sb.append("{{");
-            sb.append(params[i]);
-            sb.append("}}");
+            paramsBuilder.append("{{");
+            paramsBuilder.append(params[i]);
+            paramsBuilder.append("}}");
         }
+        String paramsString = paramsBuilder.toString();
 
-        sb.append(")");
-        return sb.toString();
+        // Step 3: Encode metadata and params using Base64
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+        String paramsBase64 = ProtocolSecurity.encodeComponent(paramsString);
+
+        // Step 4: Build protocol message: V2|0|META|PARAMS
+        return "V2|0|" + metaBase64 + "|" + paramsBase64;
     }
 
     private String base64(String value) {
