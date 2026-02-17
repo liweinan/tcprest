@@ -5,6 +5,7 @@ import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.NioTcpRestServer;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
+import cn.huiwings.tcprest.ssl.SSLParam;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -55,6 +56,35 @@ public class BindAddressTest {
         );
         TestService client = (TestService) factory.getClient();
         assertEquals(client.echo("localhost"), "localhost");
+    }
+
+    @Test
+    public void testSingleThread_bindToLocalhostWithSSL() throws Exception {
+        int port = portRange.next();
+
+        SSLParam serverSSL = new SSLParam();
+        serverSSL.setKeyStorePath("classpath:server_ks");
+        serverSSL.setKeyStoreKeyPass("123123");
+        serverSSL.setTrustStorePath("classpath:server_ks");
+        serverSSL.setNeedClientAuth(true);
+
+        server = new SingleThreadTcpRestServer(port, "127.0.0.1", serverSSL);
+        server.addResource(TestService.Impl.class);
+        server.up();
+        Thread.sleep(200);
+
+        // Create SSL client
+        SSLParam clientSSL = new SSLParam();
+        clientSSL.setKeyStorePath("classpath:client_ks");
+        clientSSL.setKeyStoreKeyPass("456456");
+        clientSSL.setTrustStorePath("classpath:client_ks");
+        clientSSL.setNeedClientAuth(true);
+
+        TcpRestClientFactory factory = new TcpRestClientFactory(
+            TestService.class, "127.0.0.1", port, null, clientSSL
+        );
+        TestService client = (TestService) factory.getClient();
+        assertEquals(client.echo("ssl-localhost"), "ssl-localhost");
     }
 
     // ========== Test NioTcpRestServer ==========
