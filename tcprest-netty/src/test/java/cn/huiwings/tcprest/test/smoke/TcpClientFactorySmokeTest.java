@@ -135,7 +135,7 @@ public class TcpClientFactorySmokeTest {
         public String nullMethod(String one, String empty, String two);
     }
 
-    public class NullParamResource implements NullParam {
+    public static class NullParamResource implements NullParam {
         public String nullMethod(String one, String empty, String two) {
             if (empty == null) {
                 return one + two;
@@ -160,7 +160,7 @@ public class TcpClientFactorySmokeTest {
         NullParam client = factory.getInstance();
 
 
-        assertEquals("onetwo", client.nullMethod("one", null, "two"));
+        assertEquals(client.nullMethod("one", null, "two"), "onetwo");
 
     }
 

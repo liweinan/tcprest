@@ -96,7 +96,7 @@ public class MapperSmokeTest {
                 HashMap<String, List<Color>> in);
     }
 
-    public class RawTypeResource implements RawType {
+    public static class RawTypeResource implements RawType {
         public List getArrayList(List in) {
             return in;
         }

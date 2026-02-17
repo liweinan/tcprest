@@ -102,12 +102,34 @@ public class DefaultConverter implements Converter {
     /**
      * Decode a single parameter.
      *
-     * @param message
-     * @return
+     * @param message the encoded message in format {{base64}}
+     * @return decoded string, or empty string if message is invalid
      */
     public String decodeParam(String message) {
         logger.debug("decodeParam: " + message);
-        return new String(Base64.decode(message.substring(message.indexOf("{{") + 2, message.lastIndexOf("}}"))));
+
+        // Handle empty or null messages
+        if (message == null || message.isEmpty()) {
+            return "";
+        }
+
+        // Check if message contains the expected markers
+        int startIndex = message.indexOf("{{");
+        int endIndex = message.lastIndexOf("}}");
+
+        // If markers not found or in wrong order, return empty string
+        if (startIndex == -1 || endIndex == -1 || startIndex >= endIndex) {
+            logger.warn("Invalid message format, expected {{...}}, got: " + message);
+            return "";
+        }
+
+        // Extract and decode the content between {{ and }}
+        String encoded = message.substring(startIndex + 2, endIndex);
+        if (encoded.isEmpty()) {
+            return "";
+        }
+
+        return new String(Base64.decode(encoded));
     }
 
     public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) throws MapperNotFoundException {
