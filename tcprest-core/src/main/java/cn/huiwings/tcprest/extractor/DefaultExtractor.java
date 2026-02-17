@@ -126,7 +126,10 @@ public class DefaultExtractor implements Extractor {
             throw new ClassNotFoundException("***DefaultExtractor - Can't find resource for: " + clazzName);
 
         // search method
-        // todo cannot handle method with same name correctly now
+        // TODO: Method overloading not supported - stops at first name match
+        // Fixing requires protocol v2 with method signatures: ClassName/methodName(Ljava/lang/String;I)(params)
+        // Workaround: Use distinct method names instead of overloading (e.g., addInt/addDouble)
+        // See TODO-ANALYSIS.md #2 for details
         logger.debug("target method name: " + methodName);
         for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
             logger.debug("scanning method: " + mtd.getName());

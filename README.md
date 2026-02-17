@@ -575,6 +575,78 @@ Version 1.0 fixes critical shutdown bugs. Servers now properly:
 
 No code changes needed - `server.down()` now works correctly!
 
+## Known Limitations
+
+TcpRest has some design limitations to be aware of:
+
+### 1. Method Overloading Not Supported
+
+The RPC protocol cannot distinguish between overloaded methods (same name, different parameters):
+
+```java
+// ❌ Won't work correctly
+public interface Calculator {
+    int add(int a, int b);
+    double add(double a, double b);  // Cannot be invoked via RPC
+}
+
+// ✅ Use distinct method names instead
+public interface Calculator {
+    int addIntegers(int a, int b);
+    double addDecimals(double a, double b);
+}
+```
+
+**Why:** The current protocol only includes method names, not parameter type signatures. Fixing this requires a protocol v2 design.
+
+**Workaround:** Always use unique method names in RPC interfaces.
+
+### 2. NettyTcpRestServer Large Payload Limitation
+
+NettyTcpRestServer may fail with payloads larger than ~8KB due to request fragmentation:
+
+```java
+// May fail with NettyTcpRestServer on large data
+String largeData = generateString(10 * 1024);  // 10KB
+String result = client.processLargeData(largeData);  // ParseException
+```
+
+**Why:** Netty 3.10.6's frame decoder splits large messages, causing protocol parsing errors.
+
+**Workaround:** Use `SingleThreadTcpRestServer` or `NioTcpRestServer` for large payloads, or keep messages under 8KB.
+
+**Future:** Planned for v2.0 with Netty 4.x upgrade.
+
+### 3. Thread Safety for Singleton Resources
+
+Singleton resources must be thread-safe when used with multi-threaded servers:
+
+```java
+@Singleton
+public class CounterResource {
+    private int count = 0;  // ❌ Not thread-safe
+
+    public void increment() {
+        count++;  // Race condition with NioTcpRestServer/NettyTcpRestServer
+    }
+}
+```
+
+**Workaround:** Use `AtomicInteger`, synchronization, or concurrent collections:
+
+```java
+@Singleton
+public class CounterResource {
+    private final AtomicInteger count = new AtomicInteger(0);  // ✅ Thread-safe
+
+    public void increment() {
+        count.incrementAndGet();
+    }
+}
+```
+
+For detailed analysis of all limitations, see [TODO-ANALYSIS.md](TODO-ANALYSIS.md).
+
 ## Documentation
 
 For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).

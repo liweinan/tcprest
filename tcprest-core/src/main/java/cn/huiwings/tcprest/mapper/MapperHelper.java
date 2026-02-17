@@ -40,7 +40,7 @@ public class MapperHelper {
 
         DEFAULT_MAPPERS.put(NullObj.class.getCanonicalName(), new NullMapper());
 
-        // TODO add exception transfer
+        // Exception mapper transfers exception messages (not full stack traces for security)
         DEFAULT_MAPPERS.put(Exception.class.getCanonicalName(), new ExceptionMapper());
 
     }

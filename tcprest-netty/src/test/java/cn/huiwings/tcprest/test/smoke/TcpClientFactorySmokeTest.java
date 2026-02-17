@@ -3,14 +3,14 @@ package cn.huiwings.tcprest.test.smoke;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.client.TcpRestClientProxy;
 import cn.huiwings.tcprest.server.NioTcpRestServer;
+import cn.huiwings.tcprest.server.NettyTcpRestServer;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.Counter;
 import cn.huiwings.tcprest.test.HelloWorld;
 import cn.huiwings.tcprest.test.HelloWorldResource;
 import cn.huiwings.tcprest.test.SingletonCounterResource;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.*;
 import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
@@ -37,19 +37,25 @@ public class TcpClientFactorySmokeTest {
         List result = new ArrayList();
         result.add(new TcpClientFactorySmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
         result.add(new TcpClientFactorySmokeTest(new NioTcpRestServer(PortGenerator.get())));
-        // TODO Netty Server still not pass largeDataTest()
+        // TODO Netty Server fails on largeDataTest() - request gets truncated/fragmented
+        // Error: ParseException "cannot parse request" - large Base64-encoded payloads are split
+        // Root cause: Netty's frame-based protocol doesn't handle line-based protocol correctly
 //        result.add(new TcpClientFactorySmokeTest(new NettyTcpRestServer(PortGenerator.get())));
         return result.toArray();
     }
 
-    @BeforeMethod
+    @BeforeClass
     public void startTcpRestServer() throws Exception {
         tcpRestServer.up();
+        // Delay to ensure async servers are fully started
+        Thread.sleep(500);
     }
 
-    @AfterMethod
+    @AfterClass
     public void stopTcpRestServer() throws Exception {
         tcpRestServer.down();
+        // Wait for port to be fully released
+        Thread.sleep(300);
     }
 
 
