@@ -32,8 +32,9 @@ public class BackwardCompatibilityTest {
     public void tearDown() throws Exception {
         if (server != null) {
             server.down();
+            server = null;
         }
-        Thread.sleep(300);
+        Thread.sleep(1000); // Increased delay to ensure port is fully released
     }
 
     // ========== V1 Client with Different Server Modes ==========
@@ -43,7 +44,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1);
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -63,7 +64,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO); // Default
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -81,7 +82,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2); // Only accept V2
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -108,7 +109,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2);
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -127,7 +128,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO);
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -146,7 +147,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1); // Only accept V1
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -174,7 +175,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.AUTO);
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -205,7 +206,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         // Don't set protocol version - should default to AUTO
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 
@@ -231,7 +232,7 @@ public class BackwardCompatibilityTest {
         port = PortGenerator.get();
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V1);
-        server.addResource(SimpleService.Impl.class);
+        server.addSingletonResource(new SimpleService.Impl());
         server.up();
         Thread.sleep(500);
 

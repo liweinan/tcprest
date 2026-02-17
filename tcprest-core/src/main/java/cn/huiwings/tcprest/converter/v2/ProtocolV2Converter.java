@@ -92,12 +92,49 @@ public class ProtocolV2Converter {
      */
     private String encodeParam(Object param) {
         if (param == null) {
-            return ""; // Empty string for null
+            return "NULL"; // Special marker for null
         }
 
         // Convert to string representation
-        String paramStr = param.toString();
+        String paramStr;
+        if (param.getClass().isArray()) {
+            // Handle arrays properly
+            paramStr = arrayToString(param);
+        } else {
+            paramStr = param.toString();
+        }
         return Base64.getEncoder().encodeToString(paramStr.getBytes());
+    }
+
+    /**
+     * Convert array to string representation.
+     *
+     * @param array the array object
+     * @return string representation
+     */
+    private String arrayToString(Object array) {
+        Class<?> componentType = array.getClass().getComponentType();
+
+        if (componentType == int.class) {
+            return java.util.Arrays.toString((int[]) array);
+        } else if (componentType == double.class) {
+            return java.util.Arrays.toString((double[]) array);
+        } else if (componentType == long.class) {
+            return java.util.Arrays.toString((long[]) array);
+        } else if (componentType == boolean.class) {
+            return java.util.Arrays.toString((boolean[]) array);
+        } else if (componentType == byte.class) {
+            return java.util.Arrays.toString((byte[]) array);
+        } else if (componentType == short.class) {
+            return java.util.Arrays.toString((short[]) array);
+        } else if (componentType == float.class) {
+            return java.util.Arrays.toString((float[]) array);
+        } else if (componentType == char.class) {
+            return java.util.Arrays.toString((char[]) array);
+        } else {
+            // Object arrays
+            return java.util.Arrays.toString((Object[]) array);
+        }
     }
 
     /**

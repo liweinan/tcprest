@@ -159,10 +159,7 @@ public class ProtocolRouter {
 
             // Get or create resource instance
             Class<?> targetClass = context.getTargetClass();
-            Object instance = resourceRegister.getResource(targetClass.getName());
-            if (instance == null) {
-                instance = v2Invoker.createInstance(targetClass);
-            }
+            Object instance = findResourceInstance(targetClass, resourceRegister);
             context.setTargetInstance(instance);
 
             // Invoke method
@@ -249,6 +246,42 @@ public class ProtocolRouter {
             logger.error("V1 request processing error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             return "0|"; // V1 returns empty with prefix on error
         }
+    }
+
+    /**
+     * Find resource instance for target class.
+     * If target class is an interface, searches for implementation in singleton resources.
+     *
+     * @param targetClass the target class or interface
+     * @param resourceRegister resource register
+     * @return resource instance
+     * @throws Exception if instance cannot be found or created
+     */
+    private Object findResourceInstance(Class<?> targetClass, ResourceRegister resourceRegister) throws Exception {
+        // Try direct lookup first
+        Object instance = resourceRegister.getResource(targetClass.getName());
+        if (instance != null) {
+            return instance;
+        }
+
+        // If target class is an interface, search for implementation
+        if (targetClass.isInterface()) {
+            Map<String, Object> singletons = resourceRegister.getSingletonResources();
+            for (Object singleton : singletons.values()) {
+                // Check if singleton implements the target interface
+                for (Class<?> ifc : singleton.getClass().getInterfaces()) {
+                    if (ifc.getName().equals(targetClass.getName())) {
+                        logger.debug("Found implementation for interface: " + targetClass.getName() +
+                                   " -> " + singleton.getClass().getName());
+                        return singleton;
+                    }
+                }
+            }
+        }
+
+        // No singleton found, try to create instance
+        instance = v2Invoker.createInstance(targetClass);
+        return instance;
     }
 
     /**

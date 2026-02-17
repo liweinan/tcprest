@@ -171,8 +171,17 @@ public class ProtocolV2Extractor {
             paramStr.length() - ProtocolV2Constants.PARAM_WRAPPER_END.length()
         );
 
-        // Handle empty (null) parameter
+        // Handle NULL marker
+        if ("NULL".equals(base64)) {
+            return null;
+        }
+
+        // Handle empty base64 (empty string)
         if (base64.isEmpty()) {
+            if (paramType == String.class) {
+                return "";
+            }
+            // For non-String types, empty means null (for backward compat)
             return null;
         }
 
@@ -193,6 +202,11 @@ public class ProtocolV2Extractor {
     private Object convertToType(String value, Class<?> targetType) {
         if (value == null) {
             return null;
+        }
+
+        // Handle arrays
+        if (targetType.isArray()) {
+            return parseArray(value, targetType.getComponentType());
         }
 
         // Handle primitives and wrappers
@@ -218,6 +232,64 @@ public class ProtocolV2Extractor {
 
         // For other types, return string
         return value;
+    }
+
+    /**
+     * Parse array from string representation like "[1, 2, 3]".
+     *
+     * @param value the string value
+     * @param componentType the array component type
+     * @return parsed array
+     */
+    private Object parseArray(String value, Class<?> componentType) {
+        // Remove brackets and split by comma
+        String trimmed = value.trim();
+        if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+            throw new IllegalArgumentException("Invalid array format: " + value);
+        }
+
+        String content = trimmed.substring(1, trimmed.length() - 1).trim();
+        if (content.isEmpty()) {
+            // Empty array
+            return java.lang.reflect.Array.newInstance(componentType, 0);
+        }
+
+        String[] parts = content.split(",\\s*");
+
+        if (componentType == int.class) {
+            int[] array = new int[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Integer.parseInt(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == double.class) {
+            double[] array = new double[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Double.parseDouble(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == long.class) {
+            long[] array = new long[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Long.parseLong(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == boolean.class) {
+            boolean[] array = new boolean[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Boolean.parseBoolean(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == String.class) {
+            String[] array = new String[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = parts[i].trim();
+            }
+            return array;
+        }
+
+        // For other types, use string array as fallback
+        return parts;
     }
 
     /**

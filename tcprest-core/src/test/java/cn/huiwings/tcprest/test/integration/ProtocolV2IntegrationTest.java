@@ -35,11 +35,14 @@ public class ProtocolV2IntegrationTest {
     public void setup() throws Exception {
         port = PortGenerator.get();
 
-        // Start server in V2 mode
+        // Start server in V2 mode with implementation classes
         server = new SingleThreadTcpRestServer(port);
         server.setProtocolVersion(ProtocolVersion.V2);
-        server.addResource(OverloadedCalculatorImpl.class);
-        server.addResource(ExceptionTestServiceImpl.class);
+
+        // Register singleton instances (server needs actual objects for interfaces)
+        server.addSingletonResource(new OverloadedCalculatorImpl());
+        server.addSingletonResource(new ExceptionTestServiceImpl());
+
         server.up();
 
         Thread.sleep(500); // Wait for server startup
@@ -62,8 +65,9 @@ public class ProtocolV2IntegrationTest {
     public void tearDown() throws Exception {
         if (server != null) {
             server.down();
+            server = null;
         }
-        Thread.sleep(300);
+        Thread.sleep(1000); // Increased delay to ensure port is fully released
     }
 
     // ========== Test Method Overloading ==========

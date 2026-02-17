@@ -1,5 +1,7 @@
 package cn.huiwings.tcprest.server;
 
+import java.util.Map;
+
 /**
  * Interface for resource registration and lookup.
  *
@@ -25,4 +27,11 @@ public interface ResourceRegister {
      * @return true if registered
      */
     boolean hasResource(String className);
+
+    /**
+     * Get all singleton resources.
+     *
+     * @return map of class name to singleton instance
+     */
+    Map<String, Object> getSingletonResources();
 }
