@@ -703,7 +703,11 @@ No code changes needed - `server.down()` now works correctly!
 
 TcpRest has some design limitations to be aware of:
 
-### 1. Method Overloading Not Supported
+### 1. Protocol v1 Limitations (Method Overloading & Exception Handling)
+
+The current protocol (v1) has two related limitations that will be addressed together in a future protocol v2 design:
+
+#### 1.1 Method Overloading Not Supported
 
 The RPC protocol cannot distinguish between overloaded methods (same name, different parameters):
 
@@ -721,9 +725,39 @@ public interface Calculator {
 }
 ```
 
-**Why:** The current protocol only includes method names, not parameter type signatures. Fixing this requires a protocol v2 design.
+**Why:** The protocol only includes method names, not parameter type signatures.
 
 **Workaround:** Always use unique method names in RPC interfaces.
+
+#### 1.2 No Server-Side Exception Propagation
+
+When a server-side exception occurs, clients receive no error information:
+
+```java
+// Server throws exception
+public String processData(String data) {
+    throw new ValidationException("Invalid data");  // Client gets timeout or null
+}
+
+// ✅ Return error objects instead
+public Result<String> processData(String data) {
+    try {
+        String result = process(data);
+        return Result.success(result);
+    } catch (ValidationException e) {
+        return Result.error(e.getMessage());
+    }
+}
+```
+
+**Why:** The protocol has no status code mechanism (like HTTP 200/500).
+
+**Workaround:** Return error/success wrapper objects instead of throwing exceptions.
+
+**Future:** Both limitations will be addressed in Protocol v2 with:
+- Method signatures for overloading support
+- Status codes for exception propagation
+- See [TODO-ANALYSIS.md](TODO-ANALYSIS.md#2-protocol-v2-design-method-overloading--exception-handling) for design details
 
 ### 2. Thread Safety for Singleton Resources
 
