@@ -25,46 +25,50 @@ public class DefaultExtractorAndDefaultInvokerSmokeTest {
     @Test
     public void testDefaultExtractAndInvoke() throws Exception {
         SingleThreadTcpRestServer server = new SingleThreadTcpRestServer();
-        server.addResource(HelloWorldResource.class);
-        Extractor extractor = new DefaultExtractor(server);
+        try {
+            server.addResource(HelloWorldResource.class);
+            Extractor extractor = new DefaultExtractor(server);
 
-        Context ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/helloWorld()");
-        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("helloWorld"));
-        Invoker invoker = new DefaultInvoker();
-        String response = (String) invoker.invoke(ctx);
-        assertEquals("Hello, world!", response);
+            Context ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/helloWorld()");
+            assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+            assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("helloWorld"));
+            Invoker invoker = new DefaultInvoker();
+            String response = (String) invoker.invoke(ctx);
+            assertEquals("Hello, world!", response);
 
-        Converter converter = new DefaultConverter();
-        // test arguments
-        ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
-        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloTo", String.class));
-        assertNotNull(ctx.getParams());
-        invoker = new DefaultInvoker();
-        response = (String) invoker.invoke(ctx);
-        assertEquals("Hello, Jack!", response);
+            Converter converter = new DefaultConverter();
+            // test arguments
+            ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloTo(" + converter.encodeParam("Jack!") + ")");
+            assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+            assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloTo", String.class));
+            assertNotNull(ctx.getParams());
+            invoker = new DefaultInvoker();
+            response = (String) invoker.invoke(ctx);
+            assertEquals("Hello, Jack!", response);
 
-        // test multiple arguments
-        ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("Jack") + ""
-                + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("Lucy") + ")");
-        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
-        assertNotNull(ctx.getParams());
-        invoker = new DefaultInvoker();
-        response = (String) invoker.invoke(ctx);
-        assertEquals("Jack say hello to Lucy", response);
+            // test multiple arguments
+            ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("Jack") + ""
+                    + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("Lucy") + ")");
+            assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+            assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
+            assertNotNull(ctx.getParams());
+            invoker = new DefaultInvoker();
+            response = (String) invoker.invoke(ctx);
+            assertEquals("Jack say hello to Lucy", response);
 
 
-        // test params with parentheses inside
-        ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("(me")
-                + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("you)") + ")");
-        assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
-        assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
-        assertNotNull(ctx.getParams());
-        invoker = new DefaultInvoker();
-        response = (String) invoker.invoke(ctx);
-        assertEquals("(me say hello to you)", response);
-
+            // test params with parentheses inside
+            ctx = extractor.extract("cn.huiwings.tcprest.test.HelloWorldResource/sayHelloFromTo(" + converter.encodeParam("(me")
+                    + TcpRestProtocol.PATH_SEPERATOR + converter.encodeParam("you)") + ")");
+            assertEquals(ctx.getTargetClass(), HelloWorldResource.class);
+            assertEquals(ctx.getTargetMethod(), HelloWorldResource.class.getMethod("sayHelloFromTo", String.class, String.class));
+            assertNotNull(ctx.getParams());
+            invoker = new DefaultInvoker();
+            response = (String) invoker.invoke(ctx);
+            assertEquals("(me say hello to you)", response);
+        } finally {
+            // Release the server port even though server was never started
+            server.down();
+        }
     }
 }
