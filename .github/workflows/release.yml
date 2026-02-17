@@ -54,7 +54,7 @@ jobs:
         echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...v${{ steps.get_version.outputs.VERSION }}" >> changelog.md
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         name: Release v${{ steps.get_version.outputs.VERSION }}
         body_path: changelog.md
