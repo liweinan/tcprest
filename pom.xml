@@ -19,7 +19,7 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <testng.version>7.10.2</testng.version>
-        <netty.version>3.10.6.Final</netty.version>
+        <netty.version>4.1.131.Final</netty.version>
     </properties>
 
     <dependencyManagement>
@@ -32,7 +32,7 @@
             </dependency>
             <dependency>
                 <groupId>io.netty</groupId>
-                <artifactId>netty</artifactId>
+                <artifactId>netty-all</artifactId>
                 <version>${netty.version}</version>
             </dependency>
         </dependencies>

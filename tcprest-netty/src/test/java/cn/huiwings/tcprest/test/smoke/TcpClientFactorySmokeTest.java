@@ -37,10 +37,8 @@ public class TcpClientFactorySmokeTest {
         List result = new ArrayList();
         result.add(new TcpClientFactorySmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
         result.add(new TcpClientFactorySmokeTest(new NioTcpRestServer(PortGenerator.get())));
-        // TODO Netty Server fails on largeDataTest() - request gets truncated/fragmented
-        // Error: ParseException "cannot parse request" - large Base64-encoded payloads are split
-        // Root cause: Netty's frame-based protocol doesn't handle line-based protocol correctly
-//        result.add(new TcpClientFactorySmokeTest(new NettyTcpRestServer(PortGenerator.get())));
+        // ✅ FIXED: Upgraded to Netty 4.x with LineBasedFrameDecoder - handles large payloads correctly
+        result.add(new TcpClientFactorySmokeTest(new NettyTcpRestServer(PortGenerator.get())));
         return result.toArray();
     }
 
@@ -62,7 +60,7 @@ public class TcpClientFactorySmokeTest {
     @Test
     public void testClient() throws Exception {
 
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
         tcpRestServer.addResource(HelloWorldResource.class);
 
         TcpRestClientFactory factory =
@@ -78,7 +76,7 @@ public class TcpClientFactorySmokeTest {
 
     @Test(expectedExceptions = Exception.class)
     public void clientSideTimeoutTest() {
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
 
         tcpRestServer.addResource(HelloWorldResource.class);
 
@@ -94,7 +92,7 @@ public class TcpClientFactorySmokeTest {
 
     @Test
     public void testSingletonResource() throws Exception {
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
 
         Object instance = new SingletonCounterResource(2);
         tcpRestServer.addSingletonResource(instance);
@@ -120,7 +118,7 @@ public class TcpClientFactorySmokeTest {
 
     @Test
     public void testProxy() throws Exception {
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
 
         tcpRestServer.addResource(HelloWorldResource.class);
 
@@ -151,7 +149,7 @@ public class TcpClientFactorySmokeTest {
     @Test
     public void testNullParameter() {
 
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
 
         tcpRestServer.addSingletonResource(new NullParamResource());
 
@@ -168,7 +166,7 @@ public class TcpClientFactorySmokeTest {
 
     @Test
     public void testArray() {
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
         tcpRestServer.addSingletonResource(new HelloWorldResource());
 
         HelloWorld client = (HelloWorld) Proxy.newProxyInstance(HelloWorld.class.getClassLoader(),
@@ -193,7 +191,7 @@ public class TcpClientFactorySmokeTest {
         String req = builder.toString();
 
         tcpRestServer.addSingletonResource(new HelloWorldResource());
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
                         tcpRestServer.getServerPort());

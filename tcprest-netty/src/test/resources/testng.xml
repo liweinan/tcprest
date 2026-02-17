@@ -9,6 +9,7 @@
                     <include name="rawTypeTest"/>
                 </methods>
             </class>
+            <class name="cn.huiwings.tcprest.test.smoke.TcpClientFactorySmokeTest"/>
         </classes>
     </test>
 </suite>

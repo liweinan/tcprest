@@ -23,7 +23,7 @@ public class HelloWorldTest {
         tcpRestServer = new NettyTcpRestServer(port);
         tcpRestServer.up();
         tcpRestServer.addResource(HelloWorldResource.class);
-        System.out.println("::" + port);
+        // Server port: port
     }
 
     @AfterMethod
@@ -40,6 +40,6 @@ public class HelloWorldTest {
         HelloWorld client = factory.getInstance();
 
         String resp = client.echo("Hello, world!");
-        System.out.println(resp);
+        // Response: resp
     }
 }

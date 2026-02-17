@@ -61,7 +61,7 @@ public class MapperSmokeTest {
 
     @Test
     public void extendMapperTest() {
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
         tcpRestServer.addResource(HelloWorldResource.class);
         tcpRestServer.addMapper(Color.class.getCanonicalName(),
                 new ColorMapper());
@@ -86,7 +86,7 @@ public class MapperSmokeTest {
         list.add(2);
         list.add(3);
         RawTypeMapper mapper = new RawTypeMapper();
-        System.out.println(mapper.objectToString(list));
+        // Debug: mapper.objectToString(list)
     }
 
     public interface RawType {
@@ -110,7 +110,7 @@ public class MapperSmokeTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Test
     public void rawTypeTest() {
-        System.out.println("-----------------------------------" + tcpRestServer.getClass().getCanonicalName() + "--------------------------------");
+        // Test with: tcpRestServer.getClass().getCanonicalName()
         // We don't put Color mapper into server,
         // so server will fallback to use RawTypeMapper to decode Color.class
         // because Color is serializable.

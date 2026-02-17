@@ -61,7 +61,7 @@ public class ConcurrentTest {
         final AtomicInteger counter = new AtomicInteger();
 
         Thread threads[] = new Thread[THRESHOLD];
-        System.out.println((new StringBuilder()).append("-----------------------------------").append(tcpRestServer.getClass().getCanonicalName()).append("--------------------------------").toString());
+        // Test with: tcpRestServer.getClass().getCanonicalName()
         tcpRestServer.addResource(HelloWorldResource.class);
         factory = new TcpRestClientFactory(HelloWorld.class, "localhost", tcpRestServer.getServerPort());
         for (int n = 0; n < THRESHOLD; n++) {
