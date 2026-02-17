@@ -14,12 +14,23 @@ import java.util.Scanner;
 
 /**
  * SingleThreadTcpRestServer uses a single threaded Socket Server to serve the clients.
- * It's just for demonstration purpose.
+ *
+ * <p><b>SSL Support:</b> This server supports SSL/TLS via {@link cn.huiwings.tcprest.ssl.SSLParam}.</p>
+ *
+ * <p><b>Use cases:</b></p>
+ * <ul>
+ *   <li>Development and testing</li>
+ *   <li>Low-traffic applications</li>
+ *   <li>Applications requiring SSL without external dependencies</li>
+ * </ul>
+ *
+ * <p><b>Performance:</b> Single-threaded, handles one request at a time.
+ * For high-concurrency scenarios, use {@link NioTcpRestServer} (without SSL)
+ * or {@code NettyTcpRestServer} (with SSL).</p>
  *
  * @author Weinan Li
  * @date Jul 29 2012
  */
-// TODO support SSL
 // TODO when server throws exception, put it into response object and return to user
 // TODO check the resources when it's added, to see if it could be correctly mapped, if cannot find mapper and not serializable put warning.
 public class SingleThreadTcpRestServer extends AbstractTcpRestServer {

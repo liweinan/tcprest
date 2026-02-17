@@ -17,7 +17,22 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 /**
- * NioTcpRestServer does not support SSL
+ * NioTcpRestServer uses Java NIO for non-blocking I/O.
+ *
+ * <p><b>SSL Support:</b> This server does NOT support SSL/TLS.</p>
+ *
+ * <p><b>Rationale:</b> Java NIO's SocketChannel doesn't support SSL directly.
+ * Implementing SSL with NIO requires using SSLEngine, which adds significant
+ * complexity for handshaking, buffer management, and error handling.</p>
+ *
+ * <p><b>Alternatives for SSL:</b></p>
+ * <ul>
+ *   <li>For low-traffic SSL: Use {@link SingleThreadTcpRestServer} with {@link cn.huiwings.tcprest.ssl.SSLParam}</li>
+ *   <li>For high-traffic SSL: Use {@code NettyTcpRestServer} (in tcprest-netty module)</li>
+ * </ul>
+ *
+ * <p><b>Best use case:</b> High-throughput applications without encryption requirements,
+ * or when using external SSL termination (e.g., nginx, HAProxy).</p>
  *
  * @author Weinan Li
  * @created 08 26 2012

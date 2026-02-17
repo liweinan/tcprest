@@ -214,19 +214,30 @@ TcpRest provides three server implementations:
 **SingleThreadTcpRestServer** (in tcprest-core)
 - Uses traditional blocking I/O with `ServerSocket`
 - Single-threaded request handling
-- Best for: Development, testing, low-concurrency scenarios
+- **SSL Support:** ✅ Yes (via JDK built-in SSL)
+- Best for: Development, testing, low-concurrency scenarios, SSL/TLS required
 - No external dependencies
 
 ```java
+// Plain TCP
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.up();
+
+// With SSL/TLS
+SSLParam sslParam = new SSLParam();
+sslParam.setKeyStorePath("classpath:server_ks");
+sslParam.setKeyStoreKeyPass("password");
+TcpRestServer server = new SingleThreadTcpRestServer(8001, sslParam);
 server.up();
 ```
 
 **NioTcpRestServer** (in tcprest-core)
 - Uses Java NIO with `Selector`
 - Non-blocking I/O with worker thread pool
-- Best for: Moderate concurrency without external dependencies
+- **SSL Support:** ❌ No (Java NIO channels don't support SSL directly)
+- Best for: Moderate concurrency without SSL requirements
 - No external dependencies
+- **Note:** For SSL with NIO, use NettyTcpRestServer instead
 
 ```java
 TcpRestServer server = new NioTcpRestServer(8001);
@@ -236,13 +247,21 @@ server.up();
 **NettyTcpRestServer** (in tcprest-netty)
 - Uses Netty 3.x framework
 - High-performance async I/O
-- Best for: High-concurrency production scenarios
+- **SSL Support:** ✅ Yes (via Netty SSL support)
+- Best for: High-concurrency production scenarios, SSL with NIO
 - Requires: Netty dependency
 
 ```java
 TcpRestServer server = new NettyTcpRestServer(8001);
 server.up();
 ```
+
+**SSL Support Summary:**
+| Server Implementation | SSL Support | Best Use Case |
+|----------------------|-------------|---------------|
+| SingleThreadTcpRestServer | ✅ Yes | Development, testing, low-traffic SSL |
+| NioTcpRestServer | ❌ No | High-traffic without SSL |
+| NettyTcpRestServer | ✅ Yes | Production, high-traffic SSL |
 
 #### Proper Shutdown
 

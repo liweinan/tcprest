@@ -64,23 +64,30 @@ Base class providing common functionality:
 **SingleThreadTcpRestServer** (`tcprest-core`)
 - Uses traditional blocking I/O with ServerSocket
 - Single-threaded request handling
-- Best for: Development, testing, low-concurrency scenarios
+- **SSL Support:** ✅ Yes (via `javax.net.ssl.SSLServerSocketFactory`)
+- Best for: Development, testing, low-concurrency scenarios, SSL required
 - Thread model: One thread accepting connections sequentially
 - Lifecycle: Properly shuts down with port release and thread termination
+- Zero external dependencies
 
 **NioTcpRestServer** (`tcprest-core`)
 - Uses Java NIO with Selector
 - Non-blocking I/O with worker thread pool
-- Best for: Moderate concurrency without external dependencies
+- **SSL Support:** ❌ No (Java NIO SocketChannel doesn't support SSL directly)
+- Best for: Moderate concurrency **without SSL requirements**
 - Thread model: One selector thread + cached thread pool for request processing
 - Lifecycle: Properly closes selector and all channels on shutdown
+- Zero external dependencies
+- **Technical limitation:** Java NIO's SocketChannel doesn't support SSL out of the box. SSL with NIO requires SSLEngine which adds significant complexity. For SSL with NIO performance, use NettyTcpRestServer instead.
 
 **NettyTcpRestServer** (`tcprest-netty`)
 - Uses Netty 3.x framework
 - High-performance async I/O
-- Best for: High-concurrency production scenarios
+- **SSL Support:** ✅ Yes (via Netty's SSL handler)
+- Best for: High-concurrency production scenarios, SSL with NIO performance
 - Thread model: Netty's event loop model with configurable thread pools
 - Requires: Netty dependency
+- Combines NIO performance with SSL support
 
 #### Lifecycle Management
 
