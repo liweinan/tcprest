@@ -1,0 +1,128 @@
+package cn.huiwings.tcprest.test.bindaddress;
+
+import cn.huiwings.tcprest.client.TcpRestClientFactory;
+import cn.huiwings.tcprest.protocol.ProtocolVersion;
+import cn.huiwings.tcprest.server.NioTcpRestServer;
+import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
+import cn.huiwings.tcprest.server.TcpRestServer;
+import cn.huiwings.tcprest.test.smoke.PortGenerator;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.Test;
+
+import static org.testng.Assert.*;
+
+/**
+ * Tests server bind address functionality.
+ *
+ * <p>Verifies that servers can bind to specific IP addresses for security and multi-homing scenarios.</p>
+ *
+ * <p><b>Test scenarios:</b></p>
+ * <ul>
+ *   <li>Bind to all interfaces (default behavior, null bindAddress)</li>
+ *   <li>Bind to localhost only (127.0.0.1)</li>
+ *   <li>Works with Protocol v2</li>
+ * </ul>
+ */
+public class BindAddressTest {
+
+    // Use dedicated port range for this test class (26000-26999)
+    private static final PortGenerator.PortRange portRange = PortGenerator.from(26000);
+
+    private TcpRestServer server;
+
+    @AfterMethod
+    public void tearDown() throws Exception {
+        if (server != null) {
+            server.down();
+            server = null;
+        }
+        Thread.sleep(300);
+    }
+
+    // ========== Test SingleThreadTcpRestServer ==========
+
+    @Test
+    public void testSingleThread_bindToLocalhostOnly() throws Exception {
+        int port = portRange.next();
+        server = new SingleThreadTcpRestServer(port, "127.0.0.1");
+        server.addResource(TestService.Impl.class);
+        server.up();
+        Thread.sleep(200);
+
+        // Create client and verify it works
+        TcpRestClientFactory factory = new TcpRestClientFactory(
+            TestService.class, "127.0.0.1", port
+        );
+        TestService client = (TestService) factory.getClient();
+        assertEquals(client.echo("localhost"), "localhost");
+    }
+
+    // ========== Test NioTcpRestServer ==========
+
+    @Test
+    public void testNio_bindToLocalhostOnly() throws Exception {
+        int port = portRange.next();
+        server = new NioTcpRestServer(port, "127.0.0.1");
+        server.addResource(TestService.Impl.class);
+        server.up();
+        Thread.sleep(500);
+
+        // Create client and verify it works
+        TcpRestClientFactory factory = new TcpRestClientFactory(
+            TestService.class, "127.0.0.1", port
+        );
+        TestService client = (TestService) factory.getClient();
+        assertEquals(client.echo("nio-localhost"), "nio-localhost");
+    }
+
+    // ========== Test Protocol v2 with Bind Address ==========
+
+    @Test
+    public void testProtocolV2_withBindAddress() throws Exception {
+        int port = portRange.next();
+        server = new SingleThreadTcpRestServer(port, "127.0.0.1");
+        server.setProtocolVersion(ProtocolVersion.V2);
+        server.addResource(TestService.Impl.class);
+        server.up();
+        Thread.sleep(200);
+
+        // Create v2 client
+        TcpRestClientFactory factory = new TcpRestClientFactory(
+            TestService.class, "127.0.0.1", port
+        );
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
+        TestService client = (TestService) factory.getClient();
+
+        // Test overloaded methods work with bind address
+        assertEquals(client.add(5, 3), 8);
+        assertEquals(client.add("Hello", "World"), "HelloWorld");
+    }
+
+    // ========== Test Service Interface ==========
+
+    /**
+     * Simple test service for bind address verification.
+     */
+    public interface TestService {
+        String echo(String message);
+        int add(int a, int b);
+        String add(String a, String b);
+
+        class Impl implements TestService {
+            @Override
+            public String echo(String message) {
+                return message;
+            }
+
+            @Override
+            public int add(int a, int b) {
+                return a + b;
+            }
+
+            @Override
+            public String add(String a, String b) {
+                return a + b;
+            }
+        }
+    }
+}

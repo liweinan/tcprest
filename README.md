@@ -204,6 +204,46 @@ TcpRestClientFactory factory = new TcpRestClientFactory(
 MyService client = factory.getClient();
 ```
 
+### Network Binding
+
+Control which network interfaces your server listens on for security and multi-homing scenarios:
+
+**Bind to specific IP address (recommended for production):**
+```java
+// Only accept connections on localhost (more secure)
+TcpRestServer server = new SingleThreadTcpRestServer(8001, "127.0.0.1");
+
+// Bind to specific internal network interface
+TcpRestServer server = new NioTcpRestServer(8001, "192.168.1.100");
+
+// IPv6 localhost
+TcpRestServer server = new NettyTcpRestServer(8001, "::1");
+```
+
+**Bind to all interfaces (default):**
+```java
+// Accepts connections on all network interfaces (0.0.0.0)
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+// Equivalent to:
+TcpRestServer server = new SingleThreadTcpRestServer(8001, null);
+```
+
+**Combine with SSL:**
+```java
+SSLParam sslParam = new SSLParam();
+sslParam.setKeyStorePath("classpath:server_ks");
+sslParam.setKeyStoreKeyPass("password");
+
+// Secure server on localhost only
+TcpRestServer server = new SingleThreadTcpRestServer(8443, "127.0.0.1", sslParam);
+server.up();
+```
+
+**Security Best Practices:**
+- **Development**: Bind to `127.0.0.1` to prevent external access
+- **Production**: Bind to specific internal IPs instead of `0.0.0.0`
+- **Public services**: Use SSL/TLS with specific IP binding
+
 ### Server Implementations
 
 TcpRest provides three server implementations:

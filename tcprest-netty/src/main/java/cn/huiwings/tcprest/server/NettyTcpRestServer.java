@@ -23,11 +23,14 @@ import java.security.KeyStore;
  *
  * <p><b>SSL Support:</b> This server supports SSL/TLS via {@link cn.huiwings.tcprest.ssl.SSLParam}.</p>
  *
+ * <p><b>Bind Address Support:</b> Supports binding to specific IP addresses for security and multi-homing.</p>
+ *
  * <p><b>Features:</b></p>
  * <ul>
  *   <li>High-performance async I/O using Netty 4.x</li>
  *   <li>Line-based frame decoding (handles large payloads correctly)</li>
  *   <li>Optional SSL/TLS support</li>
+ *   <li>Optional bind address configuration</li>
  *   <li>Boss/Worker thread pool model</li>
  * </ul>
  *
@@ -44,32 +47,55 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
     private final int port;
+    private final String bindAddress;
     private final SSLParam sslParam;
 
     /**
-     * Creates a NettyTcpRestServer with default port (8000) and no SSL.
+     * Creates a NettyTcpRestServer with default port (8000) and no SSL, binding to all interfaces.
      */
     public NettyTcpRestServer() {
-        this(TcpRestServerConfig.DEFAULT_PORT, null);
+        this(TcpRestServerConfig.DEFAULT_PORT, null, null);
     }
 
     /**
-     * Creates a NettyTcpRestServer with specified port and no SSL.
+     * Creates a NettyTcpRestServer with specified port and no SSL, binding to all interfaces.
      *
      * @param port the port to listen on
      */
     public NettyTcpRestServer(int port) {
-        this(port, null);
+        this(port, null, null);
     }
 
     /**
-     * Creates a NettyTcpRestServer with specified port and SSL configuration.
+     * Creates a NettyTcpRestServer with specified port and bind address, no SSL.
+     *
+     * @param port        the port to listen on
+     * @param bindAddress the IP address to bind to (null = all interfaces, "127.0.0.1" = localhost only)
+     */
+    public NettyTcpRestServer(int port, String bindAddress) {
+        this(port, bindAddress, null);
+    }
+
+    /**
+     * Creates a NettyTcpRestServer with specified port and SSL configuration, binding to all interfaces.
      *
      * @param port     the port to listen on
      * @param sslParam SSL configuration (null for no SSL)
      */
     public NettyTcpRestServer(int port, SSLParam sslParam) {
+        this(port, null, sslParam);
+    }
+
+    /**
+     * Creates a NettyTcpRestServer with specified port, bind address, and SSL configuration.
+     *
+     * @param port        the port to listen on
+     * @param bindAddress the IP address to bind to (null = all interfaces, "127.0.0.1" = localhost only)
+     * @param sslParam    SSL configuration (null for no SSL)
+     */
+    public NettyTcpRestServer(int port, String bindAddress, SSLParam sslParam) {
         this.port = port;
+        this.bindAddress = bindAddress;
         this.sslParam = sslParam;
     }
 
@@ -116,7 +142,10 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
                     .childOption(ChannelOption.TCP_NODELAY, true);
 
             // Bind and start to accept incoming connections
-            ChannelFuture future = bootstrap.bind(new InetSocketAddress(port)).sync();
+            InetSocketAddress address = (bindAddress == null || bindAddress.isEmpty())
+                    ? new InetSocketAddress(port)
+                    : new InetSocketAddress(bindAddress, port);
+            ChannelFuture future = bootstrap.bind(address).sync();
             serverChannel = future.channel();
         } catch (Exception e) {
             throw new RuntimeException("Failed to start NettyTcpRestServer", e);

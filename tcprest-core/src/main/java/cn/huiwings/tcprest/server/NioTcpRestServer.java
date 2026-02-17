@@ -1,6 +1,7 @@
 package cn.huiwings.tcprest.server;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.ByteBuffer;
@@ -25,6 +26,8 @@ import java.util.concurrent.Executors;
  * Implementing SSL with NIO requires using SSLEngine, which adds significant
  * complexity for handshaking, buffer management, and error handling.</p>
  *
+ * <p><b>Bind Address Support:</b> Supports binding to specific IP addresses for security and multi-homing.</p>
+ *
  * <p><b>Alternatives for SSL:</b></p>
  * <ul>
  *   <li>For low-traffic SSL: Use {@link SingleThreadTcpRestServer} with {@link cn.huiwings.tcprest.ssl.SSLParam}</li>
@@ -43,14 +46,41 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
     private final List<SocketChannel> runningChannels = new ArrayList<SocketChannel>();
     private Thread worker = null;
 
+    /**
+     * Create NIO server on default port (8000) binding to all interfaces.
+     *
+     * @throws Exception if server creation fails
+     */
     public NioTcpRestServer() throws Exception {
         this(TcpRestServerConfig.DEFAULT_PORT);
     }
 
+    /**
+     * Create NIO server on specified port binding to all interfaces.
+     *
+     * @param port the port to bind to
+     * @throws Exception if server creation fails
+     */
     public NioTcpRestServer(int port) throws Exception {
+        this(port, null);
+    }
+
+    /**
+     * Create NIO server on specified port and bind address.
+     *
+     * @param port the port to bind to
+     * @param bindAddress the IP address to bind to (null = all interfaces, "127.0.0.1" = localhost only)
+     * @throws Exception if server creation fails or address is invalid
+     */
+    public NioTcpRestServer(int port, String bindAddress) throws Exception {
         ssc = ServerSocketChannel.open();
         ServerSocket sc = ssc.socket();
-        sc.bind(new InetSocketAddress(port));
+
+        InetAddress addr = (bindAddress == null || bindAddress.isEmpty())
+                ? null
+                : InetAddress.getByName(bindAddress);
+
+        sc.bind(new InetSocketAddress(addr, port));
         ssc.configureBlocking(false);
 
         logger.info("NioServerSocket initialized: " + ssc.socket());

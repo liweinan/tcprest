@@ -17,11 +17,14 @@ import java.util.Scanner;
  *
  * <p><b>SSL Support:</b> This server supports SSL/TLS via {@link cn.huiwings.tcprest.ssl.SSLParam}.</p>
  *
+ * <p><b>Bind Address Support:</b> Supports binding to specific IP addresses for security and multi-homing.</p>
+ *
  * <p><b>Use cases:</b></p>
  * <ul>
  *   <li>Development and testing</li>
  *   <li>Low-traffic applications</li>
  *   <li>Applications requiring SSL without external dependencies</li>
+ *   <li>Applications requiring binding to specific network interfaces</li>
  * </ul>
  *
  * <p><b>Performance:</b> Single-threaded, handles one request at a time.
@@ -37,18 +40,64 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
     protected ServerSocket serverSocket;
     private volatile Thread serverThread;
 
+    /**
+     * Create server on default port (8000) binding to all interfaces.
+     *
+     * @throws Exception if server creation fails
+     */
     public SingleThreadTcpRestServer() throws Exception {
         this(TcpRestServerConfig.DEFAULT_PORT);
     }
 
+    /**
+     * Create server on specified port binding to all interfaces.
+     *
+     * @param port the port to bind to
+     * @throws Exception if server creation fails
+     */
     public SingleThreadTcpRestServer(int port) throws Exception {
-        this(TcpRestServerSocketFactory.getServerSocket(port, null));
+        this(TcpRestServerSocketFactory.getServerSocket(port, null, null));
     }
 
+    /**
+     * Create server on specified port and bind address.
+     *
+     * @param port the port to bind to
+     * @param bindAddress the IP address to bind to (null = all interfaces, "127.0.0.1" = localhost only)
+     * @throws Exception if server creation fails or address is invalid
+     */
+    public SingleThreadTcpRestServer(int port, String bindAddress) throws Exception {
+        this(TcpRestServerSocketFactory.getServerSocket(port, bindAddress, null));
+    }
+
+    /**
+     * Create SSL server on specified port binding to all interfaces.
+     *
+     * @param port the port to bind to
+     * @param sslParam SSL parameters
+     * @throws Exception if server creation fails
+     */
     public SingleThreadTcpRestServer(int port, SSLParam sslParam) throws Exception {
-        this(TcpRestServerSocketFactory.getServerSocket(port, sslParam));
+        this(TcpRestServerSocketFactory.getServerSocket(port, null, sslParam));
     }
 
+    /**
+     * Create SSL server on specified port and bind address.
+     *
+     * @param port the port to bind to
+     * @param bindAddress the IP address to bind to (null = all interfaces, "127.0.0.1" = localhost only)
+     * @param sslParam SSL parameters
+     * @throws Exception if server creation fails or address is invalid
+     */
+    public SingleThreadTcpRestServer(int port, String bindAddress, SSLParam sslParam) throws Exception {
+        this(TcpRestServerSocketFactory.getServerSocket(port, bindAddress, sslParam));
+    }
+
+    /**
+     * Create server with existing ServerSocket.
+     *
+     * @param socket the server socket to use
+     */
     public SingleThreadTcpRestServer(ServerSocket socket) {
         this.serverSocket = socket;
         logger.info("ServerSocket initialized: " + this.serverSocket);
