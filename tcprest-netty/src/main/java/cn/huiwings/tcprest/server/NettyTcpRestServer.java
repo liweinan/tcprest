@@ -6,13 +6,8 @@ import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.DelimiterBasedFrameDecoder;
-import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.LineBasedFrameDecoder;
-import io.netty.handler.codec.string.LineEncoder;
-import io.netty.handler.codec.string.LineSeparator;
 import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.CharsetUtil;
@@ -94,7 +89,6 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
 
         try {
             final SslContext sslContext = createSslContext();
-            final NettyTcpRestProtocolHandler protocolHandler = new NettyTcpRestProtocolHandler(this);
 
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
@@ -110,12 +104,11 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
                             }
 
                             // Inbound pipeline: SSL -> LineFramer -> StringDecoder -> Handler
-                            // Outbound pipeline: Handler -> LineEncoder -> SSL
                             // LineBasedFrameDecoder handles large payloads by reading complete lines
                             pipeline.addLast("lineFramer", new LineBasedFrameDecoder(1024 * 1024)); // 1MB max
                             pipeline.addLast("stringDecoder", new StringDecoder(CharsetUtil.UTF_8));
-                            pipeline.addLast("lineEncoder", new LineEncoder(LineSeparator.UNIX, CharsetUtil.UTF_8));
-                            pipeline.addLast("tcpRestProtocolHandler", protocolHandler);
+                            // Create a new handler instance for each channel
+                            pipeline.addLast("tcpRestProtocolHandler", new NettyTcpRestProtocolHandler(NettyTcpRestServer.this));
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, 128)
