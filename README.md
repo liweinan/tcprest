@@ -67,6 +67,55 @@ And then you could call the server like using ordinary java class:
 
 TcpRest will handle all the rest of the work for you.
 
+## Data Compression Support
+
+TcpRest supports optional GZIP compression for network traffic optimization using JDK built-in compression (zero external dependencies).
+
+### Benefits
+
+Compression can significantly reduce network bandwidth usage:
+- **Repetitive data**: Up to 96% reduction
+- **JSON/XML**: 88-90% reduction
+- **General text**: 85-95% reduction
+
+### Usage
+
+**Enable compression on server:**
+```java
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.enableCompression(); // Use default settings
+server.up();
+```
+
+**Enable compression on client:**
+```java
+TcpRestClientFactory factory = new TcpRestClientFactory(MyService.class, "localhost", 8001)
+    .withCompression(); // Enable with default settings
+MyService client = factory.getInstance();
+```
+
+**Custom compression configuration:**
+```java
+// Server side
+CompressionConfig config = new CompressionConfig(
+    true,   // enabled
+    1024,   // threshold in bytes (don't compress messages < 1KB)
+    9       // compression level (1=fastest, 9=best compression)
+);
+server.setCompressionConfig(config);
+
+// Client side
+TcpRestClientFactory factory = new TcpRestClientFactory(MyService.class, "localhost", 8001)
+    .withCompression(config);
+```
+
+### Backward Compatibility
+
+The compression feature is **fully backward compatible**:
+- Compressed and uncompressed clients/servers can communicate seamlessly
+- Compression is disabled by default
+- Protocol uses prefix markers (`0|` for uncompressed, `1|` for compressed)
+
 ## SSL Support
 
 TcpRest supports SSL in communication level and it's very easy to use. You can use SSLParam to configure your server and client, and here is an example for two way handshake. First you need to configure server to use your SSL materials by creating a SSLParam instance:

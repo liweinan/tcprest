@@ -1,5 +1,6 @@
 package cn.huiwings.tcprest.server;
 
+import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
 
@@ -47,4 +48,24 @@ public interface TcpRestServer {
     void addMapper(String canonicalName, Mapper mapper);
 
     public int getServerPort();
+
+    /**
+     * Get compression configuration
+     */
+    CompressionConfig getCompressionConfig();
+
+    /**
+     * Set compression configuration
+     */
+    void setCompressionConfig(CompressionConfig compressionConfig);
+
+    /**
+     * Enable compression with default settings
+     */
+    void enableCompression();
+
+    /**
+     * Disable compression
+     */
+    void disableCompression();
 }

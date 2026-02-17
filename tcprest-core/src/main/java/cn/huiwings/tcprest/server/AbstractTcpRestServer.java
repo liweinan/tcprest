@@ -1,5 +1,7 @@
 package cn.huiwings.tcprest.server;
 
+import cn.huiwings.tcprest.compression.CompressionConfig;
+import cn.huiwings.tcprest.compression.CompressionUtil;
 import cn.huiwings.tcprest.extractor.DefaultExtractor;
 import cn.huiwings.tcprest.extractor.Extractor;
 import cn.huiwings.tcprest.invoker.DefaultInvoker;
@@ -9,6 +11,7 @@ import cn.huiwings.tcprest.logger.LoggerFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,6 +33,8 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     public Extractor extractor = new DefaultExtractor(this);
 
     public Invoker invoker = new DefaultInvoker();
+
+    protected CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
 
     public void addResource(Class resourceClass) {
         if (resourceClass == null) {
@@ -81,17 +86,49 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
 
     protected String processRequest(String request) throws Exception {
         logger.debug("request: " + request);
+
+        // Decompress request if needed
+        String decompressedRequest = request;
+        if (request != null && (request.startsWith("0|") || request.startsWith("1|"))) {
+            try {
+                decompressedRequest = CompressionUtil.decompress(request);
+                if (CompressionUtil.isCompressed(request)) {
+                    logger.debug("Decompressed incoming request");
+                }
+            } catch (IOException e) {
+                logger.error("Failed to decompress request: " + e.getMessage());
+                // Continue with original request as fallback
+                decompressedRequest = request;
+            }
+        }
+
         // extract calling class and method from request
-        Context context = extractor.extract(request);
+        Context context = extractor.extract(decompressedRequest);
         // invoke real method
         Object responseObject = invoker.invoke(context);
         logger.debug("***responseObject: " + responseObject);
 
         // get returned object and encode it to string response
         Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
+        String response = context.getConverter().encodeParam(responseMapper.objectToString(responseObject));
 
-        return context.getConverter().encodeParam(responseMapper.objectToString(responseObject));
-
+        // Compress response if enabled
+        if (compressionConfig.isEnabled()) {
+            try {
+                String compressed = CompressionUtil.compress(response, compressionConfig);
+                if (CompressionUtil.isCompressed(compressed)) {
+                    double ratio = CompressionUtil.getCompressionRatio(response, compressed);
+                    logger.debug("Compressed response (saved " + String.format("%.1f", ratio) + "%)");
+                }
+                return compressed;
+            } catch (IOException e) {
+                logger.error("Failed to compress response: " + e.getMessage());
+                return "0|" + response; // Fallback with uncompressed prefix
+            }
+        } else {
+            // Add prefix for protocol compatibility
+            return "0|" + response;
+        }
     }
 
     public Map<String, Mapper> getMappers() {
@@ -104,6 +141,34 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
         synchronized (mappers) {
             mappers.put(canonicalName, mapper);
         }
+    }
+
+    public CompressionConfig getCompressionConfig() {
+        return compressionConfig;
+    }
+
+    public void setCompressionConfig(CompressionConfig compressionConfig) {
+        if (compressionConfig == null) {
+            throw new IllegalArgumentException("Compression config cannot be null");
+        }
+        this.compressionConfig = compressionConfig;
+        logger.info("Compression configured: " + compressionConfig);
+    }
+
+    /**
+     * Enable compression with default settings
+     */
+    public void enableCompression() {
+        this.compressionConfig.setEnabled(true);
+        logger.info("Compression enabled with default settings");
+    }
+
+    /**
+     * Disable compression
+     */
+    public void disableCompression() {
+        this.compressionConfig.setEnabled(false);
+        logger.info("Compression disabled");
     }
 
 }
