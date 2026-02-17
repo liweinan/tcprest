@@ -194,22 +194,8 @@ public class ProtocolRouter {
      */
     private String processV1Request(String request, ResourceRegister resourceRegister) {
         try {
-            // Decompress request if needed
-            String decompressedRequest = request;
-            if (request != null && (request.startsWith("0|") || request.startsWith("1|"))) {
-                try {
-                    decompressedRequest = CompressionUtil.decompress(request);
-                    if (CompressionUtil.isCompressed(request)) {
-                        logger.debug("Decompressed incoming request");
-                    }
-                } catch (IOException e) {
-                    logger.error("Failed to decompress request: " + e.getMessage());
-                    decompressedRequest = request;
-                }
-            }
-
-            // Extract calling class and method from request
-            Context context = v1Extractor.extract(decompressedRequest);
+            // Extract calling class and method from request (new secure format)
+            Context context = v1Extractor.extract(request);
 
             // Get singleton resource instance (v1 invoker will create if null)
             Class<?> targetClass = context.getTargetClass();
@@ -220,31 +206,35 @@ public class ProtocolRouter {
             Object responseObject = v1Invoker.invoke(context);
             logger.debug("***responseObject: " + responseObject);
 
-            // Get returned object and encode it to string response
+            // Get returned object and encode using new secure format
             Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
-            String response = context.getConverter().encodeParam(responseMapper.objectToString(responseObject));
+            String resultString = responseMapper.objectToString(responseObject);
 
-            // Compress response if enabled
-            if (compressionConfig.isEnabled()) {
-                try {
-                    String compressed = CompressionUtil.compress(response, compressionConfig);
-                    if (CompressionUtil.isCompressed(compressed)) {
-                        double ratio = CompressionUtil.getCompressionRatio(response, compressed);
-                        logger.debug("Compressed response (saved " + String.format("%.1f", ratio) + "%)");
-                    }
-                    return compressed;
-                } catch (IOException e) {
-                    logger.error("Failed to compress response: " + e.getMessage());
-                    return "0|" + response; // Fallback with uncompressed prefix
+            // Encode result parameter
+            String resultEncoded = context.getConverter().encodeParam(resultString);
+
+            // Build response: 0|{{base64(result)}}|CHK:value
+            String message = "0|" + resultEncoded;
+
+            // Add checksum if security is enabled
+            if (context.getConverter() instanceof cn.huiwings.tcprest.conveter.DefaultConverter) {
+                cn.huiwings.tcprest.conveter.DefaultConverter defaultConverter =
+                    (cn.huiwings.tcprest.conveter.DefaultConverter) context.getConverter();
+                cn.huiwings.tcprest.security.SecurityConfig securityConfig = defaultConverter.getSecurityConfig();
+
+                String checksum = cn.huiwings.tcprest.security.ProtocolSecurity.calculateChecksum(message, securityConfig);
+                if (!checksum.isEmpty()) {
+                    message += "|" + checksum;
                 }
-            } else {
-                // Add prefix for protocol compatibility
-                return "0|" + response;
             }
+
+            logger.debug("***V1 response: " + message);
+            return message;
 
         } catch (Exception e) {
             logger.error("V1 request processing error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
-            return "0|"; // V1 returns empty with prefix on error
+            e.printStackTrace();
+            return "0||"; // V1 returns empty result: 0|empty|
         }
     }
 

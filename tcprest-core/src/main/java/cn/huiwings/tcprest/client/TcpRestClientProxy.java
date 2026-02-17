@@ -13,6 +13,8 @@ import cn.huiwings.tcprest.mapper.MapperHelper;
 import cn.huiwings.tcprest.protocol.NullObj;
 import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.protocol.TcpRestProtocol;
+import cn.huiwings.tcprest.security.ProtocolSecurity;
+import cn.huiwings.tcprest.security.SecurityConfig;
 import cn.huiwings.tcprest.ssl.SSLParam;
 
 import java.io.IOException;
@@ -21,7 +23,9 @@ import java.lang.reflect.Method;
 import java.util.Map;
 
 /**
- * TcpRestClientProxy can generate a client from resource class/interface
+ * Security-Enhanced TcpRestClientProxy.
+ *
+ * <p>Generates dynamic proxy clients with protocol security features.</p>
  *
  * @author Weinan Li
  * @date Jul 30 2012
@@ -29,20 +33,19 @@ import java.util.Map;
 public class TcpRestClientProxy implements InvocationHandler {
 
     private Logger logger = LoggerFactory.getDefaultLogger();
-
     private TcpRestClient tcpRestClient;
-
     private Map<String, Mapper> mappers;
-
-    private Converter converter = new DefaultConverter();
-
-    private ProtocolV2Converter v2Converter = new ProtocolV2Converter();
-
+    private Converter converter;
+    private ProtocolV2Converter v2Converter;
     private CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
-
     private ProtocolConfig protocolConfig = new ProtocolConfig(); // Default: V1
+    private SecurityConfig securityConfig = new SecurityConfig(); // Default: no security
 
     public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam, CompressionConfig compressionConfig, ProtocolConfig protocolConfig) {
+        this(deletgatedClassName, host, port, extraMappers, sslParam, compressionConfig, protocolConfig, null);
+    }
+
+    public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam, CompressionConfig compressionConfig, ProtocolConfig protocolConfig, SecurityConfig securityConfig) {
         mappers = MapperHelper.DEFAULT_MAPPERS;
 
         if (extraMappers != null) {
@@ -57,15 +60,31 @@ public class TcpRestClientProxy implements InvocationHandler {
             this.protocolConfig = protocolConfig;
         }
 
+        if (securityConfig != null) {
+            this.securityConfig = securityConfig;
+        }
+
+        // Initialize converters with security config
+        this.converter = new DefaultConverter(this.securityConfig);
+        this.v2Converter = new ProtocolV2Converter(); // TODO: Add SecurityConfig support to V2
+
         tcpRestClient = new DefaultTcpRestClient(sslParam, deletgatedClassName, host, port);
     }
 
     public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam, CompressionConfig compressionConfig) {
-        this(deletgatedClassName, host, port, extraMappers, sslParam, compressionConfig, null);
+        this(deletgatedClassName, host, port, extraMappers, sslParam, compressionConfig, null, null);
     }
 
     public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam) {
-        this(deletgatedClassName, host, port, extraMappers, sslParam, null, null);
+        this(deletgatedClassName, host, port, extraMappers, sslParam, null, null, null);
+    }
+
+    public TcpRestClientProxy(String deletgatedClassName, String host, int port) {
+        this(deletgatedClassName, host, port, null, null, null, null, null);
+    }
+
+    public TcpRestClientProxy(String deletgatedClassName, String host, int port, SSLParam sslParam) {
+        this(deletgatedClassName, host, port, null, sslParam, null, null, null);
     }
 
     public void setMappers(Map<String, Mapper> mappers) {
@@ -76,12 +95,31 @@ public class TcpRestClientProxy implements InvocationHandler {
         return mappers;
     }
 
-    public TcpRestClientProxy(String deletgatedClassName, String host, int port) {
-        this(deletgatedClassName, host, port, null, null, null, null);
+    /**
+     * Sets security configuration.
+     *
+     * @param securityConfig security configuration
+     */
+    public void setSecurityConfig(SecurityConfig securityConfig) {
+        this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+
+        // Update converters
+        if (converter instanceof DefaultConverter) {
+            ((DefaultConverter) converter).setSecurityConfig(this.securityConfig);
+        }
+        // TODO: Add SecurityConfig support to ProtocolV2Converter
+        // if (v2Converter != null) {
+        //     v2Converter.setSecurityConfig(this.securityConfig);
+        // }
     }
 
-    public TcpRestClientProxy(String deletgatedClassName, String host, int port, SSLParam sslParam) {
-        this(deletgatedClassName, host, port, null, sslParam, null, null);
+    /**
+     * Gets security configuration.
+     *
+     * @return security configuration
+     */
+    public SecurityConfig getSecurityConfig() {
+        return securityConfig;
     }
 
     public Object invoke(Object o, Method method, Object[] params) throws Throwable {
@@ -99,67 +137,97 @@ public class TcpRestClientProxy implements InvocationHandler {
     }
 
     /**
-     * Invoke using Protocol v1 (legacy).
+     * Invoke using Protocol v1 (security-enhanced).
+     *
+     * <p>New format: {@code 0|META|PARAMS|CHK:value}</p>
      */
     private Object invokeV1(Method method, Object[] params) throws Throwable {
+        // Encode request using secure protocol
+        // converter.encode() now generates: 0|{{base64(meta)}}|{{base64(params)}}|CHK:value
         String request = converter.encode(method.getDeclaringClass(), method, params, mappers);
 
-        // Compress request if enabled
-        String finalRequest = request;
-        if (compressionConfig.isEnabled()) {
-            try {
-                finalRequest = CompressionUtil.compress(request, compressionConfig);
-                if (CompressionUtil.isCompressed(finalRequest)) {
-                    double ratio = CompressionUtil.getCompressionRatio(request, finalRequest);
-                    logger.debug("Compressed request (saved " + String.format("%.1f", ratio) + "%)");
-                }
-            } catch (IOException e) {
-                logger.error("Failed to compress request: " + e.getMessage());
-                finalRequest = "0|" + request; // Fallback with uncompressed prefix
-            }
-        } else {
-            // Add prefix for protocol compatibility
-            finalRequest = "0|" + request;
+        logger.debug("***TcpRestClientProxy - encoded request: " + request);
+
+        // Send request
+        String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
+        logger.debug("***TcpRestClientProxy - received response: " + response);
+
+        // Parse response format: 0|{{base64(result)}}|CHK:value
+        if (response == null || response.isEmpty()) {
+            return null;
         }
 
-        String response = tcpRestClient.sendRequest(finalRequest, TimeoutAnnotationHandler.getTimeout(method));
-        logger.debug("response: " + response);
+        // Step 1: Split checksum
+        String[] parts = ProtocolSecurity.splitChecksum(response);
+        String messageWithoutChecksum = parts[0];
+        String checksum = parts[1];
 
-        // Decompress response if needed
-        String decompressedResponse = response;
-        if (response != null && (response.startsWith("0|") || response.startsWith("1|"))) {
-            try {
-                decompressedResponse = CompressionUtil.decompress(response);
-                if (CompressionUtil.isCompressed(response)) {
-                    logger.debug("Decompressed response");
-                }
-            } catch (IOException e) {
-                logger.error("Failed to decompress response: " + e.getMessage());
-                decompressedResponse = response; // Fallback to original
+        // Step 2: Verify checksum if present
+        if (!checksum.isEmpty()) {
+            if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+                throw new cn.huiwings.tcprest.exception.SecurityException(
+                    "Response checksum verification failed"
+                );
             }
+            logger.debug("***TcpRestClientProxy - response checksum verified");
         }
 
-        String respStr = converter.decodeParam(decompressedResponse);
+        // Step 3: Split response components
+        String[] components = messageWithoutChecksum.split("\\" + TcpRestProtocol.COMPONENT_SEPARATOR, -1);
 
+        if (components.length < 2) {
+            // Legacy response format or error - try to decode directly
+            logger.warn("***TcpRestClientProxy - unexpected response format, attempting direct decode");
+            return decodeResult(response, method);
+        }
+
+        String statusOrCompression = components[0];
+        String resultBase64 = components[1];
+
+        // Step 4: Decode result
+        String decodedResult;
+        try {
+            decodedResult = ProtocolSecurity.decodeComponent(resultBase64);
+        } catch (Exception e) {
+            // Fallback: try legacy decodeParam
+            logger.warn("***TcpRestClientProxy - failed to decode result as component, trying legacy format");
+            decodedResult = converter.decodeParam(response);
+        }
+
+        logger.debug("***TcpRestClientProxy - decoded result: " + decodedResult);
+
+        // Step 5: Map to return type
         String mapperKey = method.getReturnType().getCanonicalName();
-        if (respStr.equals(TcpRestProtocol.NULL))
+        if (decodedResult.equals(TcpRestProtocol.NULL)) {
             mapperKey = NullObj.class.getCanonicalName();
-
-        logger.debug("***TcpRestClientProxy - response: " + respStr);
+        }
 
         Mapper mapper = converter.getMapper(mappers, mapperKey);
 
-        logger.debug("***TcpRestClientProxy - mapper: " + mapper);
-
         if (mapper == null) {
-            throw new IllegalAccessException("***TcpRestClientProxy - mapper cannot be found for response object: " + respStr.toString());
+            throw new IllegalAccessException("***TcpRestClientProxy - mapper cannot be found for response object: " + decodedResult);
         }
 
+        return mapper.stringToObject(decodedResult);
+    }
+
+    /**
+     * Decode result with fallback to legacy format.
+     */
+    private Object decodeResult(String response, Method method) throws Exception {
+        String respStr = converter.decodeParam(response);
+
+        String mapperKey = method.getReturnType().getCanonicalName();
+        if (respStr.equals(TcpRestProtocol.NULL)) {
+            mapperKey = NullObj.class.getCanonicalName();
+        }
+
+        Mapper mapper = converter.getMapper(mappers, mapperKey);
         return mapper.stringToObject(respStr);
     }
 
     /**
-     * Invoke using Protocol v2 (with signatures and status codes).
+     * Invoke using Protocol v2 (with signatures, status codes, and security).
      */
     private Object invokeV2(Method method, Object[] params) throws Throwable {
         // Encode request with v2 format (includes method signature)
@@ -199,5 +267,4 @@ public class TcpRestClientProxy implements InvocationHandler {
         this.compressionConfig.setEnabled(false);
         logger.info("Client compression disabled");
     }
-
 }

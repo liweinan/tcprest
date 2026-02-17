@@ -6,6 +6,9 @@ import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.exception.ParseException;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.logger.LoggerFactory;
+import cn.huiwings.tcprest.protocol.TcpRestProtocol;
+import cn.huiwings.tcprest.security.ProtocolSecurity;
+import cn.huiwings.tcprest.security.SecurityConfig;
 import cn.huiwings.tcprest.server.Context;
 import cn.huiwings.tcprest.server.TcpRestServer;
 
@@ -14,21 +17,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The default request extractor. Now it just support string arguments.
- * <p/>
- * The following requests are valid:
+ * Security-Enhanced Default Extractor for V1 protocol.
+ *
+ * <p><b>New Protocol Format (2026-02-18):</b></p>
  * <pre>
- * {@code
- * HelloWorldRestlet/sayHello
- * HelloWorldResource/sayHello()
- * HelloWorldResource/sayHelloTo({{Jack}})
- * HelloWorldResource/sayHelloToPeople({{you}}:::{{me}})
- * }
+ * Request: 0|{{base64(ClassName/methodName)}}|{{base64(params)}}|CHK:value
  * </pre>
- * <p/>
- * Please note the
- * <p/>
- * In the future I want to make DefaultExtractor supports complex parameter types via mapper scheme.
+ *
+ * <p><b>Security Features:</b></p>
+ * <ul>
+ *   <li>Base64-encoded metadata prevents injection attacks</li>
+ *   <li>Optional checksum verification (CRC32/HMAC)</li>
+ *   <li>Optional class whitelist validation</li>
+ * </ul>
  *
  * @author Weinan Li
  * @date Jul 30 2012
@@ -36,40 +37,129 @@ import java.util.List;
 public class DefaultExtractor implements Extractor {
 
     private Logger logger = LoggerFactory.getDefaultLogger();
-
     private TcpRestServer tcpRestServer;
-
-    private final Converter converter = new DefaultConverter();
+    private final Converter converter;
+    private SecurityConfig securityConfig;
 
     public DefaultExtractor(TcpRestServer server) {
         this.tcpRestServer = server;
+        this.securityConfig = new SecurityConfig(); // Default: no security
+        this.converter = new DefaultConverter(securityConfig);
     }
 
+    /**
+     * Sets security configuration.
+     *
+     * @param securityConfig security config
+     */
+    public void setSecurityConfig(SecurityConfig securityConfig) {
+        this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+        if (converter instanceof DefaultConverter) {
+            ((DefaultConverter) converter).setSecurityConfig(this.securityConfig);
+        }
+    }
+
+    /**
+     * Extracts request into Context.
+     *
+     * <p>Format: {@code 0|META|PARAMS|CHK:value}</p>
+     *
+     * @param request protocol request string
+     * @return populated Context
+     * @throws ClassNotFoundException if class not found
+     * @throws NoSuchMethodException if method not found
+     * @throws ParseException if request format invalid
+     * @throws MapperNotFoundException if mapper not found
+     */
     public Context extract(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException {
-        // class/method(arg1, arg2, ...)
-        // get class and method from request
-
-        // We do some sanity check firstly
-        if (request == null)
-            throw new ParseException("***DefaultExtractor: cannot parse request: " + request);
-        else {
-            request = request.replaceAll("(\\r|\\n)", "");
-            if (request.lastIndexOf(')') != request.length() - 1)
-                throw new ParseException("***DefaultExtractor: cannot parse request: " + request);
+        if (request == null) {
+            throw new ParseException("***DefaultExtractor: cannot parse null request");
         }
 
-        // search first '/'
-        int classSeperator = request.indexOf('/');
-        if (classSeperator < 1) {
-            throw new NoSuchMethodException("***DefaultExtractor: Cannot find a method from request.");
+        // Remove line breaks
+        request = request.replaceAll("(\\r|\\n)", "").trim();
+
+        logger.debug("***DefaultExtractor - parsing request: " + request);
+
+        // Step 1: Split checksum if present
+        String[] parts = ProtocolSecurity.splitChecksum(request);
+        String messageWithoutChecksum = parts[0];
+        String checksum = parts[1];
+
+        // Step 2: Verify checksum if enabled
+        if (!checksum.isEmpty()) {
+            if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+                throw new cn.huiwings.tcprest.exception.SecurityException(
+                    "Checksum verification failed - message may have been tampered with"
+                );
+            }
+            logger.debug("***DefaultExtractor - checksum verified");
         }
 
-        // get class name
-        String clazzName = request.substring(0, classSeperator);
+        // Step 3: Split components by |
+        String[] components = messageWithoutChecksum.split("\\" + TcpRestProtocol.COMPONENT_SEPARATOR, -1);
 
-        // we need to check whether the server has the relative resource or not
-        // If client is using interface, we'll check whether the server has implemented resources
-        // or not.
+        if (components.length < 3) {
+            throw new ParseException("***DefaultExtractor: invalid protocol format, expected: 0|META|PARAMS, got: " + request);
+        }
+
+        String compressionFlag = components[0];
+        String metaBase64 = components[1];
+        String paramsBase64 = components[2];
+
+        logger.debug("***DefaultExtractor - compression: " + compressionFlag);
+        logger.debug("***DefaultExtractor - metaBase64: " + metaBase64);
+        logger.debug("***DefaultExtractor - paramsBase64: " + paramsBase64);
+
+        // Step 4: Decode metadata (ClassName/methodName)
+        String meta = ProtocolSecurity.decodeComponent(metaBase64);
+        logger.debug("***DefaultExtractor - decoded meta: " + meta);
+
+        // Step 5: Parse ClassName and methodName from meta
+        int slashIndex = meta.indexOf('/');
+        if (slashIndex < 1) {
+            throw new ParseException("***DefaultExtractor: invalid metadata format, expected ClassName/methodName, got: " + meta);
+        }
+
+        String clazzName = meta.substring(0, slashIndex);
+        String methodName = meta.substring(slashIndex + 1);
+
+        // Remove trailing () if present for compatibility
+        if (methodName.endsWith("()")) {
+            methodName = methodName.substring(0, methodName.length() - 2);
+        } else if (methodName.endsWith(")")) {
+            // Strip parameters part if present (e.g., "method(params)" -> "method")
+            int parenIndex = methodName.indexOf('(');
+            if (parenIndex > 0) {
+                methodName = methodName.substring(0, parenIndex);
+            }
+        }
+
+        logger.debug("***DefaultExtractor - className: " + clazzName);
+        logger.debug("***DefaultExtractor - methodName: " + methodName);
+
+        // Step 6: Validate class name (security check)
+        if (!ProtocolSecurity.isValidClassName(clazzName)) {
+            throw new cn.huiwings.tcprest.exception.SecurityException(
+                "Invalid class name format (possible injection attempt): " + clazzName
+            );
+        }
+
+        // Step 7: Check class whitelist if enabled
+        if (!securityConfig.isClassAllowed(clazzName)) {
+            throw new cn.huiwings.tcprest.exception.SecurityException(
+                "Class not in whitelist: " + clazzName
+            );
+        }
+
+        // Step 8: Validate method name (security check)
+        if (!ProtocolSecurity.isValidMethodName(methodName)) {
+            throw new cn.huiwings.tcprest.exception.SecurityException(
+                "Invalid method name format (possible injection attempt): " + methodName
+            );
+        }
+
+        // Step 9: Find resource class (check both singleton and class resources)
         List<Class> classesToSearch = new ArrayList<Class>();
 
         for (Class clazz : tcpRestServer.getResourceClasses().values()) {
@@ -80,11 +170,12 @@ public class DefaultExtractor implements Extractor {
             classesToSearch.add(instance.getClass());
         }
 
-        // The search logic
+        // Search logic - support interface-based calls
         for (Class clazz : classesToSearch) {
             if (clazzName.equals(clazz.getCanonicalName())) {
-                break; // we've found it.
-            } else { // otherwise we check if it's an interface that has an implmented class resource in server
+                break; // Found exact match
+            } else {
+                // Check if it's an interface implemented by this class
                 for (Class ifc : clazz.getInterfaces()) {
                     if (ifc.getCanonicalName().equals(clazzName)) {
                         logger.log("***DefaultExtractor - found implemented class: " + clazz.getCanonicalName());
@@ -95,26 +186,10 @@ public class DefaultExtractor implements Extractor {
             }
         }
 
-        // search first '(' to extract method
-        int methodSeperator = request.indexOf('(');
-        // things like 'MyClass/()' is also not valid
-        // so we need to ensure the format is at least 'MyClass/m()'
-        // the methodSeperator - 1 is the 'm'
-        // the classSeperator + 1 is '/'
-        // So we check the method do exists
-        if (methodSeperator - 1 < classSeperator + 1) {
-            throw new NoSuchMethodException("***DefaultExtractor: Cannot find a valid method call from request.");
-        }
-
-        String methodName = request.substring(classSeperator + 1, methodSeperator);
-
-        // Now we start to fill in context
+        // Step 10: Create Context
         Context ctx = new Context();
 
-        // We'll search for resources now. We first search in singleton resources,
-        // then we search in resource classes.
-        // If two same class appear both in singleton and class resources, we'll
-        // use the singleton one.
+        // Set target instance (singleton takes precedence)
         if (tcpRestServer.getSingletonResources().containsKey(clazzName)) {
             ctx.setTargetInstance(tcpRestServer.getSingletonResources().get(clazzName));
             ctx.setTargetClass(tcpRestServer.getSingletonResources().get(clazzName).getClass());
@@ -122,14 +197,13 @@ public class DefaultExtractor implements Extractor {
             ctx.setTargetClass(tcpRestServer.getResourceClasses().get(clazzName));
         }
 
-        if (ctx.getTargetClass() == null)
+        if (ctx.getTargetClass() == null) {
             throw new ClassNotFoundException("***DefaultExtractor - Can't find resource for: " + clazzName);
+        }
 
-        // search method
-        // TODO: Method overloading not supported - stops at first name match
-        // Fixing requires protocol v2 with method signatures: ClassName/methodName(Ljava/lang/String;I)(params)
-        // Workaround: Use distinct method names instead of overloading (e.g., addInt/addDouble)
-        // See TODO-ANALYSIS.md #2 for details
+        // Step 11: Find method
+        // V1 protocol: stops at first name match (no overloading support)
+        // V2 protocol uses type signatures for overloading
         logger.debug("target method name: " + methodName);
         for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
             logger.debug("scanning method: " + mtd.getName());
@@ -140,20 +214,15 @@ public class DefaultExtractor implements Extractor {
             }
         }
 
-        if (ctx.getTargetMethod() == null)
+        if (ctx.getTargetMethod() == null) {
             throw new NoSuchMethodException("***DefaultExtractor - Can't find method: " + methodName);
+        }
 
-        // get parameters
-        // strip the quotes and extract all params
-        String paramsToken = request.substring(methodSeperator + 1, request.length() - 1);
-        logger.debug("paramsToken: " + paramsToken);
+        // Step 12: Decode and parse parameters
+        Object params[] = converter.decode(ctx.getTargetMethod(), paramsBase64, tcpRestServer.getMappers());
 
-        Object params[] = converter.decode(ctx.getTargetMethod(), paramsToken, tcpRestServer.getMappers());
-
-        // fill arguments
         ctx.setParams(params);
         ctx.setConverter(converter);
         return ctx;
     }
-
 }
