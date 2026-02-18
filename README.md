@@ -13,6 +13,7 @@ A lightweight, zero-dependency RPC framework that transforms POJOs into network-
 - ✨ **Simplified format**: JSON-style arrays `[p1,p2,p3]` instead of verbose `{{p1}}:::{{p2}}`
 - 🚀 **Better performance**: Single-layer Base64 encoding (no double encoding)
 - 🎯 **Method overloading**: Full support with type signatures
+- 🧠 **Intelligent mappers**: 3-tier system with auto-serialization for `Serializable` objects - **zero configuration for DTOs!**
 - 📦 **Cleaner protocol**: More readable and easier to debug
 
 **Upgrading from v1?** V1 is still fully supported. See [Migration Guide](#migration-from-v1-to-v2).
@@ -585,15 +586,34 @@ try {
 
 **Pro Tip:** In this example, if your `Cart` and `Product` classes implement `Serializable`, you don't need any custom mappers - TcpRest will handle serialization automatically, including proper handling of `transient` fields.
 
-### Automatic Serialization (Recommended)
+### V2 Intelligent Mapper System (Automatic Serialization)
 
-**TcpRest automatically handles any class implementing `Serializable` - no mapper needed!**
+**Protocol V2 features a 3-tier intelligent mapper system - most classes work automatically with zero configuration!**
+
+#### Priority 1: User-Defined Mappers (Highest)
+Custom mappers for fine-grained control (e.g., JSON serialization with Gson):
+
+```java
+// Register custom Gson mapper
+server.addMapper(User.class.getName(), new GsonUserMapper());
+
+Map<String, Mapper> mappers = new HashMap<>();
+mappers.put(User.class.getName(), new GsonUserMapper());
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    UserService.class, "localhost", 8001, mappers
+);
+```
+
+#### Priority 2: Auto-Serialization (Medium) ⭐ **Recommended**
+Any class implementing `Serializable` works automatically - **no mapper needed!**
 
 ```java
 import java.io.Serializable;
 
 // Simply implement Serializable
 public class User implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private int id;
     private String name;
     private transient String password;  // Excluded from serialization
@@ -604,27 +624,51 @@ public class User implements Serializable {
 // Works automatically - no mapper registration required!
 public interface UserService {
     User getUser(int id);
+    User saveUser(User user);
     List<User> getAllUsers();  // Collections work too
 }
+
+// Server setup - no mapper needed
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.setProtocolVersion(ProtocolVersion.V2);  // V2 enables auto-serialization
+server.addSingletonResource(new UserServiceImpl());
+server.up();
+
+// Client setup - no mapper needed
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    UserService.class, "localhost", 8001
+);  // V2 is default
+UserService client = factory.getClient();
+
+User user = client.getUser(123);  // Just works! 🎉
 ```
 
 **What's supported automatically:**
-- ✅ Any class implementing `Serializable`
+- ✅ Any class implementing `Serializable` (DTOs, entities, domain objects)
 - ✅ Collections (`List`, `Map`, `Set`) - they're already Serializable
 - ✅ Arrays of any type
 - ✅ `transient` fields (automatically excluded)
-- ✅ Nested Serializable objects
+- ✅ Nested Serializable objects (entire object graph)
 - ⚠️ Generic types (runtime type erasure applies, but works via Serializable)
 
-**When to use custom mappers:**
-- More efficient string representation (e.g., CSV format)
-- Human-readable wire format
-- Non-Serializable classes you can't modify
+#### Priority 3: Built-in Conversion (Lowest)
+Primitives, wrappers, Strings, and arrays - always supported.
 
-### Custom Data Types with Mappers
+#### When to Use Each Approach
 
-For more control, implement custom mappers:
+| Approach | Use Case | Configuration |
+|----------|----------|---------------|
+| **Auto-Serialization** (Priority 2) | Internal microservices, DTOs you control | Just implement `Serializable` - zero config! |
+| **Custom Mapper** (Priority 1) | Public APIs, human-readable format (JSON/XML) | Register mapper on client & server |
+| **Built-in** (Priority 3) | Primitives, strings, simple types | Always available |
 
+**Recommendation:** For internal services and DTOs, use auto-serialization (implement `Serializable`). For public APIs or cross-language scenarios, use custom mappers with JSON.
+
+### Custom Mappers (Advanced Usage)
+
+For more control over serialization format (e.g., human-readable JSON instead of binary), implement custom mappers. **Custom mappers have highest priority** and override auto-serialization.
+
+**Example: CSV Format Mapper**
 ```java
 public class PersonMapper implements Mapper {
     @Override
@@ -636,7 +680,7 @@ public class PersonMapper implements Mapper {
     @Override
     public String objectToString(Object o) {
         Person p = (Person) o;
-        return p.getName() + "," + p.getAge();
+        return p.getName() + "," + p.getAge();  // CSV format
     }
 }
 
@@ -651,6 +695,39 @@ TcpRestClientFactory factory = new TcpRestClientFactory(
     MyService.class, "localhost", 8001, mappers
 );
 ```
+
+**Example: Gson/JSON Mapper** (See `V2MapperDemoTest.java` for complete working example)
+```java
+import com.google.gson.Gson;
+
+public class GsonUserMapper implements Mapper {
+    private final Gson gson = new Gson();
+
+    @Override
+    public String objectToString(Object object) {
+        return gson.toJson(object);  // Produces: {"name":"Alice","age":25}
+    }
+
+    @Override
+    public Object stringToObject(String param) {
+        return gson.fromJson(param, User.class);
+    }
+}
+
+// Register on both server and client
+server.addMapper(User.class.getName(), new GsonUserMapper());
+mappers.put(User.class.getName(), new GsonUserMapper());
+```
+
+**Custom Mapper Benefits:**
+- Human-readable wire format (JSON, XML, CSV)
+- Efficient string representation
+- Cross-language compatibility (if you implement clients in other languages)
+- Fine-grained control over what gets serialized
+
+**When NOT to use custom mappers:**
+- Simple DTOs in Java-only microservices → Use auto-serialization instead
+- Classes that already implement `Serializable` and don't need special format → Zero config!
 
 ### Timeout Configuration
 

@@ -52,12 +52,22 @@ public class ProtocolV2Converter implements Converter {
 
     private static final String COMPRESSION_DISABLED = "0";
     private SecurityConfig securityConfig;
+    private Map<String, Mapper> mappers;
 
     /**
      * Create converter with default security (no checksum, no whitelist).
      */
     public ProtocolV2Converter() {
-        this.securityConfig = new SecurityConfig();
+        this(null, null);
+    }
+
+    /**
+     * Create converter with mappers support.
+     *
+     * @param mappers mapper registry (optional)
+     */
+    public ProtocolV2Converter(Map<String, Mapper> mappers) {
+        this(null, mappers);
     }
 
     /**
@@ -66,7 +76,18 @@ public class ProtocolV2Converter implements Converter {
      * @param securityConfig security configuration
      */
     public ProtocolV2Converter(SecurityConfig securityConfig) {
+        this(securityConfig, null);
+    }
+
+    /**
+     * Create converter with custom security configuration and mappers.
+     *
+     * @param securityConfig security configuration
+     * @param mappers mapper registry (optional)
+     */
+    public ProtocolV2Converter(SecurityConfig securityConfig, Map<String, Mapper> mappers) {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+        this.mappers = mappers;
     }
 
     /**
@@ -99,12 +120,19 @@ public class ProtocolV2Converter implements Converter {
      *   <li>The entire parameter list is wrapped in square brackets</li>
      * </ul>
      *
+     * <p><b>Mapper Support:</b> V2 supports intelligent type mapping with the following priority:</p>
+     * <ol>
+     *   <li><b>User-defined Mapper</b>: If user provides custom mapper for a type, use it</li>
+     *   <li><b>Auto Serialization</b>: If object implements Serializable, use RawTypeMapper automatically</li>
+     *   <li><b>Built-in conversion</b>: For primitives, arrays, and toString() for others</li>
+     * </ol>
+     *
      * @param clazz the interface class
      * @param method the method to invoke
      * @param params the method parameters
-     * @param mappers mapper registry (not used in Protocol V2, retained for interface compatibility)
+     * @param mappers mapper registry (optional - for custom type mapping)
      * @return encoded request string
-     * @throws MapperNotFoundException not thrown in V2 (uses built-in encoding)
+     * @throws MapperNotFoundException if mapper is required but not found
      */
     @Override
     public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException {
@@ -141,7 +169,7 @@ public class ProtocolV2Converter implements Converter {
                 if (i > 0) {
                     paramsBuilder.append(ProtocolV2Constants.PARAM_SEPARATOR);
                 }
-                paramsBuilder.append(encodeParam(params[i]));
+                paramsBuilder.append(encodeParam(params[i], mappers));
             }
         }
         paramsBuilder.append(ProtocolV2Constants.PARAMS_ARRAY_END);
@@ -167,33 +195,77 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode a single parameter to Base64 (simplified format).
+     * Encode a single parameter to Base64 with intelligent type mapping.
      *
-     * <p>Parameters are encoded directly without wrapper symbols.</p>
+     * <p><b>Encoding Priority:</b></p>
+     * <ol>
+     *   <li><b>NULL marker</b>: null → "NULL"</li>
+     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
+     *   <li><b>Auto Serialization</b>: For Serializable objects, use RawTypeMapper</li>
+     *   <li><b>Arrays</b>: Use Arrays.toString() format</li>
+     *   <li><b>Primitives/Strings</b>: Use toString() then Base64</li>
+     * </ol>
      *
      * @param param the parameter value
-     * @return Base64-encoded parameter string (or "NULL" marker, or "EMPTY" for empty string)
+     * @param mappers optional user-defined mappers
+     * @return Base64-encoded parameter string (or special markers)
      */
-    private String encodeParam(Object param) {
+    private String encodeParam(Object param, Map<String, Mapper> mappers) {
         if (param == null) {
             return "NULL"; // Special marker for null
         }
 
-        // Convert to string representation
         String paramStr;
+
+        // Priority 1: User-defined Mapper
+        if (mappers != null) {
+            String mapperKey = param.getClass().getName();
+            Mapper mapper = mappers.get(mapperKey);
+            if (mapper != null) {
+                paramStr = mapper.objectToString(param);
+                if (paramStr == null || paramStr.isEmpty()) {
+                    return "EMPTY";
+                }
+                return Base64.getEncoder().encodeToString(paramStr.getBytes());
+            }
+        }
+
+        // Priority 2: Auto Serialization for Serializable objects (except String and primitives)
+        if (param instanceof java.io.Serializable &&
+            !(param instanceof String) &&
+            !param.getClass().isArray() &&
+            !isWrapperType(param.getClass())) {
+            cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+            // RawTypeMapper already returns Base64-encoded string, no need to encode again
+            return rawMapper.objectToString(param);
+        }
+
+        // Priority 3: Arrays
         if (param.getClass().isArray()) {
-            // Handle arrays properly
             paramStr = arrayToString(param);
         } else {
+            // Priority 4: Primitives and other types
             paramStr = param.toString();
         }
 
-        // Handle empty string specially (Base64 of empty string is empty, which is ambiguous)
+        // Handle empty string specially
         if (paramStr.isEmpty()) {
-            return "EMPTY"; // Special marker for empty string
+            return "EMPTY";
         }
 
         return Base64.getEncoder().encodeToString(paramStr.getBytes());
+    }
+
+    /**
+     * Check if a class is a primitive wrapper type.
+     *
+     * @param clazz the class to check
+     * @return true if wrapper type
+     */
+    private boolean isWrapperType(Class<?> clazz) {
+        return clazz == Integer.class || clazz == Long.class || clazz == Double.class ||
+               clazz == Float.class || clazz == Boolean.class || clazz == Byte.class ||
+               clazz == Short.class || clazz == Character.class;
     }
 
     /**
@@ -287,7 +359,15 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Decode successful response body.
+     * Decode successful response body with intelligent type mapping.
+     *
+     * <p><b>Decoding Priority:</b></p>
+     * <ol>
+     *   <li><b>null/NullObj</b>: return null or NullObj</li>
+     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
+     *   <li><b>Auto Deserialization</b>: For Serializable types, use RawTypeMapper</li>
+     *   <li><b>Built-in conversion</b>: For primitives, arrays, and other types</li>
+     * </ol>
      *
      * @param body the response body
      * @param expectedType the expected return type
@@ -303,17 +383,39 @@ public class ProtocolV2Converter implements Converter {
             return new NullObj();
         }
 
-        // Decode from Base64
-        String decoded;
+        // Extract Base64 content from {{...}}
+        String base64Content;
         if (body.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) &&
             body.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
-            String base64 = body.substring(2, body.length() - 2);
-            decoded = new String(Base64.getDecoder().decode(base64));
+            base64Content = body.substring(2, body.length() - 2);
         } else {
-            decoded = body;
+            base64Content = body;
         }
 
-        // Convert to expected type
+        // Priority 1: User-defined Mapper
+        if (mappers != null && expectedType != null) {
+            Mapper mapper = mappers.get(expectedType.getName());
+            if (mapper != null) {
+                String decoded = new String(Base64.getDecoder().decode(base64Content));
+                return mapper.stringToObject(decoded);
+            }
+        }
+
+        // Priority 2: Auto Deserialization for Serializable types
+        if (expectedType != null &&
+            java.io.Serializable.class.isAssignableFrom(expectedType) &&
+            expectedType != String.class &&
+            !expectedType.isArray() &&
+            !isWrapperType(expectedType)) {
+            // RawTypeMapper expects direct Base64 string
+            cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+            return rawMapper.stringToObject(base64Content);
+        }
+
+        // Priority 3: Decode from Base64
+        String decoded = new String(Base64.getDecoder().decode(base64Content));
+
+        // Priority 4: Convert to expected type
         return convertToType(decoded, expectedType);
     }
 
@@ -357,6 +459,11 @@ public class ProtocolV2Converter implements Converter {
             return value;
         }
 
+        // Handle arrays
+        if (expectedType.isArray()) {
+            return parseArray(value, expectedType.getComponentType());
+        }
+
         if (expectedType == int.class || expectedType == Integer.class) {
             return Integer.parseInt(value);
         } else if (expectedType == double.class || expectedType == Double.class) {
@@ -377,6 +484,86 @@ public class ProtocolV2Converter implements Converter {
 
         // For other types, return string representation
         return value;
+    }
+
+    /**
+     * Parse array from string representation like "[a, b, c]".
+     *
+     * @param value the string value
+     * @param componentType the array component type
+     * @return parsed array
+     */
+    private Object parseArray(String value, Class<?> componentType) {
+        // Remove brackets and split by comma
+        String trimmed = value.trim();
+        if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+            throw new IllegalArgumentException("Invalid array format: " + value);
+        }
+
+        String content = trimmed.substring(1, trimmed.length() - 1).trim();
+        if (content.isEmpty()) {
+            // Empty array
+            return java.lang.reflect.Array.newInstance(componentType, 0);
+        }
+
+        String[] parts = content.split(",\\s*");
+
+        if (componentType == int.class) {
+            int[] array = new int[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Integer.parseInt(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == double.class) {
+            double[] array = new double[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Double.parseDouble(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == long.class) {
+            long[] array = new long[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Long.parseLong(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == boolean.class) {
+            boolean[] array = new boolean[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Boolean.parseBoolean(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == byte.class) {
+            byte[] array = new byte[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Byte.parseByte(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == short.class) {
+            short[] array = new short[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Short.parseShort(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == float.class) {
+            float[] array = new float[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = Float.parseFloat(parts[i].trim());
+            }
+            return array;
+        } else if (componentType == String.class) {
+            String[] array = new String[parts.length];
+            for (int i = 0; i < parts.length; i++) {
+                array[i] = parts[i].trim();
+            }
+            return array;
+        }
+
+        // For other types, create an Object array
+        Object[] array = (Object[]) java.lang.reflect.Array.newInstance(componentType, parts.length);
+        for (int i = 0; i < parts.length; i++) {
+            array[i] = parts[i].trim();
+        }
+        return array;
     }
 
     /**
@@ -412,6 +599,22 @@ public class ProtocolV2Converter implements Converter {
      * @param obj the object to encode
      * @return encoded body string in format {{base64}}
      */
+    /**
+     * Encode body to string with intelligent type mapping.
+     *
+     * <p><b>Encoding Priority:</b></p>
+     * <ol>
+     *   <li><b>null</b>: return "null"</li>
+     *   <li><b>NullObj</b>: return "NullObj"</li>
+     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
+     *   <li><b>Auto Serialization</b>: For Serializable objects, use RawTypeMapper</li>
+     *   <li><b>Arrays</b>: Use Arrays.toString() format</li>
+     *   <li><b>Others</b>: Use toString() then Base64</li>
+     * </ol>
+     *
+     * @param obj the object to encode
+     * @return encoded body string in format {{base64}}
+     */
     private String encodeBodyToString(Object obj) {
         if (obj == null) {
             return "null";
@@ -421,7 +624,37 @@ public class ProtocolV2Converter implements Converter {
             return "NullObj";
         }
 
-        String value = obj.toString();
+        String value;
+
+        // Priority 1: User-defined Mapper
+        if (mappers != null) {
+            Mapper mapper = mappers.get(obj.getClass().getName());
+            if (mapper != null) {
+                value = mapper.objectToString(obj);
+                String base64 = Base64.getEncoder().encodeToString(value.getBytes());
+                return ProtocolV2Constants.PARAM_WRAPPER_START + base64 + ProtocolV2Constants.PARAM_WRAPPER_END;
+            }
+        }
+
+        // Priority 2: Auto Serialization for Serializable objects
+        if (obj instanceof java.io.Serializable &&
+            !(obj instanceof String) &&
+            !obj.getClass().isArray() &&
+            !isWrapperType(obj.getClass())) {
+            cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+            String base64Serialized = rawMapper.objectToString(obj);
+            // RawTypeMapper already returns Base64, wrap it with {{}}
+            return ProtocolV2Constants.PARAM_WRAPPER_START + base64Serialized + ProtocolV2Constants.PARAM_WRAPPER_END;
+        }
+
+        // Priority 3: Arrays
+        if (obj.getClass().isArray()) {
+            value = arrayToString(obj);
+        } else {
+            // Priority 4: Primitives and others
+            value = obj.toString();
+        }
+
         String base64 = Base64.getEncoder().encodeToString(value.getBytes());
         return ProtocolV2Constants.PARAM_WRAPPER_START + base64 + ProtocolV2Constants.PARAM_WRAPPER_END;
     }
@@ -528,38 +761,39 @@ public class ProtocolV2Converter implements Converter {
     /**
      * Get mapper by class.
      *
-     * <p>Note: Protocol V2 does not use the Mapper system.
-     * This method is provided for interface compatibility only.</p>
+     * <p><b>V2 Mapper Support:</b> Protocol V2 now supports intelligent type mapping:</p>
+     * <ol>
+     *   <li>User-defined mappers (if provided)</li>
+     *   <li>Auto serialization for Serializable objects (RawTypeMapper)</li>
+     *   <li>Built-in conversion for primitives and arrays</li>
+     * </ol>
      *
      * @param mappers mapper registry
      * @param targetClazz target class
-     * @return never returns (always throws exception)
-     * @throws MapperNotFoundException always thrown (V2 doesn't use mappers)
+     * @return mapper if found, null otherwise
      */
     @Override
     public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) throws MapperNotFoundException {
-        throw new UnsupportedOperationException(
-            "Protocol V2 does not use the Mapper system. " +
-            "It uses built-in type conversion based on method signatures."
-        );
+        if (mappers == null || targetClazz == null) {
+            return null;
+        }
+        return mappers.get(targetClazz.getName());
     }
 
     /**
      * Get mapper by class name.
      *
-     * <p>Note: Protocol V2 does not use the Mapper system.
-     * This method is provided for interface compatibility only.</p>
+     * <p><b>V2 Mapper Support:</b> Protocol V2 now supports intelligent type mapping.</p>
      *
      * @param mappers mapper registry
      * @param targetClazzName target class name
-     * @return never returns (always throws exception)
-     * @throws MapperNotFoundException always thrown (V2 doesn't use mappers)
+     * @return mapper if found, null otherwise
      */
     @Override
     public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) throws MapperNotFoundException {
-        throw new UnsupportedOperationException(
-            "Protocol V2 does not use the Mapper system. " +
-            "It uses built-in type conversion based on method signatures."
-        );
+        if (mappers == null || targetClazzName == null) {
+            return null;
+        }
+        return mappers.get(targetClazzName);
     }
 }

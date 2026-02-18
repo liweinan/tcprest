@@ -126,7 +126,7 @@ public class TcpClientFactorySmokeTest {
 
     }
 
-    private interface NullParam {
+    public interface NullParam {
         public String nullMethod(String one, String empty, String two);
     }
 

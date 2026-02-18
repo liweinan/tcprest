@@ -63,26 +63,35 @@ Decoded: Result is `8`
 
 ## Protocol v2 (Current)
 
-Protocol v2 solves v1's limitations by adding **method signatures** and **status codes**.
+Protocol v2 solves v1's limitations by adding **method signatures**, **status codes**, and **intelligent mapper support**.
 
 ### Request Format
 
 ```
-V2|[COMPRESSION]|ClassName/methodName(TYPE_SIGNATURE)(PARAMS)
+V2|[COMPRESSION]|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,...]
 ```
 
 **Components:**
 - `V2`: Version prefix for auto-detection
 - `COMPRESSION`: `0` (uncompressed) or `1` (gzip)
-- `ClassName`: Fully qualified class name
-- `methodName`: Method name
-- `TYPE_SIGNATURE`: JVM internal type signature (e.g., `(II)`, `(DD)`, `(Ljava/lang/String;)`)
-- `PARAMS`: Base64-encoded parameters separated by `:::`
+- `{{base64(META)}}`: Base64-encoded metadata wrapped in `{{}}`
+  - `ClassName`: Fully qualified class name
+  - `methodName`: Method name
+  - `TYPE_SIGNATURE`: JVM internal type signature (e.g., `(II)`, `(DD)`, `(Ljava/lang/String;)`)
+- `[param1,param2,...]`: JSON-style parameter array
+  - Each parameter is individually Base64-encoded
+  - Parameters separated by commas
+  - Special markers: `NULL` for null, `EMPTY` for empty string
 
 **Example:**
 ```
-V2|0|com.example.Calculator/add(II)({{NQ==}}:::{{Mw==}})
+V2|0|{{Y24uZXhhbXBsZS5DYWxjdWxhdG9yL2FkZChJSSk=}}|[NQ==,Mw==]
 ```
+
+**Breakdown:**
+- `V2|0`: Protocol version 2, uncompressed
+- `{{Y24uZXhhbXBsZS5DYWxjdWxhdG9yL2FkZChJSSk=}}`: Base64(`"com.example.Calculator/add(II)"`)
+- `[NQ==,Mw==]`: Array of Base64(`"5"`) and Base64(`"3"`)
 
 Decoded: Call `Calculator.add(int, int)` with params `5` and `3`
 
@@ -173,24 +182,231 @@ Method signatures uniquely identify overloaded methods using JVM internal type d
 
 ### Parameter Encoding
 
-Parameters are wrapped in `{{...}}` and separated by `:::`.
+Parameters are Base64-encoded individually and placed in a JSON-style array `[param1,param2,...]`.
 
 **Encoding Rules:**
-- `null` → `NULL` marker (not Base64-encoded)
-- Empty string `""` → Empty Base64 (distinguishable from null)
+- `null` → `NULL` marker (special marker, not Base64-encoded)
+- Empty string `""` → `EMPTY` marker (to distinguish from absent parameter)
 - Primitives → `toString()` then Base64
 - Arrays → `Arrays.toString()` format then Base64 (e.g., `[1, 2, 3]`)
 - Objects → `toString()` then Base64
 
 **Examples:**
 
-| Java Value | Encoded | Decoded |
-|------------|---------|---------|
-| `5` | `{{NQ==}}` | `"5"` |
-| `null` | `{{NULL}}` | `null` |
-| `""` | `{{}}` | `""` |
-| `"hello"` | `{{aGVsbG8=}}` | `"hello"` |
-| `new int[]{1, 2, 3}` | `{{WzEsIDIsIDNd}}` | `"[1, 2, 3]"` |
+| Java Value | Encoded in Array | Decoded |
+|------------|------------------|---------|
+| `5` | `NQ==` | `"5"` |
+| `null` | `NULL` | `null` |
+| `""` | `EMPTY` | `""` |
+| `"hello"` | `aGVsbG8=` | `"hello"` |
+| `new int[]{1, 2, 3}` | `WzEsIDIsIDNd` | `"[1, 2, 3]"` |
+
+**Full Request Example:**
+```
+V2|0|{{Y24uZXhhbXBsZS5UZXN0L21ldGhvZChMamF2YS9sYW5nL1N0cmluZztJTGphdmEvbGFuZy9TdHJpbmc7KQ==}}|[aGVsbG8=,NULL,d29ybGQ=]
+```
+Calls: `Test.method(String, int, String)` with params `("hello", null, "world")`
+
+### V2 Intelligent Mapper Support
+
+Protocol V2 includes an intelligent 3-tier type mapping system that automatically handles complex objects without requiring manual mapper implementation for every class.
+
+#### Mapper Priority System
+
+When encoding/decoding parameters and return values, V2 uses the following priority:
+
+**Priority 1: User-Defined Mappers (Highest)**
+- Custom mappers registered via `server.addMapper()` or client `mappers` parameter
+- Provides fine-grained control over serialization format
+- Example: Using Gson for JSON serialization
+
+**Priority 2: Automatic Serialization (Medium)**
+- Any class implementing `java.io.Serializable` is automatically handled
+- Uses Java's built-in serialization via `RawTypeMapper`
+- No mapper registration required
+- Supports `transient` fields (automatically excluded)
+
+**Priority 3: Built-in Conversion (Lowest)**
+- Primitives (`int`, `double`, `boolean`, etc.)
+- Primitive wrappers (`Integer`, `Double`, `Boolean`, etc.)
+- Strings
+- Arrays (primitive and object arrays)
+
+#### Auto-Serialization Example
+
+**Without mapper (automatic):**
+```java
+// DTO class - just implement Serializable
+public class User implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    private String name;
+    private int age;
+    private transient String password;  // Excluded from serialization
+
+    // Constructor, getters, setters...
+}
+
+// Service interface
+public interface UserService {
+    User getUser(int id);        // Works automatically!
+    List<User> getAllUsers();    // Collections work too!
+}
+
+// Server setup - no mapper needed
+TcpRestServer server = new SingleThreadTcpRestServer(8001);
+server.setProtocolVersion(ProtocolVersion.V2);
+server.addSingletonResource(new UserServiceImpl());
+server.up();
+
+// Client setup - no mapper needed
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    UserService.class, "localhost", 8001
+);
+UserService client = factory.getClient();
+
+User user = client.getUser(123);  // Just works!
+```
+
+**Wire Protocol (Auto-Serialization):**
+
+The `RawTypeMapper` uses Java serialization and returns Base64-encoded serialized bytes directly:
+```
+V2|0|{{...metadata...}}|[rO0ABXNyABFjb24uZXhhbXBsZS5Vc2VyAAAAAAAAAAECAAJJAANhZ2VMAANuYW1ldAAST...]
+```
+
+The serialized object includes all non-transient fields.
+
+#### Custom Mapper Example
+
+**With Gson mapper (custom control):**
+```java
+import com.google.gson.Gson;
+import cn.huiwings.tcprest.mapper.Mapper;
+
+// Custom Gson mapper for JSON serialization
+public class GsonUserMapper implements Mapper {
+    private final Gson gson = new Gson();
+
+    @Override
+    public String objectToString(Object object) {
+        return gson.toJson(object);  // Convert to JSON
+    }
+
+    @Override
+    public Object stringToObject(String param) {
+        return gson.fromJson(param, User.class);  // Parse from JSON
+    }
+}
+
+// Server side: Register custom mapper
+server.addMapper(User.class.getName(), new GsonUserMapper());
+
+// Client side: Register custom mapper
+Map<String, Mapper> mappers = new HashMap<>();
+mappers.put(User.class.getName(), new GsonUserMapper());
+
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    UserService.class, "localhost", 8001, mappers
+);
+```
+
+**Wire Protocol (Custom Mapper with Gson):**
+```
+V2|0|{{...metadata...}}|[eyJuYW1lIjoiQWxpY2UiLCJhZ2UiOjI1fQ==]
+```
+
+Base64 decodes to: `{"name":"Alice","age":25}` (human-readable JSON)
+
+#### When to Use Each Approach
+
+| Approach | Use Case | Pros | Cons |
+|----------|----------|------|------|
+| **Auto-Serialization** | Internal microservices, DTOs you control | Zero configuration, handles complex objects, supports transient | Binary format, larger size, Java-only |
+| **Custom Mapper** | Public APIs, cross-language, human-readable wire format | Full control, readable format, efficient | Requires manual implementation |
+| **Built-in** | Primitives, strings, simple types | Fast, minimal overhead | Limited to basic types |
+
+#### Best Practices
+
+1. **For new DTOs**: Implement `Serializable` first (zero effort)
+   ```java
+   public class MyDTO implements Serializable {
+       private static final long serialVersionUID = 1L;
+       // Fields...
+   }
+   ```
+
+2. **For public APIs**: Use custom mappers with JSON
+   ```java
+   server.addMapper(MyDTO.class.getName(), new GsonMapper());
+   ```
+
+3. **For sensitive data**: Mark fields `transient` or use custom mapper
+   ```java
+   private transient String password;  // Not serialized
+   ```
+
+4. **For nested objects**: All nested objects must be Serializable or have mappers
+   ```java
+   public class Order implements Serializable {
+       private User user;        // User must also be Serializable
+       private Product product;  // Product must also be Serializable
+   }
+   ```
+
+#### Mapper Resolution Algorithm
+
+```java
+// Encoding (client → server)
+String encodeParam(Object param, Map<String, Mapper> mappers) {
+    // 1. Check user-defined mapper
+    if (mappers != null) {
+        Mapper mapper = mappers.get(param.getClass().getName());
+        if (mapper != null) {
+            return base64(mapper.objectToString(param));
+        }
+    }
+
+    // 2. Check if Serializable (auto-serialization)
+    if (param instanceof Serializable &&
+        !(param instanceof String) &&
+        !param.getClass().isArray() &&
+        !isWrapperType(param.getClass())) {
+        RawTypeMapper rawMapper = new RawTypeMapper();
+        return rawMapper.objectToString(param);  // Already Base64
+    }
+
+    // 3. Use built-in conversion
+    return base64(param.toString());
+}
+
+// Decoding (server → client)
+Object decodeParam(String paramStr, Class<?> paramType, Map<String, Mapper> mappers) {
+    // 1. Check user-defined mapper
+    if (mappers != null) {
+        Mapper mapper = mappers.get(paramType.getName());
+        if (mapper != null) {
+            return mapper.stringToObject(unbase64(paramStr));
+        }
+    }
+
+    // 2. Check if Serializable (auto-deserialization)
+    if (Serializable.class.isAssignableFrom(paramType) && ...) {
+        RawTypeMapper rawMapper = new RawTypeMapper();
+        return rawMapper.stringToObject(paramStr);
+    }
+
+    // 3. Use built-in conversion
+    return convertPrimitive(unbase64(paramStr), paramType);
+}
+```
+
+#### Complete Working Example
+
+See test files for complete examples:
+- **Auto-serialization**: `tcprest-singlethread/src/test/java/.../v2mapper/V2MapperDemoTest.java#testAutoSerialization`
+- **Custom Gson mapper**: `tcprest-singlethread/src/test/java/.../v2mapper/V2MapperDemoTest.java#testCustomMapperWithGson`
+- **Mixed types**: `tcprest-singlethread/src/test/java/.../v2mapper/V2MapperDemoTest.java#testMixedTypes`
 
 ---
 
@@ -228,19 +444,20 @@ server.setProtocolVersion(ProtocolVersion.AUTO);  // Default: accept both
 
 ### Client Configuration
 
-Clients default to v1 for backward compatibility:
+**As of version 2.0 (2026-02-19):** Clients default to V2 protocol.
 
 ```java
-// V1 client (default)
+// V2 client (default - recommended)
 TcpRestClientFactory factory = new TcpRestClientFactory(
     MyService.class, "localhost", 8080
 );
+// Uses ProtocolVersion.V2 by default
 
-// V2 client (opt-in)
+// V1 client (legacy - for backward compatibility)
 TcpRestClientFactory factory = new TcpRestClientFactory(
     MyService.class, "localhost", 8080
-)
-    .withProtocolV2();
+);
+factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
 ```
 
 ### Compatibility Matrix
@@ -256,19 +473,40 @@ TcpRestClientFactory factory = new TcpRestClientFactory(
 
 ### Migration Strategy
 
-**Phase 1: Deploy Server Updates**
-- Update servers to use `ProtocolVersion.AUTO` (default)
-- V1 clients continue working without changes
+**Current State (Version 2.0+):**
+- Clients default to V2 protocol
+- Servers default to AUTO mode (accept both V1 and V2)
 
-**Phase 2: Upgrade Clients**
-- Gradually migrate clients to v2 using `.withProtocolV2()`
-- Monitor for issues (old clients can still connect)
+**For New Projects:**
+- Use defaults (V2 client + AUTO server)
+- No configuration needed
 
-**Phase 3: (Optional) V2-Only Mode**
-- Once all clients upgraded, switch servers to `ProtocolVersion.V2`
-- Reject legacy v1 clients
+**For Upgrading from Version 1.x:**
 
-**Rollback:** Remove `.withProtocolV2()` to revert clients to v1
+**Phase 1: Update Dependencies**
+- Upgrade tcprest libraries to 2.0+
+- Servers automatically use `ProtocolVersion.AUTO` (accepts both V1 and V2)
+
+**Phase 2: Identify Legacy Clients**
+- New clients will use V2 by default
+- Identify any old clients still using V1 protocol
+
+**Phase 3: Update Legacy Clients**
+- Option A: Upgrade to tcprest 2.0+ (uses V2 by default)
+- Option B: Keep old version but explicitly set V1:
+  ```java
+  factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
+  ```
+
+**Phase 4: (Optional) V2-Only Mode**
+- Once all clients upgraded to V2, switch servers to `ProtocolVersion.V2`
+- Reject legacy V1 clients
+
+**Rollback:**
+- If issues occur, explicitly set clients to V1:
+  ```java
+  factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
+  ```
 
 ---
 
@@ -396,18 +634,16 @@ calculator.add(10, 20);
 
 **Wire Request:**
 ```
-V2|0|com.example.Calculator/add(II)({{MTA=}}:::{{MjA=}})
+V2|0|{{Y29tLmV4YW1wbGUuQ2FsY3VsYXRvci9hZGQoSUkp}}|[MTA=,MjA=]
 ```
 
 **Breakdown:**
-- `V2`: Protocol version 2
-- `0`: Uncompressed
-- `com.example.Calculator`: Class name
-- `/add`: Method name
-- `(II)`: Signature for `add(int, int)`
-- `{{MTA=}}`: Base64(`"10"`)
-- `:::`: Parameter separator
-- `{{MjA=}}`: Base64(`"20"`)
+- `V2|0`: Protocol version 2, uncompressed
+- `{{Y29tLmV4YW1wbGUuQ2FsY3VsYXRvci9hZGQoSUkp}}`: Base64(`"com.example.Calculator/add(II)"`)
+  - Class: `com.example.Calculator`
+  - Method: `add`
+  - Signature: `(II)` for `add(int, int)`
+- `[MTA=,MjA=]`: Array with Base64(`"10"`) and Base64(`"20"`)
 
 **Wire Response:**
 ```
@@ -428,11 +664,12 @@ calculator.add(2.5, 3.5);  // Different overload!
 
 **Wire Request:**
 ```
-V2|0|com.example.Calculator/add(DD)({{Mi41}}:::{{My41}})
+V2|0|{{Y29tLmV4YW1wbGUuQ2FsY3VsYXRvci9hZGQoREQp}}|[Mi41,My41]
 ```
 
 **Key Difference:**
-- Signature is `(DD)` not `(II)` - server finds correct overload
+- `{{Y29tLmV4YW1wbGUuQ2FsY3VsYXRvci9hZGQoREQp}}`: Metadata includes `(DD)` signature, not `(II)`
+- Server uses signature to find correct overload: `add(double, double)` instead of `add(int, int)`
 
 ### Example 3: Exception Handling (V2)
 
@@ -443,8 +680,12 @@ validator.validateAge(-5);
 
 **Wire Request:**
 ```
-V2|0|com.example.Validator/validateAge(I)({{LTU=}})
+V2|0|{{Y29tLmV4YW1wbGUuVmFsaWRhdG9yL3ZhbGlkYXRlQWdlKEkp}}|[LTU=]
 ```
+
+**Breakdown:**
+- `{{Y29tLmV4YW1wbGUuVmFsaWRhdG9yL3ZhbGlkYXRlQWdlKEkp}}`: Base64(`"com.example.Validator/validateAge(I)"`)
+- `[LTU=]`: Array with Base64(`"-5"`)
 
 **Wire Response (Error):**
 ```
@@ -464,12 +705,13 @@ calculator.sum(new int[]{1, 2, 3, 4, 5});
 
 **Wire Request:**
 ```
-V2|0|com.example.Calculator/sum([I)({{WzEsIDIsIDMsIDQsIDVd}})
+V2|0|{{Y29tLmV4YW1wbGUuQ2FsY3VsYXRvci9zdW0oW0kp}}|[WzEsIDIsIDMsIDQsIDVd]
 ```
 
 **Breakdown:**
-- `([I)`: Signature for `sum(int[])`
-- `{{WzEsIDIsIDMsIDQsIDVd}}`: Base64(`"[1, 2, 3, 4, 5]"`)
+- `{{Y29tLmV4YW1wbGUuQ2FsY3VsYXRvci9zdW0oW0kp}}`: Base64(`"com.example.Calculator/sum([I)"`)
+  - Signature `([I)` indicates `sum(int[])`
+- `[WzEsIDIsIDMsIDQsIDVd]`: Array with Base64(`"[1, 2, 3, 4, 5]"`)
 
 **Wire Response:**
 ```
@@ -835,6 +1077,6 @@ echo "SGVsbG8=" | base64 -d
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-02-18
-**TcpRest Version:** 1.1.0+
+**Document Version:** 2.0
+**Last Updated:** 2026-02-19
+**TcpRest Version:** 2.0+ (V2 protocol simplified, default changed to V2)

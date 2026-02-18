@@ -3,6 +3,7 @@ package cn.huiwings.tcprest.test.smoke;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.RawTypeMapper;
+import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.NettyTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.Color;
@@ -58,6 +59,8 @@ public class MapperSmokeTest {
     @Test
     public void extendMapperTest() {
         // Test with: tcpRestServer.getClass().getCanonicalName()
+        // Note: Mapper is a V1 feature, so we explicitly set server to V1
+        tcpRestServer.setProtocolVersion(ProtocolVersion.V1);
         tcpRestServer.addResource(HelloWorldResource.class);
         tcpRestServer.addMapper(Color.class.getCanonicalName(),
                 new ColorMapper());
@@ -68,6 +71,8 @@ public class MapperSmokeTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
                 HelloWorld.class, "localhost",
                 tcpRestServer.getServerPort(), colorMapper);
+        // Mapper requires V1 protocol
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
 
         HelloWorld client = (HelloWorld) factory.getInstance();
         Color color = new Color("Red");
@@ -110,10 +115,14 @@ public class MapperSmokeTest {
         // We don't put Color mapper into server,
         // so server will fallback to use RawTypeMapper to decode Color.class
         // because Color is serializable.
+        // Note: RawTypeMapper is a V1 feature, so we explicitly set server to V1
+        tcpRestServer.setProtocolVersion(ProtocolVersion.V1);
         tcpRestServer.addSingletonResource(new RawTypeResource());
 
         TcpRestClientFactory factory = new TcpRestClientFactory(RawType.class,
                 "localhost", tcpRestServer.getServerPort());
+        // RawTypeMapper requires V1 protocol
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
 
         RawType client = (RawType) factory.getInstance();
         Color red = new Color("Red");

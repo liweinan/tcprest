@@ -80,10 +80,10 @@ public class ProtocolRouter {
         this.compressionConfig = compressionConfig;
         this.logger = logger;
 
-        // Initialize v2 components with default security (can be updated via setter)
-        this.v2Extractor = new ProtocolV2Extractor();
+        // Initialize v2 components with mappers support
+        this.v2Extractor = new ProtocolV2Extractor(mappers);
         this.v2Invoker = new ProtocolV2Invoker();
-        this.v2Converter = new ProtocolV2Converter();
+        this.v2Converter = new ProtocolV2Converter(mappers);
     }
 
     /**

@@ -50,12 +50,22 @@ import java.util.Base64;
 public class ProtocolV2Extractor implements Extractor {
 
     private SecurityConfig securityConfig;
+    private java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers;
 
     /**
      * Create extractor with default security (no checksum, no whitelist).
      */
     public ProtocolV2Extractor() {
-        this.securityConfig = new SecurityConfig();
+        this(null, null);
+    }
+
+    /**
+     * Create extractor with mappers support.
+     *
+     * @param mappers mapper registry (optional)
+     */
+    public ProtocolV2Extractor(java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
+        this(null, mappers);
     }
 
     /**
@@ -64,7 +74,18 @@ public class ProtocolV2Extractor implements Extractor {
      * @param securityConfig security configuration
      */
     public ProtocolV2Extractor(SecurityConfig securityConfig) {
+        this(securityConfig, null);
+    }
+
+    /**
+     * Create extractor with custom security configuration and mappers.
+     *
+     * @param securityConfig security configuration
+     * @param mappers mapper registry (optional)
+     */
+    public ProtocolV2Extractor(SecurityConfig securityConfig, java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+        this.mappers = mappers;
     }
 
     /**
@@ -293,9 +314,16 @@ public class ProtocolV2Extractor implements Extractor {
     }
 
     /**
-     * Parse a single parameter.
+     * Parse a single parameter with intelligent type mapping.
      *
-     * <p><b>New format:</b> base64_value (no wrapper)</p>
+     * <p><b>Decoding Priority:</b></p>
+     * <ol>
+     *   <li><b>NULL marker</b>: "NULL" → null</li>
+     *   <li><b>EMPTY marker</b>: "EMPTY" → ""</li>
+     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
+     *   <li><b>Auto Deserialization</b>: For Serializable types, use RawTypeMapper</li>
+     *   <li><b>Built-in conversion</b>: For primitives, arrays, and other types</li>
+     * </ol>
      *
      * @param paramStr the parameter string (base64-encoded or special marker)
      * @param paramType the expected parameter type
@@ -318,10 +346,30 @@ public class ProtocolV2Extractor implements Extractor {
                 return "";
             }
 
-            // Decode from Base64
+            // Priority 1: User-defined Mapper
+            if (mappers != null) {
+                cn.huiwings.tcprest.mapper.Mapper mapper = mappers.get(paramType.getName());
+                if (mapper != null) {
+                    // Decode from Base64 first
+                    String decoded = new String(Base64.getDecoder().decode(paramStr));
+                    return mapper.stringToObject(decoded);
+                }
+            }
+
+            // Priority 2: Auto Deserialization for Serializable types
+            if (java.io.Serializable.class.isAssignableFrom(paramType) &&
+                paramType != String.class &&
+                !paramType.isArray() &&
+                !isWrapperType(paramType)) {
+                // RawTypeMapper expects direct Base64 string (not decoded)
+                cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+                return rawMapper.stringToObject(paramStr);
+            }
+
+            // Priority 3: Decode from Base64
             String decoded = new String(Base64.getDecoder().decode(paramStr));
 
-            // Convert to expected type
+            // Priority 4: Convert to expected type
             return convertToType(decoded, paramType);
         } catch (Exception e) {
             if (e instanceof ParseException) {
@@ -329,6 +377,18 @@ public class ProtocolV2Extractor implements Extractor {
             }
             throw new ParseException("Failed to parse parameter: " + e.getMessage());
         }
+    }
+
+    /**
+     * Check if a class is a primitive wrapper type.
+     *
+     * @param clazz the class to check
+     * @return true if wrapper type
+     */
+    private boolean isWrapperType(Class<?> clazz) {
+        return clazz == Integer.class || clazz == Long.class || clazz == Double.class ||
+               clazz == Float.class || clazz == Boolean.class || clazz == Byte.class ||
+               clazz == Short.class || clazz == Character.class;
     }
 
     /**

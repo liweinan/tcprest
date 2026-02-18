@@ -38,7 +38,7 @@ public class TcpRestClientProxy implements InvocationHandler {
     private Converter converter;
     private ProtocolV2Converter v2Converter;
     private CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
-    private ProtocolConfig protocolConfig = new ProtocolConfig(); // Default: V1
+    private ProtocolConfig protocolConfig = new ProtocolConfig(); // Default: V2
     private SecurityConfig securityConfig = new SecurityConfig(); // Default: no security
 
     public TcpRestClientProxy(String deletgatedClassName, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam, CompressionConfig compressionConfig, ProtocolConfig protocolConfig) {
@@ -64,9 +64,10 @@ public class TcpRestClientProxy implements InvocationHandler {
             this.securityConfig = securityConfig;
         }
 
-        // Initialize converters with security config
+        // Initialize converters with security config and mappers
         this.converter = new DefaultConverter(this.securityConfig);
-        this.v2Converter = new ProtocolV2Converter(this.securityConfig);
+        // Use merged mappers (includes both DEFAULT_MAPPERS and extraMappers)
+        this.v2Converter = new ProtocolV2Converter(this.securityConfig, this.mappers);
 
         tcpRestClient = new DefaultTcpRestClient(sslParam, deletgatedClassName, host, port);
     }
@@ -223,9 +224,9 @@ public class TcpRestClientProxy implements InvocationHandler {
      * Invoke using Protocol v2 (with signatures, status codes, and security).
      */
     private Object invokeV2(Method method, Object[] params) throws Throwable {
-        // Encode request with v2 format (includes method signature)
-        // Note: V2 doesn't use mappers, so we pass null
-        String request = v2Converter.encode(method.getDeclaringClass(), method, params, null);
+        // Encode request with v2 format (includes method signature and mappers)
+        // V2 now supports intelligent type mapping: custom mappers > auto serialization > built-in
+        String request = v2Converter.encode(method.getDeclaringClass(), method, params, mappers);
 
         String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
         logger.debug("V2 response: " + response);
