@@ -1,5 +1,6 @@
 package cn.huiwings.tcprest.extractor.v2;
 
+import cn.huiwings.tcprest.exception.ParseException;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.Context;
 import org.testng.annotations.BeforeClass;
@@ -187,32 +188,32 @@ public class ProtocolV2ExtractorTest {
 
     // ========== Test Error Handling ==========
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_nullRequest() throws Exception {
         extractor.extract(null);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_emptyRequest() throws Exception {
         extractor.extract("");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_notV2Request() throws Exception {
         extractor.extract("SomeClass/method()()");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_invalidFormat() throws Exception {
         extractor.extract("V2|0");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_missingClassMethodSeparator() throws Exception {
         extractor.extract("V2|0|TestServiceadd(II)()");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_missingSignature() throws Exception {
         // Invalid format: missing method signature
         String meta = "TestService/add";  // Missing (SIGNATURE)
@@ -243,14 +244,14 @@ public class ProtocolV2ExtractorTest {
         extractor.extract(request);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_parameterCountMismatch() throws Exception {
         // Signature says 2 params, but only 1 provided
         String request = buildRequest("add", "(II)", base64("1"));
         extractor.extract(request);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = ParseException.class)
     public void testExtract_invalidParameterFormat() throws Exception {
         // Invalid parameter format (not {{base64}})
         String meta = TestService.class.getName() + "/add(II)";

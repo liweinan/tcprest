@@ -1,5 +1,8 @@
 package cn.huiwings.tcprest.converter.v2;
 
+import cn.huiwings.tcprest.conveter.Converter;
+import cn.huiwings.tcprest.exception.MapperNotFoundException;
+import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.protocol.NullObj;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
@@ -9,6 +12,7 @@ import cn.huiwings.tcprest.security.SecurityConfig;
 
 import java.lang.reflect.Method;
 import java.util.Base64;
+import java.util.Map;
 
 /**
  * Security-Enhanced Protocol v2 Converter.
@@ -44,7 +48,7 @@ import java.util.Base64;
  *
  * @since 1.1.0
  */
-public class ProtocolV2Converter {
+public class ProtocolV2Converter implements Converter {
 
     private static final String COMPRESSION_DISABLED = "0";
     private SecurityConfig securityConfig;
@@ -91,9 +95,12 @@ public class ProtocolV2Converter {
      * @param clazz the interface class
      * @param method the method to invoke
      * @param params the method parameters
+     * @param mappers mapper registry (not used in Protocol V2, retained for interface compatibility)
      * @return encoded request string
+     * @throws MapperNotFoundException not thrown in V2 (uses built-in encoding)
      */
-    public String encode(Class clazz, Method method, Object[] params) {
+    @Override
+    public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException {
         // Step 1: Build metadata (ClassName/methodName(TYPE_SIGNATURE))
         String className = clazz.getName();
         String methodName = method.getName();
@@ -431,5 +438,121 @@ public class ProtocolV2Converter {
         }
 
         return message;
+    }
+
+    /**
+     * Decode parameters from protocol v2 format.
+     *
+     * <p>Note: This method is provided for Converter interface compatibility.
+     * Protocol V2 uses its own parameter parsing in ProtocolV2Extractor.</p>
+     *
+     * @param targetMethod target method
+     * @param paramToken parameter token
+     * @param mappers mapper registry (not used in Protocol V2)
+     * @return decoded parameters
+     * @throws MapperNotFoundException not thrown in V2
+     */
+    @Override
+    public Object[] decode(Method targetMethod, String paramToken, Map<String, Mapper> mappers) throws MapperNotFoundException {
+        // Protocol V2 handles parameter decoding in ProtocolV2Extractor
+        // This method is provided for interface compatibility
+        throw new UnsupportedOperationException(
+            "Protocol V2 uses ProtocolV2Extractor for parameter decoding. " +
+            "Use decode(String response, Class expectedType) for response decoding instead."
+        );
+    }
+
+    /**
+     * Encode a single parameter (Protocol V2 format).
+     *
+     * <p>Format: {{base64_value}}</p>
+     *
+     * @param message the parameter value
+     * @return encoded parameter
+     */
+    @Override
+    public String encodeParam(String message) {
+        if (message == null) {
+            return ProtocolV2Constants.PARAM_WRAPPER_START + "NULL" + ProtocolV2Constants.PARAM_WRAPPER_END;
+        }
+        String base64 = Base64.getEncoder().encodeToString(message.getBytes());
+        return ProtocolV2Constants.PARAM_WRAPPER_START + base64 + ProtocolV2Constants.PARAM_WRAPPER_END;
+    }
+
+    /**
+     * Decode a single parameter (Protocol V2 format).
+     *
+     * <p>Format: {{base64_value}}</p>
+     *
+     * @param message the encoded parameter
+     * @return decoded parameter value
+     */
+    @Override
+    public String decodeParam(String message) {
+        if (message == null || message.isEmpty()) {
+            return "";
+        }
+
+        // Remove wrapper
+        if (!message.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) ||
+            !message.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
+            return message; // Return as-is if not wrapped
+        }
+
+        String base64 = message.substring(
+            ProtocolV2Constants.PARAM_WRAPPER_START.length(),
+            message.length() - ProtocolV2Constants.PARAM_WRAPPER_END.length()
+        );
+
+        // Handle NULL marker
+        if ("NULL".equals(base64)) {
+            return null;
+        }
+
+        // Handle empty base64
+        if (base64.isEmpty()) {
+            return "";
+        }
+
+        // Decode from Base64
+        return new String(Base64.getDecoder().decode(base64));
+    }
+
+    /**
+     * Get mapper by class.
+     *
+     * <p>Note: Protocol V2 does not use the Mapper system.
+     * This method is provided for interface compatibility only.</p>
+     *
+     * @param mappers mapper registry
+     * @param targetClazz target class
+     * @return never returns (always throws exception)
+     * @throws MapperNotFoundException always thrown (V2 doesn't use mappers)
+     */
+    @Override
+    public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) throws MapperNotFoundException {
+        throw new UnsupportedOperationException(
+            "Protocol V2 does not use the Mapper system. " +
+            "It uses built-in type conversion based on method signatures."
+        );
+    }
+
+    /**
+     * Get mapper by class name.
+     *
+     * <p>Note: Protocol V2 does not use the Mapper system.
+     * This method is provided for interface compatibility only.</p>
+     *
+     * @param mappers mapper registry
+     * @param targetClazzName target class name
+     * @return never returns (always throws exception)
+     * @throws MapperNotFoundException always thrown (V2 doesn't use mappers)
+     */
+    @Override
+    public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) throws MapperNotFoundException {
+        throw new UnsupportedOperationException(
+            "Protocol V2 does not use the Mapper system. " +
+            "It uses built-in type conversion based on method signatures."
+        );
     }
 }

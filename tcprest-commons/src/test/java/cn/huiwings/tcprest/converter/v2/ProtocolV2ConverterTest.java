@@ -30,7 +30,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("add", int.class, int.class);
         Object[] params = {1, 2};
 
-        String encoded = converter.encode(TestService.class, method, params);
+        String encoded = converter.encode(TestService.class, method, params, null);
 
         // Verify secure format: V2|0|{{base64(meta)}}|{{base64(params)}}
         String fullClassName = TestService.class.getName();
@@ -42,7 +42,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("add", double.class, double.class);
         Object[] params = {1.5, 2.5};
 
-        String encoded = converter.encode(TestService.class, method, params);
+        String encoded = converter.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/add(DD)");
@@ -53,7 +53,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("echo", String.class);
         Object[] params = {"hello"};
 
-        String encoded = converter.encode(TestService.class, method, params);
+        String encoded = converter.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/echo(Ljava/lang/String;)");
@@ -64,7 +64,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("process", String.class, int.class, boolean.class);
         Object[] params = {"test", 42, true};
 
-        String encoded = converter.encode(TestService.class, method, params);
+        String encoded = converter.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/process(Ljava/lang/String;IZ)");
@@ -75,7 +75,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("noParams");
         Object[] params = {};
 
-        String encoded = converter.encode(TestService.class, method, params);
+        String encoded = converter.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/noParams()");
@@ -86,7 +86,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("echo", String.class);
         Object[] params = {null};
 
-        String encoded = converter.encode(TestService.class, method, params);
+        String encoded = converter.encode(TestService.class, method, params, null);
 
         // Verify secure format
         String fullClassName = TestService.class.getName();

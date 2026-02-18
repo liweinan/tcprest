@@ -1,5 +1,8 @@
 package cn.huiwings.tcprest.extractor.v2;
 
+import cn.huiwings.tcprest.exception.MapperNotFoundException;
+import cn.huiwings.tcprest.exception.ParseException;
+import cn.huiwings.tcprest.extractor.Extractor;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.TypeSignatureUtil;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
@@ -35,7 +38,7 @@ import java.util.Base64;
  *
  * @since 1.1.0
  */
-public class ProtocolV2Extractor {
+public class ProtocolV2Extractor implements Extractor {
 
     private SecurityConfig securityConfig;
 
@@ -91,111 +94,126 @@ public class ProtocolV2Extractor {
      *
      * @param request the v2 request string
      * @return Context object with extracted information
-     * @throws Exception if parsing fails or method cannot be found
+     * @throws ClassNotFoundException if class cannot be found
+     * @throws NoSuchMethodException if method cannot be found
+     * @throws ParseException if parsing fails
+     * @throws MapperNotFoundException not thrown in V2 (retained for interface compatibility)
      */
-    public Context extract(String request) throws Exception {
-        if (request == null || request.isEmpty()) {
-            throw new IllegalArgumentException("Request cannot be null or empty");
-        }
+    @Override
+    public Context extract(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException {
+        try {
+            if (request == null || request.isEmpty()) {
+                throw new ParseException("Request cannot be null or empty");
+            }
 
-        if (!request.startsWith(ProtocolV2Constants.PREFIX)) {
-            throw new IllegalArgumentException("Not a v2 request: " + request);
-        }
+            if (!request.startsWith(ProtocolV2Constants.PREFIX)) {
+                throw new ParseException("Not a v2 request: " + request);
+            }
 
-        // Step 1: Split checksum if present
-        String[] checksumParts = ProtocolSecurity.splitChecksum(request);
-        String messageWithoutChecksum = checksumParts[0];
-        String checksum = checksumParts[1];
+            // Step 1: Split checksum if present
+            String[] checksumParts = ProtocolSecurity.splitChecksum(request);
+            String messageWithoutChecksum = checksumParts[0];
+            String checksum = checksumParts[1];
 
-        // Step 2: Verify checksum if present
-        if (!checksum.isEmpty()) {
-            if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
-                throw new cn.huiwings.tcprest.exception.SecurityException(
-                    "Checksum verification failed - message may have been tampered with"
+            // Step 2: Verify checksum if present
+            if (!checksum.isEmpty()) {
+                if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+                    throw new ParseException(
+                        "Checksum verification failed - message may have been tampered with"
+                    );
+                }
+            }
+
+            // Step 3: Parse request parts: V2|0|META|PARAMS
+            String[] parts = messageWithoutChecksum.split("\\" + ProtocolV2Constants.SEPARATOR, 4);
+            if (parts.length < 3) {
+                throw new ParseException("Invalid v2 request format: " + request);
+            }
+
+            String metaBase64 = parts[2];
+            String paramsBase64 = parts.length > 3 ? parts[3] : "";
+
+            // Step 4: Decode metadata (ClassName/methodName(TYPE_SIGNATURE))
+            String meta = ProtocolSecurity.decodeComponent(metaBase64);
+
+            // Step 5: Parse class name and method signature
+            int slashIndex = meta.indexOf(ProtocolV2Constants.CLASS_METHOD_SEPARATOR);
+            if (slashIndex == -1) {
+                throw new ParseException("Missing class/method separator: " + meta);
+            }
+
+            String className = meta.substring(0, slashIndex);
+            String methodPart = meta.substring(slashIndex + 1);
+
+            // Step 6: Validate class name and method name
+            // Parse method name and signature
+            // Format: methodName(SIGNATURE)
+            int firstParenIndex = methodPart.indexOf('(');
+            if (firstParenIndex == -1) {
+                throw new ParseException("Missing method signature: " + methodPart);
+            }
+
+            String methodName = methodPart.substring(0, firstParenIndex);
+
+            // Validate class name
+            if (!ProtocolSecurity.isValidClassName(className)) {
+                throw new ParseException(
+                    "Invalid class name format (possible injection attempt): " + className
                 );
             }
+
+            // Check class whitelist if enabled
+            if (!securityConfig.isClassAllowed(className)) {
+                throw new ParseException(
+                    "Class not in whitelist: " + className
+                );
+            }
+
+            // Validate method name
+            if (!ProtocolSecurity.isValidMethodName(methodName)) {
+                throw new ParseException(
+                    "Invalid method name format (possible injection attempt): " + methodName
+                );
+            }
+
+            // Step 7: Parse signature
+            // Find the signature (between first '(' and first ')')
+            int signatureEnd = methodPart.indexOf(')', firstParenIndex);
+            if (signatureEnd == -1) {
+                throw new ParseException("Malformed method signature: " + methodPart);
+            }
+
+            String signature = methodPart.substring(firstParenIndex, signatureEnd + 1);
+
+            // Step 8: Decode parameters
+            String paramsStr = ProtocolSecurity.decodeComponent(paramsBase64);
+
+            // Step 9: Load class
+            Class<?> clazz = Class.forName(className);
+
+            // Step 10: Find method by signature
+            Method method = TypeSignatureUtil.findMethodBySignature(clazz, methodName, signature);
+
+            // Step 11: Parse parameters
+            Object[] params = parseParameters(paramsStr, method.getParameterTypes());
+
+            // Step 12: Create and return context
+            Context context = new Context();
+            context.setTargetClass(clazz);
+            context.setTargetMethod(method);
+            context.setParams(params);
+
+            return context;
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            // Re-throw these as-is (they're declared in the interface)
+            throw e;
+        } catch (ParseException e) {
+            // Re-throw ParseException as-is
+            throw e;
+        } catch (Exception e) {
+            // Wrap all other exceptions as ParseException
+            throw new ParseException("Failed to extract v2 request: " + e.getMessage());
         }
-
-        // Step 3: Parse request parts: V2|0|META|PARAMS
-        String[] parts = messageWithoutChecksum.split("\\" + ProtocolV2Constants.SEPARATOR, 4);
-        if (parts.length < 3) {
-            throw new IllegalArgumentException("Invalid v2 request format: " + request);
-        }
-
-        String metaBase64 = parts[2];
-        String paramsBase64 = parts.length > 3 ? parts[3] : "";
-
-        // Step 4: Decode metadata (ClassName/methodName(TYPE_SIGNATURE))
-        String meta = ProtocolSecurity.decodeComponent(metaBase64);
-
-        // Step 5: Parse class name and method signature
-        int slashIndex = meta.indexOf(ProtocolV2Constants.CLASS_METHOD_SEPARATOR);
-        if (slashIndex == -1) {
-            throw new IllegalArgumentException("Missing class/method separator: " + meta);
-        }
-
-        String className = meta.substring(0, slashIndex);
-        String methodPart = meta.substring(slashIndex + 1);
-
-        // Step 6: Validate class name and method name
-        // Parse method name and signature
-        // Format: methodName(SIGNATURE)
-        int firstParenIndex = methodPart.indexOf('(');
-        if (firstParenIndex == -1) {
-            throw new IllegalArgumentException("Missing method signature: " + methodPart);
-        }
-
-        String methodName = methodPart.substring(0, firstParenIndex);
-
-        // Validate class name
-        if (!ProtocolSecurity.isValidClassName(className)) {
-            throw new cn.huiwings.tcprest.exception.SecurityException(
-                "Invalid class name format (possible injection attempt): " + className
-            );
-        }
-
-        // Check class whitelist if enabled
-        if (!securityConfig.isClassAllowed(className)) {
-            throw new cn.huiwings.tcprest.exception.SecurityException(
-                "Class not in whitelist: " + className
-            );
-        }
-
-        // Validate method name
-        if (!ProtocolSecurity.isValidMethodName(methodName)) {
-            throw new cn.huiwings.tcprest.exception.SecurityException(
-                "Invalid method name format (possible injection attempt): " + methodName
-            );
-        }
-
-        // Step 7: Parse signature
-        // Find the signature (between first '(' and first ')')
-        int signatureEnd = methodPart.indexOf(')', firstParenIndex);
-        if (signatureEnd == -1) {
-            throw new IllegalArgumentException("Malformed method signature: " + methodPart);
-        }
-
-        String signature = methodPart.substring(firstParenIndex, signatureEnd + 1);
-
-        // Step 8: Decode parameters
-        String paramsStr = ProtocolSecurity.decodeComponent(paramsBase64);
-
-        // Step 9: Load class
-        Class<?> clazz = Class.forName(className);
-
-        // Step 10: Find method by signature
-        Method method = TypeSignatureUtil.findMethodBySignature(clazz, methodName, signature);
-
-        // Step 11: Parse parameters
-        Object[] params = parseParameters(paramsStr, method.getParameterTypes());
-
-        // Step 12: Create and return context
-        Context context = new Context();
-        context.setTargetClass(clazz);
-        context.setTargetMethod(method);
-        context.setParams(params);
-
-        return context;
     }
 
     /**
@@ -206,30 +224,37 @@ public class ProtocolV2Extractor {
      * @param paramsStr the parameters string
      * @param paramTypes the expected parameter types
      * @return array of parameter objects
-     * @throws Exception if parsing fails
+     * @throws ParseException if parsing fails
      */
-    private Object[] parseParameters(String paramsStr, Class<?>[] paramTypes) throws Exception {
-        if (paramsStr == null || paramsStr.isEmpty()) {
-            return new Object[0];
+    private Object[] parseParameters(String paramsStr, Class<?>[] paramTypes) throws ParseException {
+        try {
+            if (paramsStr == null || paramsStr.isEmpty()) {
+                return new Object[0];
+            }
+
+            // Split by parameter separator
+            String[] paramParts = paramsStr.split(ProtocolV2Constants.PARAM_SEPARATOR);
+
+            if (paramParts.length != paramTypes.length) {
+                throw new ParseException(
+                    "Parameter count mismatch: expected " + paramTypes.length +
+                    ", got " + paramParts.length
+                );
+            }
+
+            Object[] params = new Object[paramTypes.length];
+
+            for (int i = 0; i < paramParts.length; i++) {
+                params[i] = parseParameter(paramParts[i], paramTypes[i]);
+            }
+
+            return params;
+        } catch (Exception e) {
+            if (e instanceof ParseException) {
+                throw (ParseException) e;
+            }
+            throw new ParseException("Failed to parse parameters: " + e.getMessage());
         }
-
-        // Split by parameter separator
-        String[] paramParts = paramsStr.split(ProtocolV2Constants.PARAM_SEPARATOR);
-
-        if (paramParts.length != paramTypes.length) {
-            throw new IllegalArgumentException(
-                "Parameter count mismatch: expected " + paramTypes.length +
-                ", got " + paramParts.length
-            );
-        }
-
-        Object[] params = new Object[paramTypes.length];
-
-        for (int i = 0; i < paramParts.length; i++) {
-            params[i] = parseParameter(paramParts[i], paramTypes[i]);
-        }
-
-        return params;
     }
 
     /**
@@ -240,39 +265,46 @@ public class ProtocolV2Extractor {
      * @param paramStr the parameter string
      * @param paramType the expected parameter type
      * @return parsed parameter object
-     * @throws Exception if parsing fails
+     * @throws ParseException if parsing fails
      */
-    private Object parseParameter(String paramStr, Class<?> paramType) throws Exception {
-        // Remove wrapper
-        if (!paramStr.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) ||
-            !paramStr.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
-            throw new IllegalArgumentException("Invalid parameter format: " + paramStr);
-        }
-
-        String base64 = paramStr.substring(
-            ProtocolV2Constants.PARAM_WRAPPER_START.length(),
-            paramStr.length() - ProtocolV2Constants.PARAM_WRAPPER_END.length()
-        );
-
-        // Handle NULL marker
-        if ("NULL".equals(base64)) {
-            return null;
-        }
-
-        // Handle empty base64 (empty string)
-        if (base64.isEmpty()) {
-            if (paramType == String.class) {
-                return "";
+    private Object parseParameter(String paramStr, Class<?> paramType) throws ParseException {
+        try {
+            // Remove wrapper
+            if (!paramStr.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) ||
+                !paramStr.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
+                throw new ParseException("Invalid parameter format: " + paramStr);
             }
-            // For non-String types, empty means null (for backward compat)
-            return null;
+
+            String base64 = paramStr.substring(
+                ProtocolV2Constants.PARAM_WRAPPER_START.length(),
+                paramStr.length() - ProtocolV2Constants.PARAM_WRAPPER_END.length()
+            );
+
+            // Handle NULL marker
+            if ("NULL".equals(base64)) {
+                return null;
+            }
+
+            // Handle empty base64 (empty string)
+            if (base64.isEmpty()) {
+                if (paramType == String.class) {
+                    return "";
+                }
+                // For non-String types, empty means null (for backward compat)
+                return null;
+            }
+
+            // Decode from Base64
+            String decoded = new String(Base64.getDecoder().decode(base64));
+
+            // Convert to expected type
+            return convertToType(decoded, paramType);
+        } catch (Exception e) {
+            if (e instanceof ParseException) {
+                throw (ParseException) e;
+            }
+            throw new ParseException("Failed to parse parameter: " + e.getMessage());
         }
-
-        // Decode from Base64
-        String decoded = new String(Base64.getDecoder().decode(base64));
-
-        // Convert to expected type
-        return convertToType(decoded, paramType);
     }
 
     /**

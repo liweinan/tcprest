@@ -2,6 +2,7 @@ package cn.huiwings.tcprest.invoker.v2;
 
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
+import cn.huiwings.tcprest.invoker.Invoker;
 import cn.huiwings.tcprest.server.Context;
 
 import java.lang.reflect.InvocationTargetException;
@@ -36,7 +37,7 @@ import java.lang.reflect.Method;
  *
  * @since 1.1.0
  */
-public class ProtocolV2Invoker {
+public class ProtocolV2Invoker implements Invoker {
 
     /**
      * Invoke the target method and return result or throw exception.
@@ -46,11 +47,11 @@ public class ProtocolV2Invoker {
      *
      * @param context the invocation context
      * @return the method result
-     * @throws BusinessException if the method throws a business exception
-     * @throws Exception if the method throws any other exception
-     * @throws ProtocolException if context is invalid
+     * @throws InstantiationException if target instance cannot be created
+     * @throws IllegalAccessException if method cannot be accessed
      */
-    public Object invoke(Context context) throws Exception {
+    @Override
+    public Object invoke(Context context) throws InstantiationException, IllegalAccessException {
         if (context == null) {
             throw new ProtocolException("Context cannot be null");
         }
@@ -75,23 +76,21 @@ public class ProtocolV2Invoker {
             Throwable cause = e.getCause();
 
             if (cause instanceof BusinessException) {
-                // Re-throw business exceptions for proper categorization
+                // Re-throw business exceptions for proper categorization (RuntimeException)
                 throw (BusinessException) cause;
             } else if (cause instanceof RuntimeException) {
                 // Re-throw runtime exceptions
                 throw (RuntimeException) cause;
-            } else if (cause instanceof Exception) {
-                // Re-throw checked exceptions
-                throw (Exception) cause;
             } else if (cause instanceof Error) {
                 // Re-throw errors
                 throw (Error) cause;
             } else {
-                // Wrap in generic exception
+                // Wrap checked exceptions in RuntimeException
                 throw new RuntimeException("Method invocation failed", cause);
             }
         } catch (IllegalAccessException e) {
-            throw new ProtocolException("Cannot access method: " + targetMethod.getName(), e);
+            // Re-throw as declared in interface
+            throw e;
         } catch (IllegalArgumentException e) {
             throw new ProtocolException("Invalid arguments for method: " + targetMethod.getName(), e);
         }

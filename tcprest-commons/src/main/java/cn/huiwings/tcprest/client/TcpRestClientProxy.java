@@ -224,7 +224,8 @@ public class TcpRestClientProxy implements InvocationHandler {
      */
     private Object invokeV2(Method method, Object[] params) throws Throwable {
         // Encode request with v2 format (includes method signature)
-        String request = v2Converter.encode(method.getDeclaringClass(), method, params);
+        // Note: V2 doesn't use mappers, so we pass null
+        String request = v2Converter.encode(method.getDeclaringClass(), method, params, null);
 
         String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
         logger.debug("V2 response: " + response);

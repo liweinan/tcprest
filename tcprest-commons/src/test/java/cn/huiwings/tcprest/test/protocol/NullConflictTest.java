@@ -29,7 +29,8 @@ public class NullConflictTest {
         Method method = TestService.class.getMethod("echo", String.class);
 
         // Encode: null parameter
-        String encoded = converter.encode(TestService.class, method, new Object[]{null});
+        Object[] params = new Object[]{null};
+        String encoded = converter.encode(TestService.class, method, params, null);
         System.out.println("V2 null encoded: " + encoded);
 
         // Decode: should get null back
@@ -47,7 +48,8 @@ public class NullConflictTest {
         Method method = TestService.class.getMethod("echo", String.class);
 
         // Encode: string "NULL" parameter
-        String encoded = converter.encode(TestService.class, method, new Object[]{"NULL"});
+        Object[] params = new Object[]{"NULL"};
+        String encoded = converter.encode(TestService.class, method, params, null);
         System.out.println("V2 string 'NULL' encoded: " + encoded);
 
         // The encoding process is:
@@ -79,7 +81,7 @@ public class NullConflictTest {
 
         // Encode: mix of null and string "NULL"
         Object[] params = {null, "NULL", "test"};
-        String encoded = converter.encode(TestService.class, method, params);
+        String encoded = converter.encode(TestService.class, method, params, null);
         System.out.println("V2 mixed params encoded: " + encoded);
 
         // Decode
@@ -101,7 +103,8 @@ public class NullConflictTest {
         Method method = TestService.class.getMethod("echo", String.class);
 
         // Encode: empty string (different from null)
-        String encoded = converter.encode(TestService.class, method, new Object[]{""});
+        Object[] params = new Object[]{""};
+        String encoded = converter.encode(TestService.class, method, params, null);
 
         // Decode
         Context context = extractor.extract(encoded);
@@ -127,7 +130,8 @@ public class NullConflictTest {
         };
 
         for (String testStr : testStrings) {
-            String encoded = converter.encode(TestService.class, method, new Object[]{testStr});
+            Object[] params = new Object[]{testStr};
+            String encoded = converter.encode(TestService.class, method, params, null);
             Context context = extractor.extract(encoded);
 
             assertNotNull(context.getParams()[0],
