@@ -88,9 +88,16 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode request with method signature support (secure format).
+     * Encode request with method signature support (simplified V2 format).
      *
-     * <p>New secure format: V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|{{base64(PARAMS)}}|CHK:value</p>
+     * <p><b>New simplified format:</b> V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value</p>
+     *
+     * <p>Parameters are encoded as a JSON-style array without outer Base64 layer:</p>
+     * <ul>
+     *   <li>Each parameter is Base64-encoded individually</li>
+     *   <li>Parameters are separated by commas</li>
+     *   <li>The entire parameter list is wrapped in square brackets</li>
+     * </ul>
      *
      * @param clazz the interface class
      * @param method the method to invoke
@@ -126,28 +133,29 @@ public class ProtocolV2Converter implements Converter {
             );
         }
 
-        // Step 4: Build parameters string
+        // Step 4: Build parameters array (JSON-style format)
         StringBuilder paramsBuilder = new StringBuilder();
+        paramsBuilder.append(ProtocolV2Constants.PARAMS_ARRAY_START);
         if (params != null && params.length > 0) {
             for (int i = 0; i < params.length; i++) {
                 if (i > 0) {
                     paramsBuilder.append(ProtocolV2Constants.PARAM_SEPARATOR);
                 }
-                paramsBuilder.append(ProtocolV2Constants.PARAM_WRAPPER_START);
                 paramsBuilder.append(encodeParam(params[i]));
-                paramsBuilder.append(ProtocolV2Constants.PARAM_WRAPPER_END);
             }
         }
-        String paramsString = paramsBuilder.toString();
+        paramsBuilder.append(ProtocolV2Constants.PARAMS_ARRAY_END);
+        String paramsArray = paramsBuilder.toString();
 
-        // Step 5: Encode metadata and params using Base64
-        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
-        String paramsBase64 = ProtocolSecurity.encodeComponent(paramsString);
+        // Step 5: Encode metadata using Base64 (wrapped with {{}})
+        String metaBase64 = ProtocolV2Constants.PARAM_WRAPPER_START +
+                           ProtocolSecurity.encodeComponent(meta) +
+                           ProtocolV2Constants.PARAM_WRAPPER_END;
 
-        // Step 6: Build protocol message: V2|0|META|PARAMS
+        // Step 6: Build protocol message: V2|0|{{META}}|[PARAMS]
         String message = ProtocolV2Constants.PREFIX + COMPRESSION_DISABLED +
                         ProtocolV2Constants.SEPARATOR + metaBase64 +
-                        ProtocolV2Constants.SEPARATOR + paramsBase64;
+                        ProtocolV2Constants.SEPARATOR + paramsArray;
 
         // Step 7: Add checksum if enabled
         String checksum = ProtocolSecurity.calculateChecksum(message, securityConfig);
@@ -159,10 +167,12 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode a single parameter to Base64.
+     * Encode a single parameter to Base64 (simplified format).
+     *
+     * <p>Parameters are encoded directly without wrapper symbols.</p>
      *
      * @param param the parameter value
-     * @return Base64-encoded parameter
+     * @return Base64-encoded parameter string (or "NULL" marker, or "EMPTY" for empty string)
      */
     private String encodeParam(Object param) {
         if (param == null) {
@@ -177,6 +187,12 @@ public class ProtocolV2Converter implements Converter {
         } else {
             paramStr = param.toString();
         }
+
+        // Handle empty string specially (Base64 of empty string is empty, which is ambiguous)
+        if (paramStr.isEmpty()) {
+            return "EMPTY"; // Special marker for empty string
+        }
+
         return Base64.getEncoder().encodeToString(paramStr.getBytes());
     }
 
@@ -364,19 +380,19 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode response with status code (secure format).
+     * Encode response with status code (simplified V2 format).
      *
-     * <p>New secure format: V2|0|STATUS|{{base64(BODY)}}|CHK:value</p>
+     * <p><b>Simplified format:</b> V2|0|STATUS|{{base64(BODY)}}|CHK:value</p>
      *
      * @param result the result object
      * @param status the status code
      * @return encoded response string
      */
     public String encodeResponse(Object result, StatusCode status) {
-        // Step 1: Encode body
+        // Step 1: Encode body with {{}} wrapper
         String bodyString = encodeBodyToString(result);
 
-        // Step 2: Build protocol message: V2|0|STATUS|BODY
+        // Step 2: Build protocol message: V2|0|STATUS|{{BODY}}
         String message = ProtocolV2Constants.PREFIX + COMPRESSION_DISABLED +
                         ProtocolV2Constants.SEPARATOR + status.getCode() +
                         ProtocolV2Constants.SEPARATOR + bodyString;
@@ -391,10 +407,10 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode body to string (already includes {{base64}} format).
+     * Encode body to string with {{base64}} wrapper.
      *
      * @param obj the object to encode
-     * @return encoded body string
+     * @return encoded body string in format {{base64}}
      */
     private String encodeBodyToString(Object obj) {
         if (obj == null) {
@@ -463,28 +479,30 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode a single parameter (Protocol V2 format).
+     * Encode a single parameter (simplified V2 format).
      *
-     * <p>Format: {{base64_value}}</p>
+     * <p><b>New format:</b> base64_value (or special markers: NULL, EMPTY)</p>
      *
      * @param message the parameter value
-     * @return encoded parameter
+     * @return encoded parameter (Base64 or special marker)
      */
     @Override
     public String encodeParam(String message) {
         if (message == null) {
-            return ProtocolV2Constants.PARAM_WRAPPER_START + "NULL" + ProtocolV2Constants.PARAM_WRAPPER_END;
+            return "NULL";
         }
-        String base64 = Base64.getEncoder().encodeToString(message.getBytes());
-        return ProtocolV2Constants.PARAM_WRAPPER_START + base64 + ProtocolV2Constants.PARAM_WRAPPER_END;
+        if (message.isEmpty()) {
+            return "EMPTY";
+        }
+        return Base64.getEncoder().encodeToString(message.getBytes());
     }
 
     /**
-     * Decode a single parameter (Protocol V2 format).
+     * Decode a single parameter (simplified V2 format).
      *
-     * <p>Format: {{base64_value}}</p>
+     * <p><b>New format:</b> base64_value (or special markers: NULL, EMPTY)</p>
      *
-     * @param message the encoded parameter
+     * @param message the encoded parameter (Base64 or special marker)
      * @return decoded parameter value
      */
     @Override
@@ -493,29 +511,18 @@ public class ProtocolV2Converter implements Converter {
             return "";
         }
 
-        // Remove wrapper
-        if (!message.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) ||
-            !message.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
-            return message; // Return as-is if not wrapped
-        }
-
-        String base64 = message.substring(
-            ProtocolV2Constants.PARAM_WRAPPER_START.length(),
-            message.length() - ProtocolV2Constants.PARAM_WRAPPER_END.length()
-        );
-
         // Handle NULL marker
-        if ("NULL".equals(base64)) {
+        if ("NULL".equals(message)) {
             return null;
         }
 
-        // Handle empty base64
-        if (base64.isEmpty()) {
+        // Handle EMPTY marker
+        if ("EMPTY".equals(message)) {
             return "";
         }
 
         // Decode from Base64
-        return new String(Base64.getDecoder().decode(base64));
+        return new String(Base64.getDecoder().decode(message));
     }
 
     /**

@@ -10,28 +10,32 @@ import cn.huiwings.tcprest.protocol.ProtocolVersion;
  *
  * <p><b>Usage:</b></p>
  * <pre>
- * // Use Protocol v1 (default)
+ * // Use Protocol v2 (default, recommended)
  * ProtocolConfig config = new ProtocolConfig();
  *
- * // Use Protocol v2
- * ProtocolConfig config = new ProtocolConfig(ProtocolVersion.V2);
+ * // Use Protocol v1 (legacy)
+ * ProtocolConfig config = new ProtocolConfig(ProtocolVersion.V1);
  *
  * // Or via factory:
  * TcpRestClientFactory factory = new TcpRestClientFactory(...)
- *     .withProtocolV2();
+ *     .withProtocolV2();  // Default
  * </pre>
  *
  * @since 1.1.0
+ * @version 2.0 (2026-02-19) - Default protocol changed to V2
  */
 public class ProtocolConfig {
 
     private ProtocolVersion version;
 
     /**
-     * Create configuration with default protocol (V1).
+     * Create configuration with default protocol (V2).
+     *
+     * <p><b>Note:</b> As of version 2.0, the default protocol is V2.
+     * V2 provides better performance, cleaner format, and supports method overloading.</p>
      */
     public ProtocolConfig() {
-        this.version = ProtocolVersion.V1;
+        this.version = ProtocolVersion.V2;
     }
 
     /**
@@ -40,7 +44,7 @@ public class ProtocolConfig {
      * @param version the protocol version
      */
     public ProtocolConfig(ProtocolVersion version) {
-        this.version = version != null ? version : ProtocolVersion.V1;
+        this.version = version != null ? version : ProtocolVersion.V2;
     }
 
     /**

@@ -224,11 +224,12 @@ public class ProtocolV2ExtractorTest {
 
     @Test(expectedExceptions = ClassNotFoundException.class)
     public void testExtract_classNotFound() throws Exception {
-        // Non-existent class
+        // Non-existent class (new simplified format)
         String meta = "NonExistentClass/method()";
         String metaBase64 = ProtocolSecurity.encodeComponent(meta);
-        String paramsBase64 = ProtocolSecurity.encodeComponent("{{" + base64("test") + "}}");
-        String request = "V2|0|" + metaBase64 + "|" + paramsBase64;
+        String metaWrapped = "{{" + metaBase64 + "}}";
+        String paramsArray = "[" + base64("test") + "]";
+        String request = "V2|0|" + metaWrapped + "|" + paramsArray;
         extractor.extract(request);
     }
 
@@ -295,28 +296,33 @@ public class ProtocolV2ExtractorTest {
      * @param params base64-encoded parameters
      * @return secure V2 request string
      */
+    /**
+     * Build a V2 request with simplified format.
+     *
+     * <p><b>New format:</b> V2|0|{{base64(META)}}|[param1,param2,param3]</p>
+     */
     private String buildRequest(String methodName, String signature, String... params) {
         // Step 1: Build metadata (ClassName/methodName(SIGNATURE))
         String meta = TestService.class.getName() + "/" + methodName + signature;
 
-        // Step 2: Build parameters string
+        // Step 2: Build parameters array (JSON-style format)
         StringBuilder paramsBuilder = new StringBuilder();
+        paramsBuilder.append("[");
         for (int i = 0; i < params.length; i++) {
             if (i > 0) {
-                paramsBuilder.append(":::");
+                paramsBuilder.append(",");
             }
-            paramsBuilder.append("{{");
             paramsBuilder.append(params[i]);
-            paramsBuilder.append("}}");
         }
-        String paramsString = paramsBuilder.toString();
+        paramsBuilder.append("]");
+        String paramsArray = paramsBuilder.toString();
 
-        // Step 3: Encode metadata and params using Base64
+        // Step 3: Encode metadata and wrap with {{}}
         String metaBase64 = ProtocolSecurity.encodeComponent(meta);
-        String paramsBase64 = ProtocolSecurity.encodeComponent(paramsString);
+        String metaWrapped = "{{" + metaBase64 + "}}";
 
-        // Step 4: Build protocol message: V2|0|META|PARAMS
-        return "V2|0|" + metaBase64 + "|" + paramsBase64;
+        // Step 4: Build protocol message: V2|0|{{META}}|[PARAMS]
+        return "V2|0|" + metaWrapped + "|" + paramsArray;
     }
 
     private String base64(String value) {

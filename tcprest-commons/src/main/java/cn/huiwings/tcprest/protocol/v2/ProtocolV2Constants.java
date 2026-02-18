@@ -3,21 +3,30 @@ package cn.huiwings.tcprest.protocol.v2;
 /**
  * Constants for Protocol v2 format.
  *
- * <p>Protocol v2 format:</p>
+ * <p><b>Protocol v2 Simplified Format (2026-02-19):</b></p>
  * <pre>
- * Request:  V2|COMPRESSION|ClassName/methodName(TYPE_SIGNATURE)(PARAMS)
- * Response: V2|COMPRESSION|STATUS|BODY
+ * Request:  V2|COMPRESSION|{{base64(META)}}|[param1,param2,param3]
+ * Response: V2|COMPRESSION|STATUS|{{base64(BODY)}}
  * </pre>
  *
- * <p>Examples:</p>
+ * <p><b>Key Features:</b></p>
+ * <ul>
+ *   <li>JSON-style array format for parameters: [p1,p2,p3]</li>
+ *   <li>Single-layer Base64 encoding for parameters (no double encoding)</li>
+ *   <li>Cleaner, more readable protocol</li>
+ *   <li>Easier to parse and debug</li>
+ * </ul>
+ *
+ * <p><b>Examples:</b></p>
  * <pre>
- * V2|0|Calculator/add(II)({{MQ==}}:::{{Mg==}})
- * V2|0|Service/process(Ljava/lang/String;Z)({{aGVsbG8=}}:::{{dHJ1ZQ==}})
- * V2|0|0|{{base64_result}}
- * V2|0|1|{{base64_error_message}}
+ * V2|0|{{Y2FsYy9hZGQoSUkp}}|[MQ==,Mg==]
+ * V2|0|{{c2VydmljZS9wcm9jZXNzKExqYXZhL2xhbmcvU3RyaW5nO1op}}|[aGVsbG8=,dHJ1ZQ==]
+ * V2|0|0|{{NDI=}}
+ * V2|0|1|{{RXJyb3I6IGludmFsaWQgaW5wdXQ=}}
  * </pre>
  *
  * @since 1.1.0
+ * @version 2.0 (2026-02-19) - Simplified format with JSON-style arrays
  */
 public final class ProtocolV2Constants {
 
@@ -47,19 +56,19 @@ public final class ProtocolV2Constants {
     public static final String SIGNATURE_END = ")";
 
     /**
-     * Opening delimiter for parameters: "("
+     * Opening delimiter for parameter array: "["
      */
-    public static final String PARAMS_START = "(";
+    public static final String PARAMS_ARRAY_START = "[";
 
     /**
-     * Closing delimiter for parameters: ")"
+     * Closing delimiter for parameter array: "]"
      */
-    public static final String PARAMS_END = ")";
+    public static final String PARAMS_ARRAY_END = "]";
 
     /**
-     * Parameter separator: ":::"
+     * Parameter separator in array: ","
      */
-    public static final String PARAM_SEPARATOR = ":::";
+    public static final String PARAM_SEPARATOR = ",";
 
     /**
      * Base64 parameter wrapper start: "{{"

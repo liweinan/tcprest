@@ -13,23 +13,31 @@ import java.lang.reflect.Method;
 import java.util.Base64;
 
 /**
- * Security-Enhanced Protocol v2 Extractor.
+ * Security-Enhanced Protocol v2 Extractor (Simplified Format).
  *
- * <p>This extractor parses the enhanced v2 request format that includes
+ * <p>This extractor parses the simplified v2 request format that includes
  * method signatures, enabling precise method selection for overloaded methods.</p>
  *
- * <p><b>Secure Request Format (2026-02-18):</b></p>
+ * <p><b>Simplified Request Format (2026-02-19):</b></p>
  * <pre>
- * V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|{{base64(PARAMS)}}|CHK:value
+ * V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value
  *
  * Examples:
- * V2|0|Q2FsY3VsYXRvci9hZGQoSUkp|e3tNUT09fX06Ojp7e01nPT19fQ|CHK:a1b2c3d4
- * V2|0|U2VydmljZS9wcm9jZXNzKExqYXZhL2xhbmcvU3RyaW5nO1op|e3thR1ZzYkc4PX19Ojp7e2RISjFaUT09fX0|CHK:def567
+ * V2|0|{{Q2FsY3VsYXRvci9hZGQoSUkp}}|[MQ==,Mg==]|CHK:a1b2c3d4
+ * V2|0|{{U2VydmljZS9wcm9jZXNzKExqYXZhL2xhbmcvU3RyaW5nO1op}}|[aGVsbG8=,dHJ1ZQ==]|CHK:def567
  * </pre>
+ *
+ * <p><b>Key Improvements:</b></p>
+ * <ul>
+ *   <li>JSON-style array format for parameters: [p1,p2,p3]</li>
+ *   <li>Single-layer Base64 encoding (no double encoding)</li>
+ *   <li>Cleaner, more readable protocol</li>
+ *   <li>Easier to parse and debug</li>
+ * </ul>
  *
  * <p><b>Security Features:</b></p>
  * <ul>
- *   <li>All metadata Base64-encoded (prevents injection)</li>
+ *   <li>Metadata Base64-encoded (prevents injection)</li>
  *   <li>Optional checksum verification (CRC32/HMAC)</li>
  *   <li>Class name validation</li>
  *   <li>Method name validation</li>
@@ -37,6 +45,7 @@ import java.util.Base64;
  * </ul>
  *
  * @since 1.1.0
+ * @version 2.0 (2026-02-19) - Simplified format with JSON-style arrays
  */
 public class ProtocolV2Extractor implements Extractor {
 
@@ -77,16 +86,16 @@ public class ProtocolV2Extractor implements Extractor {
     }
 
     /**
-     * Extract context from v2 request (secure format).
+     * Extract context from v2 request (simplified format).
      *
-     * <p>New secure format: V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|{{base64(PARAMS)}}|CHK:value</p>
+     * <p><b>Simplified format:</b> V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value</p>
      *
      * <p>Parses the request to extract:</p>
      * <ul>
      *   <li>Class name</li>
      *   <li>Method name</li>
      *   <li>Method signature (type signature)</li>
-     *   <li>Parameters</li>
+     *   <li>Parameters (from JSON-style array)</li>
      * </ul>
      *
      * <p>Uses the type signature to find the exact method, solving the
@@ -124,16 +133,25 @@ public class ProtocolV2Extractor implements Extractor {
                 }
             }
 
-            // Step 3: Parse request parts: V2|0|META|PARAMS
+            // Step 3: Parse request parts: V2|0|{{META}}|[PARAMS]
             String[] parts = messageWithoutChecksum.split("\\" + ProtocolV2Constants.SEPARATOR, 4);
             if (parts.length < 3) {
                 throw new ParseException("Invalid v2 request format: " + request);
             }
 
-            String metaBase64 = parts[2];
-            String paramsBase64 = parts.length > 3 ? parts[3] : "";
+            String metaWrapped = parts[2];
+            String paramsArray = parts.length > 3 ? parts[3] : "[]";
 
-            // Step 4: Decode metadata (ClassName/methodName(TYPE_SIGNATURE))
+            // Step 4: Unwrap and decode metadata from {{base64(...)}}
+            if (!metaWrapped.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) ||
+                !metaWrapped.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
+                throw new ParseException("Invalid metadata format, expected {{...}}: " + metaWrapped);
+            }
+
+            String metaBase64 = metaWrapped.substring(
+                ProtocolV2Constants.PARAM_WRAPPER_START.length(),
+                metaWrapped.length() - ProtocolV2Constants.PARAM_WRAPPER_END.length()
+            );
             String meta = ProtocolSecurity.decodeComponent(metaBase64);
 
             // Step 5: Parse class name and method signature
@@ -185,19 +203,16 @@ public class ProtocolV2Extractor implements Extractor {
 
             String signature = methodPart.substring(firstParenIndex, signatureEnd + 1);
 
-            // Step 8: Decode parameters
-            String paramsStr = ProtocolSecurity.decodeComponent(paramsBase64);
-
-            // Step 9: Load class
+            // Step 8: Load class
             Class<?> clazz = Class.forName(className);
 
-            // Step 10: Find method by signature
+            // Step 9: Find method by signature
             Method method = TypeSignatureUtil.findMethodBySignature(clazz, methodName, signature);
 
-            // Step 11: Parse parameters
-            Object[] params = parseParameters(paramsStr, method.getParameterTypes());
+            // Step 10: Parse parameters from array format
+            Object[] params = parseParametersArray(paramsArray, method.getParameterTypes());
 
-            // Step 12: Create and return context
+            // Step 11: Create and return context
             Context context = new Context();
             context.setTargetClass(clazz);
             context.setTargetMethod(method);
@@ -217,23 +232,43 @@ public class ProtocolV2Extractor implements Extractor {
     }
 
     /**
-     * Parse parameter string into object array.
+     * Parse parameter array into object array.
      *
-     * <p>Format: {{base64_1}}:::{{base64_2}}:::{{base64_3}}</p>
+     * <p><b>New format:</b> [base64_1,base64_2,base64_3]</p>
      *
-     * @param paramsStr the parameters string
+     * @param paramsArray the parameters array string (e.g., "[p1,p2,p3]")
      * @param paramTypes the expected parameter types
      * @return array of parameter objects
      * @throws ParseException if parsing fails
      */
-    private Object[] parseParameters(String paramsStr, Class<?>[] paramTypes) throws ParseException {
+    private Object[] parseParametersArray(String paramsArray, Class<?>[] paramTypes) throws ParseException {
         try {
-            if (paramsStr == null || paramsStr.isEmpty()) {
-                return new Object[0];
+            if (paramsArray == null || paramsArray.isEmpty()) {
+                paramsArray = "[]";
             }
 
-            // Split by parameter separator
-            String[] paramParts = paramsStr.split(ProtocolV2Constants.PARAM_SEPARATOR);
+            // Validate array format
+            if (!paramsArray.startsWith(ProtocolV2Constants.PARAMS_ARRAY_START) ||
+                !paramsArray.endsWith(ProtocolV2Constants.PARAMS_ARRAY_END)) {
+                throw new ParseException("Invalid parameter array format, expected [...]: " + paramsArray);
+            }
+
+            // Extract content between [ and ]
+            String arrayContent = paramsArray.substring(1, paramsArray.length() - 1).trim();
+
+            // Handle empty array
+            if (arrayContent.isEmpty()) {
+                if (paramTypes.length == 0) {
+                    return new Object[0];
+                } else {
+                    throw new ParseException(
+                        "Parameter count mismatch: expected " + paramTypes.length + ", got 0"
+                    );
+                }
+            }
+
+            // Split by parameter separator (comma)
+            String[] paramParts = arrayContent.split(ProtocolV2Constants.PARAM_SEPARATOR);
 
             if (paramParts.length != paramTypes.length) {
                 throw new ParseException(
@@ -245,7 +280,7 @@ public class ProtocolV2Extractor implements Extractor {
             Object[] params = new Object[paramTypes.length];
 
             for (int i = 0; i < paramParts.length; i++) {
-                params[i] = parseParameter(paramParts[i], paramTypes[i]);
+                params[i] = parseParameter(paramParts[i].trim(), paramTypes[i]);
             }
 
             return params;
@@ -253,49 +288,38 @@ public class ProtocolV2Extractor implements Extractor {
             if (e instanceof ParseException) {
                 throw (ParseException) e;
             }
-            throw new ParseException("Failed to parse parameters: " + e.getMessage());
+            throw new ParseException("Failed to parse parameters array: " + e.getMessage());
         }
     }
 
     /**
      * Parse a single parameter.
      *
-     * <p>Format: {{base64_value}}</p>
+     * <p><b>New format:</b> base64_value (no wrapper)</p>
      *
-     * @param paramStr the parameter string
+     * @param paramStr the parameter string (base64-encoded or special marker)
      * @param paramType the expected parameter type
      * @return parsed parameter object
      * @throws ParseException if parsing fails
      */
     private Object parseParameter(String paramStr, Class<?> paramType) throws ParseException {
         try {
-            // Remove wrapper
-            if (!paramStr.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) ||
-                !paramStr.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
-                throw new ParseException("Invalid parameter format: " + paramStr);
+            if (paramStr == null || paramStr.isEmpty()) {
+                throw new ParseException("Parameter cannot be null or empty");
             }
-
-            String base64 = paramStr.substring(
-                ProtocolV2Constants.PARAM_WRAPPER_START.length(),
-                paramStr.length() - ProtocolV2Constants.PARAM_WRAPPER_END.length()
-            );
 
             // Handle NULL marker
-            if ("NULL".equals(base64)) {
+            if ("NULL".equals(paramStr)) {
                 return null;
             }
 
-            // Handle empty base64 (empty string)
-            if (base64.isEmpty()) {
-                if (paramType == String.class) {
-                    return "";
-                }
-                // For non-String types, empty means null (for backward compat)
-                return null;
+            // Handle EMPTY marker (empty string)
+            if ("EMPTY".equals(paramStr)) {
+                return "";
             }
 
             // Decode from Base64
-            String decoded = new String(Base64.getDecoder().decode(base64));
+            String decoded = new String(Base64.getDecoder().decode(paramStr));
 
             // Convert to expected type
             return convertToType(decoded, paramType);

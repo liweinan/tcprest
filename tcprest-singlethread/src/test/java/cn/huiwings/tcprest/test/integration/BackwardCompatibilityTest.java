@@ -54,11 +54,11 @@ public class BackwardCompatibilityTest {
         server.up();
         Thread.sleep(500);
 
-        // Create V1 client (default)
+        // Create V1 client (explicit V1 for backward compatibility test)
         TcpRestClientFactory factory = new TcpRestClientFactory(
             SimpleService.class, "localhost", port
         );
-        // V1 is default, no need to set
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V1); // Explicitly use V1
         SimpleService client = (SimpleService) factory.getClient();
 
         int result = client.add(5, 3);
@@ -77,6 +77,7 @@ public class BackwardCompatibilityTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             SimpleService.class, "localhost", port
         );
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V1); // Explicitly use V1
         SimpleService client = (SimpleService) factory.getClient();
 
         int result = client.add(10, 20);
@@ -242,10 +243,11 @@ public class BackwardCompatibilityTest {
         server.up();
         Thread.sleep(500);
 
-        // Create client without setting protocol version - should default to V1
+        // Create client with explicit V1 protocol (for backward compatibility test)
         TcpRestClientFactory factory = new TcpRestClientFactory(
             SimpleService.class, "localhost", port
         );
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V1); // Explicitly use V1
         SimpleService client = (SimpleService) factory.getClient();
 
         int result = client.add(15, 25);
@@ -274,13 +276,13 @@ public class BackwardCompatibilityTest {
             SimpleService.class, "localhost", 8000
         );
 
-        // Default should be V1
-        assertTrue(factory.getProtocolConfig().isV1());
-        assertFalse(factory.getProtocolConfig().isV2());
-
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
+        // Default should be V2 (as of version 2.0)
         assertTrue(factory.getProtocolConfig().isV2());
         assertFalse(factory.getProtocolConfig().isV1());
+
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
+        assertTrue(factory.getProtocolConfig().isV1());
+        assertFalse(factory.getProtocolConfig().isV2());
     }
 
     // ========== Test Service Interface ==========

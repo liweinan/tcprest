@@ -92,11 +92,10 @@ public class ProtocolV2ConverterTest {
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/echo(Ljava/lang/String;)");
 
-        // Verify NULL parameter is encoded
+        // Verify NULL parameter is encoded in array format
         String[] parts = ProtocolSecurity.splitChecksum(encoded)[0].split("\\|", 4);
-        String paramsBase64 = parts[3];
-        String decodedParams = ProtocolSecurity.decodeComponent(paramsBase64);
-        assertTrue(decodedParams.contains("{{NULL}}"), "Should contain NULL marker for null parameter");
+        String paramsArray = parts[3];
+        assertTrue(paramsArray.equals("[NULL]"), "Should contain NULL marker in array: " + paramsArray);
     }
 
     // Compression is handled separately (not in this converter)
@@ -316,9 +315,9 @@ public class ProtocolV2ConverterTest {
     }
 
     /**
-     * Helper method to verify secure V2 request format and extract metadata.
+     * Helper method to verify simplified V2 request format and extract metadata.
      *
-     * <p>Format: V2|0|{{base64(meta)}}|{{base64(params)}}|CHK:value (optional)</p>
+     * <p><b>New simplified format:</b> V2|0|{{base64(meta)}}|[param1,param2,param3]|CHK:value (optional)</p>
      *
      * @param encoded the encoded request
      * @param expectedMeta the expected metadata (e.g., "TestService/add(II)")
@@ -331,12 +330,16 @@ public class ProtocolV2ConverterTest {
         String[] checksumParts = ProtocolSecurity.splitChecksum(encoded);
         String messageWithoutChecksum = checksumParts[0];
 
-        // Split components: V2|0|metaBase64|paramsBase64
+        // Split components: V2|0|{{metaBase64}}|[params]
         String[] parts = messageWithoutChecksum.split("\\|", 4);
         assertTrue(parts.length >= 3, "Should have at least 3 parts");
 
-        // Decode metadata
-        String metaBase64 = parts[2];
+        // Extract and unwrap metadata from {{...}}
+        String metaWrapped = parts[2];
+        assertTrue(metaWrapped.startsWith("{{") && metaWrapped.endsWith("}}"),
+                  "Metadata should be wrapped in {{...}}");
+
+        String metaBase64 = metaWrapped.substring(2, metaWrapped.length() - 2);
         String decodedMeta = ProtocolSecurity.decodeComponent(metaBase64);
 
         // Verify metadata

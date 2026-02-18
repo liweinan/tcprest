@@ -3,30 +3,41 @@ package cn.huiwings.tcprest.protocol;
 /**
  * Protocol version enum for TcpRest protocol versioning.
  *
- * <p>This enum defines the supported protocol versions and auto-detection mode.
- * Protocol v2 adds method signature support for overloading and exception propagation.</p>
+ * <p>This enum defines the supported protocol versions and auto-detection mode.</p>
+ *
+ * <p><b>Recommended:</b> Use V2 (default) for new applications. V2 provides:
+ * cleaner format, method overloading support, exception propagation, and better performance.</p>
  *
  * @since 1.1.0
+ * @version 2.0 (2026-02-19) - V2 is now the default and recommended protocol
  */
 public enum ProtocolVersion {
     /**
-     * Protocol v1 - Original protocol without method signatures or exception propagation.
-     * Request format: ClassName/methodName(PARAMS)
-     * Response format: base64-encoded result or NullObj
+     * Protocol v1 - Legacy protocol (deprecated).
+     * Request format: 0|META|PARAMS
+     * Response format: 0|base64(result)
+     *
+     * <p><b>Note:</b> V1 is maintained for backward compatibility only.
+     * New applications should use V2.</p>
      */
     V1,
 
     /**
-     * Protocol v2 - Enhanced protocol with method signatures and status codes.
-     * Request format: V2|COMPRESSION|ClassName/methodName(TYPE_SIGNATURE)(PARAMS)
-     * Response format: V2|COMPRESSION|STATUS|BODY
+     * Protocol v2 - Modern simplified protocol (default, recommended).
      *
-     * <p>Features:</p>
+     * <p><b>Request format:</b> V2|0|{{base64(META)}}|[param1,param2,param3]</p>
+     * <p><b>Response format:</b> V2|0|STATUS|{{base64(BODY)}}</p>
+     *
+     * <p><b>Features:</b></p>
      * <ul>
+     *   <li>JSON-style array format for parameters</li>
      *   <li>Method signatures enable overloading support</li>
      *   <li>Status codes enable exception propagation</li>
-     *   <li>Full backward compatibility with v1</li>
+     *   <li>Cleaner, more readable protocol</li>
+     *   <li>Single-layer Base64 encoding (better performance)</li>
      * </ul>
+     *
+     * <p><b>Default:</b> V2 is the default protocol as of version 2.0 (2026-02-19).</p>
      */
     V2,
 
