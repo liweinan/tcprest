@@ -45,7 +45,7 @@ import java.lang.reflect.Method;
  * <p><b>Field responsibilities:</b></p>
  * <ul>
  *   <li><b>targetClazz</b>: The service interface/class to invoke (e.g., Calculator.class)</li>
- *   <li><b>targetMethod</b>: The specific method to execute (resolved by Extractor using signature)</li>
+ *   <li><b>targetMethod</b>: The specific method to execute (resolved by RequestParser using signature)</li>
  *   <li><b>targetInstance</b>: The actual object to invoke method on (singleton or newly created)</li>
  *   <li><b>params</b>: Deserialized method arguments ready for invocation</li>
  *   <li><b>paramTypes</b>: Parameter type information (used for method resolution)</li>
@@ -60,9 +60,9 @@ import java.lang.reflect.Method;
  *
  * @author Weinan Li
  * @since 1.0.0
- * @see cn.huiwings.tcprest.extractor.Extractor
+ * @see cn.huiwings.tcprest.parser.RequestParser
  * @see cn.huiwings.tcprest.invoker.Invoker
- * @see cn.huiwings.tcprest.converter.Converter
+ * @see cn.huiwings.tcprest.codec.ProtocolCodec
  */
 public class Context {
     /**

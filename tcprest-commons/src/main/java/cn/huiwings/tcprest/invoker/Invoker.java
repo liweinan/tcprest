@@ -6,7 +6,7 @@ import cn.huiwings.tcprest.server.Context;
  * Method invocation strategy for executing remote procedure calls on the server side.
  *
  * <p>The Invoker interface is responsible for the final step in request processing:
- * taking the parsed {@link Context} from an {@link cn.huiwings.tcprest.extractor.Extractor}
+ * taking the parsed {@link Context} from a {@link cn.huiwings.tcprest.parser.RequestParser}
  * and actually invoking the target method using Java reflection.</p>
  *
  * <p><b>Primary responsibilities:</b></p>
@@ -14,7 +14,7 @@ import cn.huiwings.tcprest.server.Context;
  *   <li>Obtain target service instance (singleton or create new)</li>
  *   <li>Invoke target method with deserialized parameters</li>
  *   <li>Handle method invocation exceptions</li>
- *   <li>Return method result for encoding by {@link cn.huiwings.tcprest.converter.Converter}</li>
+ *   <li>Return method result for encoding by {@link cn.huiwings.tcprest.codec.ProtocolCodec}</li>
  * </ul>
  *
  * <p><b>Implementations:</b></p>
@@ -25,15 +25,15 @@ import cn.huiwings.tcprest.server.Context;
  *
  * <p><b>Typical workflow:</b></p>
  * <pre>
- * // 1. Extractor parses request into Context
- * Context context = extractor.extract(request);
+ * // 1. RequestParser parses request into Context
+ * Context context = parser.parse(request);
  *
  * // 2. Invoker executes the method
  * Invoker invoker = new ProtocolV2Invoker();
  * Object result = invoker.invoke(context);
  *
- * // 3. Converter encodes result back to client
- * String response = converter.convertResult(result);
+ * // 3. ProtocolCodec encodes result back to client
+ * String response = codec.encode(result);
  * </pre>
  *
  * <p><b>V1 vs V2 Behavior:</b></p>
@@ -93,8 +93,8 @@ import cn.huiwings.tcprest.server.Context;
  * @see cn.huiwings.tcprest.server.Context
  * @see cn.huiwings.tcprest.invoker.DefaultInvoker
  * @see cn.huiwings.tcprest.invoker.v2.ProtocolV2Invoker
- * @see cn.huiwings.tcprest.extractor.Extractor
- * @see cn.huiwings.tcprest.converter.Converter
+ * @see cn.huiwings.tcprest.parser.RequestParser
+ * @see cn.huiwings.tcprest.codec.ProtocolCodec
  */
 public interface Invoker {
     /**

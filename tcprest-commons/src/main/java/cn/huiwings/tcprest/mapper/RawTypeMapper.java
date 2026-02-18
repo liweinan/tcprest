@@ -101,7 +101,7 @@ import java.util.Base64;
  * @since 1.0.0
  * @see Mapper
  * @see java.io.Serializable
- * @see cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor
+ * @see cn.huiwings.tcprest.parser.v2.ProtocolV2Parser
  */
 public class RawTypeMapper implements Mapper {
     /**

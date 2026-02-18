@@ -8,8 +8,8 @@ import java.util.Map;
 /**
  * Utility class for resolving resource instances from ResourceRegister.
  *
- * <p><b>Purpose:</b> Provides centralized resource resolution logic for protocol V2.
- * Extracted from ProtocolRouter to improve code organization and reusability.</p>
+ * <p><b>Purpose:</b> Provides centralized resource resolution logic.
+ * Used by {@link AbstractTcpRestServer} for resource lookup and instance creation.</p>
  *
  * <p><b>This resolver handles:</b></p>
  * <ul>
@@ -30,8 +30,8 @@ import java.util.Map;
  *
  * <p><b>Usage in TcpRest:</b></p>
  * <ul>
- *   <li><b>Protocol V2</b>: Uses ResourceResolver for resource lookup and instance creation</li>
- *   <li><b>Protocol V1</b>: Uses DefaultExtractor's built-in resource lookup for backward compatibility</li>
+ *   <li>Used by {@link cn.huiwings.tcprest.parser.RequestParser} for resource lookup and instance creation</li>
+ *   <li>Handles both singleton resources and per-request instances</li>
  * </ul>
  *
  * <p><b>Example Usage:</b></p>

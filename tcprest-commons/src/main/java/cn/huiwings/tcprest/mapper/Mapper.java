@@ -96,8 +96,8 @@ package cn.huiwings.tcprest.mapper;
  * @author Weinan Li
  * @since 1.0.0
  * @see RawTypeMapper
- * @see cn.huiwings.tcprest.converter.v2.ProtocolV2Converter
- * @see cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor
+ * @see cn.huiwings.tcprest.codec.v2.ProtocolV2Codec
+ * @see cn.huiwings.tcprest.parser.v2.ProtocolV2Parser
  */
 public interface Mapper {
     /**

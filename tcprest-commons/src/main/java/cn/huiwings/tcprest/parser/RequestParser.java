@@ -49,7 +49,7 @@ import cn.huiwings.tcprest.server.Context;
  * </pre>
  *
  * <p><b>Protocol Detection:</b></p>
- * <p>Servers typically use {@link cn.huiwings.tcprest.server.ProtocolRouter} to automatically
+ * <p>Servers use {@link cn.huiwings.tcprest.server.AbstractTcpRestServer} to automatically
  * detect protocol version from request prefix and route to the appropriate parser:</p>
  * <pre>
  * if (request.startsWith("V2|")) {
