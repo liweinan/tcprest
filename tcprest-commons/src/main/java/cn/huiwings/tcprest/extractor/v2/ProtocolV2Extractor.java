@@ -324,6 +324,7 @@ public class ProtocolV2Extractor implements Extractor {
      *   <li><b>Null marker</b>: "~" → null (tilde, not in Base64 charset)</li>
      *   <li><b>Empty string</b>: "" → "" (consecutive commas in array)</li>
      *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
+     *   <li><b>Common collection interfaces</b>: List, Map, Set, etc. → auto-deserialization via RawTypeMapper</li>
      *   <li><b>Auto Deserialization</b>: For Serializable types, use RawTypeMapper</li>
      *   <li><b>Built-in conversion</b>: For primitives, arrays, and other types</li>
      * </ol>
@@ -359,7 +360,15 @@ public class ProtocolV2Extractor implements Extractor {
                 }
             }
 
-            // Priority 2: Auto Deserialization for Serializable types
+            // Priority 2: Common collection interfaces (List, Map, Set, etc.)
+            // These interfaces aren't Serializable themselves, but their implementations are
+            if (isCommonCollectionInterface(paramType)) {
+                // Use RawTypeMapper to deserialize the actual implementation (ArrayList, HashMap, etc.)
+                cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+                return rawMapper.stringToObject(paramStr);
+            }
+
+            // Priority 3: Auto Deserialization for Serializable types
             if (java.io.Serializable.class.isAssignableFrom(paramType) &&
                 paramType != String.class &&
                 !paramType.isArray() &&
@@ -392,6 +401,38 @@ public class ProtocolV2Extractor implements Extractor {
         return clazz == Integer.class || clazz == Long.class || clazz == Double.class ||
                clazz == Float.class || clazz == Boolean.class || clazz == Byte.class ||
                clazz == Short.class || clazz == Character.class;
+    }
+
+    /**
+     * Check if a class is a common collection interface that should use auto-serialization.
+     *
+     * <p>These interfaces themselves are not Serializable, but their common implementations
+     * (ArrayList, HashMap, HashSet, etc.) are Serializable and can be deserialized via
+     * RawTypeMapper.</p>
+     *
+     * <p><b>Supported interfaces:</b></p>
+     * <ul>
+     *   <li>java.util.List (ArrayList, LinkedList, etc.)</li>
+     *   <li>java.util.Map (HashMap, TreeMap, etc.)</li>
+     *   <li>java.util.Set (HashSet, TreeSet, etc.)</li>
+     *   <li>java.util.Queue (LinkedList, PriorityQueue, etc.)</li>
+     *   <li>java.util.Deque (ArrayDeque, LinkedList, etc.)</li>
+     *   <li>java.util.Collection (parent interface)</li>
+     * </ul>
+     *
+     * <p><b>Note:</b> Without generic type information, collections are deserialized as-is
+     * (e.g., List&lt;Object&gt;). If specific types are needed, users should provide custom mappers.</p>
+     *
+     * @param clazz the class to check
+     * @return true if it's a common collection interface
+     */
+    private boolean isCommonCollectionInterface(Class<?> clazz) {
+        return clazz == java.util.List.class ||
+               clazz == java.util.Map.class ||
+               clazz == java.util.Set.class ||
+               clazz == java.util.Queue.class ||
+               clazz == java.util.Deque.class ||
+               clazz == java.util.Collection.class;
     }
 
     /**

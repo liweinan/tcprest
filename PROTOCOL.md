@@ -260,17 +260,156 @@ When encoding/decoding parameters and return values, V2 uses the following prior
 - Provides fine-grained control over serialization format
 - Example: Using Gson for JSON serialization
 
-**Priority 2: Automatic Serialization (Medium)**
+**Priority 2: Common Collection Interfaces (High)**
+- Built-in support for `List`, `Map`, `Set`, `Queue`, `Deque`, `Collection` interfaces
+- No custom mapper needed - works automatically
+- Actual implementation classes (ArrayList, HashMap, etc.) are automatically serialized
+- Deserialized as-is (e.g., ArrayList → ArrayList, HashMap → HashMap)
+- **Note:** Without generic type info, collections are deserialized with their runtime types (e.g., `List<Object>`)
+- For specific generic types, use custom mappers (e.g., Gson with TypeToken)
+
+**Priority 3: Automatic Serialization (Medium)**
 - Any class implementing `java.io.Serializable` is automatically handled
 - Uses Java's built-in serialization via `RawTypeMapper`
 - No mapper registration required
 - Supports `transient` fields (automatically excluded)
 
-**Priority 3: Built-in Conversion (Lowest)**
+**Priority 4: Built-in Conversion (Lowest)**
 - Primitives (`int`, `double`, `boolean`, etc.)
 - Primitive wrappers (`Integer`, `Double`, `Boolean`, etc.)
 - Strings
 - Arrays (primitive and object arrays)
+
+#### Collection Interface Support
+
+Protocol V2 provides built-in support for common Java collection interfaces without requiring custom mappers.
+
+**Supported Interfaces:**
+- `java.util.List` - ArrayList, LinkedList, Vector, etc.
+- `java.util.Map` - HashMap, TreeMap, LinkedHashMap, etc.
+- `java.util.Set` - HashSet, TreeSet, LinkedHashSet, etc.
+- `java.util.Queue` - LinkedList, PriorityQueue, etc.
+- `java.util.Deque` - ArrayDeque, LinkedList, etc.
+- `java.util.Collection` - Parent interface for all collections
+
+**How It Works:**
+
+When a method declares a collection interface parameter (e.g., `List<String>`), V2 protocol:
+
+1. **Encoding (Client → Server):** Serializes the actual implementation (ArrayList, HashMap, etc.) using Java serialization
+2. **Decoding (Server):** Deserializes back to the same implementation class
+3. **Type Preservation:** ArrayList remains ArrayList, HashMap remains HashMap
+
+**Example:**
+
+```java
+// Service interface - uses interface types, not concrete classes
+public interface DataService {
+    String processList(List<String> items);      // List interface
+    String processMap(Map<String, Integer> data); // Map interface
+    String processSet(Set<String> unique);       // Set interface
+}
+
+// Server implementation
+public class DataServiceImpl implements DataService {
+    @Override
+    public String processList(List<String> items) {
+        return "Received " + items.size() + " items: " + String.join(", ", items);
+    }
+
+    @Override
+    public String processMap(Map<String, Integer> data) {
+        return "Map with " + data.size() + " entries";
+    }
+
+    @Override
+    public String processSet(Set<String> unique) {
+        return "Set with " + unique.size() + " unique items";
+    }
+}
+
+// Server setup - no custom mapper needed!
+TcpRestServer server = new SingleThreadTcpRestServer(8080);
+server.setProtocolVersion(ProtocolVersion.V2);
+server.addResource(new DataServiceImpl());
+server.up();
+
+// Client setup - no custom mapper needed!
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    DataService.class, "localhost", 8080
+);
+DataService client = factory.getClient();
+
+// Client calls - pass any compatible implementation
+List<String> myList = new ArrayList<>();
+myList.add("apple");
+myList.add("banana");
+String result1 = client.processList(myList);  // ArrayList → List → ArrayList
+
+Map<String, Integer> myMap = new HashMap<>();
+myMap.put("x", 100);
+String result2 = client.processMap(myMap);    // HashMap → Map → HashMap
+
+Set<String> mySet = new TreeSet<>();
+mySet.add("alpha");
+String result3 = client.processSet(mySet);    // TreeSet → Set → TreeSet
+```
+
+**Wire Protocol:**
+
+```
+# List parameter (ArrayList with ["apple", "banana"])
+V2|0|{{...DataService/processList(Ljava/util/List;)...}}|[rO0ABXNyABNqYXZhLnV0aWwuQXJyYXlMaXN0...]
+
+# Map parameter (HashMap with {"x": 100})
+V2|0|{{...DataService/processMap(Ljava/util/Map;)...}}|[rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcA...]
+
+# Set parameter (TreeSet with ["alpha"])
+V2|0|{{...DataService/processSet(Ljava/util/Set;)...}}|[rO0ABXNyABFqYXZhLnV0aWwuVHJlZVNldD...]
+```
+
+**Important Notes:**
+
+1. **Generic Type Erasure:** Due to Java type erasure, collections are deserialized without generic type information
+   - `List<String>` is deserialized as `List` (raw type) with runtime element types
+   - Elements retain their actual types (String, Integer, etc.)
+   - This works fine for most use cases
+
+2. **When to Use Custom Mappers:**
+   - **Specific generic types needed:** Use Gson/Jackson with TypeToken for `List<User>`, `Map<String, Order>`, etc.
+   - **Cross-language compatibility:** Use JSON/XML mappers for non-Java clients
+   - **Human-readable format:** Use JSON mappers for debugging/logging
+
+3. **Performance:** Collection serialization uses binary Java serialization
+   - Fast for Java-to-Java communication
+   - Larger than JSON for simple data
+   - Includes metadata for object graphs and type info
+
+**Custom Mapper for Specific Types:**
+
+```java
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+// Custom mapper for List<User> with specific generic type
+public class UserListMapper implements Mapper {
+    private final Gson gson = new Gson();
+    private final Type type = new TypeToken<List<User>>(){}.getType();
+
+    @Override
+    public String objectToString(Object object) {
+        return gson.toJson(object);
+    }
+
+    @Override
+    public Object stringToObject(String param) {
+        return gson.fromJson(param, type);  // Preserves List<User> type
+    }
+}
+
+// Register for the specific interface method parameter
+// Note: This requires registering by parameter position, which is advanced usage
+```
 
 #### Auto-Serialization Example
 
@@ -362,13 +501,23 @@ Base64 decodes to: `{"name":"Alice","age":25}` (human-readable JSON)
 
 | Approach | Use Case | Pros | Cons |
 |----------|----------|------|------|
+| **Collection Interfaces** | List, Map, Set parameters in method signatures | Zero configuration, works with any implementation, type-preserving | Type erasure (no generic type info), Java-only, binary format |
 | **Auto-Serialization** | Internal microservices, DTOs you control | Zero configuration, handles complex objects, supports transient | Binary format, larger size, Java-only |
-| **Custom Mapper** | Public APIs, cross-language, human-readable wire format | Full control, readable format, efficient | Requires manual implementation |
+| **Custom Mapper** | Public APIs, cross-language, human-readable wire format, specific generic types | Full control, readable format, efficient, preserves generics | Requires manual implementation |
 | **Built-in** | Primitives, strings, simple types | Fast, minimal overhead | Limited to basic types |
 
 #### Best Practices
 
-1. **For new DTOs**: Implement `Serializable` first (zero effort)
+1. **For collection parameters**: Use interface types (List, Map, Set) in method signatures
+   ```java
+   // Good: Interface types work automatically
+   public String process(List<String> items, Map<String, Integer> data);
+
+   // Also works: Concrete types
+   public String process(ArrayList<String> items, HashMap<String, Integer> data);
+   ```
+
+2. **For new DTOs**: Implement `Serializable` first (zero effort)
    ```java
    public class MyDTO implements Serializable {
        private static final long serialVersionUID = 1L;
@@ -376,17 +525,17 @@ Base64 decodes to: `{"name":"Alice","age":25}` (human-readable JSON)
    }
    ```
 
-2. **For public APIs**: Use custom mappers with JSON
+3. **For public APIs**: Use custom mappers with JSON
    ```java
    server.addMapper(MyDTO.class.getName(), new GsonMapper());
    ```
 
-3. **For sensitive data**: Mark fields `transient` or use custom mapper
+4. **For sensitive data**: Mark fields `transient` or use custom mapper
    ```java
    private transient String password;  // Not serialized
    ```
 
-4. **For nested objects**: All nested objects must be Serializable or have mappers
+5. **For nested objects**: All nested objects must be Serializable or have mappers
    ```java
    public class Order implements Serializable {
        private User user;        // User must also be Serializable
@@ -430,13 +579,19 @@ Object decodeParam(String paramStr, Class<?> paramType, Map<String, Mapper> mapp
         }
     }
 
-    // 2. Check if Serializable (auto-deserialization)
+    // 2. Check common collection interfaces (List, Map, Set, etc.)
+    if (isCommonCollectionInterface(paramType)) {
+        RawTypeMapper rawMapper = new RawTypeMapper();
+        return rawMapper.stringToObject(paramStr);
+    }
+
+    // 3. Check if Serializable (auto-deserialization)
     if (Serializable.class.isAssignableFrom(paramType) && ...) {
         RawTypeMapper rawMapper = new RawTypeMapper();
         return rawMapper.stringToObject(paramStr);
     }
 
-    // 3. Use built-in conversion
+    // 4. Use built-in conversion
     return convertPrimitive(unbase64(paramStr), paramType);
 }
 ```
