@@ -37,7 +37,11 @@ import java.util.Map;
  *
  * @author Weinan Li
  * @date 07 31 2012
+ * @deprecated Use Protocol V2 ({@link cn.huiwings.tcprest.converter.v2.ProtocolV2Converter}) instead.
+ *             V1 is maintained for backward compatibility only. V2 provides method overloading,
+ *             better exception handling, and intelligent mapper support with auto-serialization.
  */
+@Deprecated
 public class DefaultConverter implements Converter {
     private Logger logger = LoggerFactory.getDefaultLogger();
     private SecurityConfig securityConfig;

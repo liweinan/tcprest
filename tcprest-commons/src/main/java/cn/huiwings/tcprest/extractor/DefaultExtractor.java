@@ -33,7 +33,11 @@ import java.util.List;
  *
  * @author Weinan Li
  * @date Jul 30 2012
+ * @deprecated Use Protocol V2 ({@link cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor}) instead.
+ *             V1 is maintained for backward compatibility only. V2 provides method overloading,
+ *             better exception handling, and intelligent mapper support with auto-serialization.
  */
+@Deprecated
 public class DefaultExtractor implements Extractor {
 
     private Logger logger = LoggerFactory.getDefaultLogger();

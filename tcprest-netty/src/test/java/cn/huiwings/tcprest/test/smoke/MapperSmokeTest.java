@@ -58,9 +58,9 @@ public class MapperSmokeTest {
 
     @Test
     public void extendMapperTest() {
-        // Test with: tcpRestServer.getClass().getCanonicalName()
-        // Note: Mapper is a V1 feature, so we explicitly set server to V1
-        tcpRestServer.setProtocolVersion(ProtocolVersion.V1);
+        // Test custom mapper with V2 protocol
+        // V2 supports intelligent mapper system: custom mappers have highest priority
+        tcpRestServer.setProtocolVersion(ProtocolVersion.V2);
         tcpRestServer.addResource(HelloWorldResource.class);
         tcpRestServer.addMapper(Color.class.getCanonicalName(),
                 new ColorMapper());
@@ -71,8 +71,8 @@ public class MapperSmokeTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
                 HelloWorld.class, "localhost",
                 tcpRestServer.getServerPort(), colorMapper);
-        // Mapper requires V1 protocol
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
+        // V2 is default, but set explicitly for clarity
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
 
         HelloWorld client = (HelloWorld) factory.getInstance();
         Color color = new Color("Red");
@@ -81,74 +81,61 @@ public class MapperSmokeTest {
 
 
     @Test
-    public void testArrayListMapper() {
-        List list = new ArrayList();
-        list.add(1);
-        list.add(2);
-        list.add(3);
-        RawTypeMapper mapper = new RawTypeMapper();
-        // Debug: mapper.objectToString(list)
-    }
+    public void autoSerializationTest() {
+        // V2 auto-serialization test with Serializable objects
+        // We don't register a Color mapper, so V2 will automatically use
+        // auto-serialization (RawTypeMapper) because Color implements Serializable.
+        // This is V2's Priority 2: Auto-Serialization for Serializable objects
+        tcpRestServer.setProtocolVersion(ProtocolVersion.V2);
+        tcpRestServer.addSingletonResource(new AutoSerializationService());
 
-    public interface RawType {
-        public List getArrayList(List in);
-
-        public HashMap<String, List<Color>> getComplexType(
-                HashMap<String, List<Color>> in);
-    }
-
-    public static class RawTypeResource implements RawType {
-        public List getArrayList(List in) {
-            return in;
-        }
-
-        public HashMap<String, List<Color>> getComplexType(
-                HashMap<String, List<Color>> in) {
-            return in;
-        }
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    @Test
-    public void rawTypeTest() {
-        // Test with: tcpRestServer.getClass().getCanonicalName()
-        // We don't put Color mapper into server,
-        // so server will fallback to use RawTypeMapper to decode Color.class
-        // because Color is serializable.
-        // Note: RawTypeMapper is a V1 feature, so we explicitly set server to V1
-        tcpRestServer.setProtocolVersion(ProtocolVersion.V1);
-        tcpRestServer.addSingletonResource(new RawTypeResource());
-
-        TcpRestClientFactory factory = new TcpRestClientFactory(RawType.class,
+        TcpRestClientFactory factory = new TcpRestClientFactory(AutoSerializationAPI.class,
                 "localhost", tcpRestServer.getServerPort());
-        // RawTypeMapper requires V1 protocol
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
+        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
 
-        RawType client = (RawType) factory.getInstance();
+        AutoSerializationAPI client = (AutoSerializationAPI) factory.getInstance();
+
+        // Test 1: Simple Serializable object (Color) without custom mapper
         Color red = new Color("Red");
+        Color response1 = client.echoColor(red);
+        assertEquals("Red", response1.getName());
 
-        {
-            List request = new ArrayList();
-            request.add(42);
-            request.add(red);
+        // Test 2: Serializable wrapper containing multiple Color objects
+        ColorPair pair = new ColorPair(new Color("Red"), new Color("Blue"));
+        ColorPair response2 = client.echoColorPair(pair);
+        assertEquals("Red", response2.getFirst().getName());
+        assertEquals("Blue", response2.getSecond().getName());
+    }
 
-            List response = client.getArrayList(request);
+    // V2-compatible service interface with proper type signatures
+    public interface AutoSerializationAPI {
+        Color echoColor(Color color);
+        ColorPair echoColorPair(ColorPair pair);
+    }
 
-            assertEquals(42, response.get(0));
-            assertEquals(red.getName(), ((Color) response.get(1)).getName());
+    public static class AutoSerializationService implements AutoSerializationAPI {
+        @Override
+        public Color echoColor(Color color) {
+            return color;
         }
 
-        {
-            List<Color> list = new ArrayList<Color>();
-            list.add(red);
-            HashMap<String, List<Color>> request = new HashMap<String, List<Color>>();
-            request.put("item", list);
-
-            HashMap<String, List<Color>> response = client.getComplexType(request);
-
-            assertEquals("item", response.keySet().iterator().next());
-            assertEquals(red.getName(), response.get("item").get(0).getName());
-
+        @Override
+        public ColorPair echoColorPair(ColorPair pair) {
+            return pair;
         }
+    }
+
+    // Serializable wrapper for testing auto-serialization with nested objects
+    public static class ColorPair implements java.io.Serializable {
+        private Color first;
+        private Color second;
+
+        public ColorPair(Color first, Color second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        public Color getFirst() { return first; }
+        public Color getSecond() { return second; }
     }
 }
