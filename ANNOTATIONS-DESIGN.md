@@ -493,6 +493,100 @@ public interface UserService {
 </dependencies>
 ```
 
+### Implementation Principles
+
+**CRITICAL: Reuse Existing Interface Design**
+
+The annotation support implementation **MUST leverage existing TcpRest interfaces and classes** instead of reinventing the wheel:
+
+✅ **DO:**
+- Use `TcpRestClientFactory` for client proxy creation
+- Use `TcpRestServer` interface and existing implementations (`SingleThreadTcpRestServer`, `NioTcpRestServer`, `NettyTcpRestServer`)
+- Use `SecurityConfig` for security configuration
+- Use `SSLParam` for SSL/TLS configuration
+- Use `CompressionConfig` for compression settings
+- Use `ProtocolConfig` for protocol version configuration
+- Call existing configuration methods (`setSecurityConfig()`, `addSingletonResource()`, etc.)
+
+❌ **DON'T:**
+- Create new server classes (use existing `SingleThreadTcpRestServer`, `NioTcpRestServer`, `NettyTcpRestServer`)
+- Duplicate configuration logic (reuse `SecurityConfig`, `SSLParam`, `CompressionConfig`)
+- Bypass existing APIs (use `TcpRestClientFactory.getClient()`, not manual proxy creation)
+- Reimplement protocol handling (use existing `ProtocolConfig.setVersion()`)
+
+**Example - Correct Implementation:**
+
+```java
+// ✅ CORRECT: Reuse TcpRestClientFactory
+TcpRestClientFactory<T> factory = new TcpRestClientFactory<>(
+    clientInterface, host, port
+);
+
+// ✅ CORRECT: Reuse SecurityConfig
+SecurityConfig securityConfig = new SecurityConfig();
+if ("HMAC_SHA256".equals(annotation.checksumAlgorithm())) {
+    securityConfig.enableHMAC(annotation.hmacSecret());
+}
+factory.setSecurityConfig(securityConfig);
+
+// ✅ CORRECT: Reuse SSLParam
+if (annotation.ssl()) {
+    SSLParam sslParam = new SSLParam();
+    sslParam.setKeyStorePath(annotation.sslKeyStore());
+    sslParam.setKeyStoreKeyPass(annotation.sslPassword());
+    factory.setSslParam(sslParam);
+}
+
+return factory.getClient();  // ✅ Use existing method
+```
+
+```java
+// ✅ CORRECT: Reuse existing server implementations
+TcpRestServer server;
+switch (annotation.serverType()) {
+    case SINGLE_THREAD:
+        server = new SingleThreadTcpRestServer(port, sslParam);
+        break;
+    case NIO:
+        server = new NioTcpRestServer(port);
+        break;
+    case NETTY:
+        server = new NettyTcpRestServer(port, sslParam);
+        break;
+}
+
+// ✅ CORRECT: Reuse existing configuration methods
+server.setSecurityConfig(securityConfig);
+server.addSingletonResource(resource);
+server.up();
+```
+
+**Benefits of Reusing Existing Design:**
+- ✅ **No code duplication** - Leverage tested, working code
+- ✅ **Consistency** - Annotations behave identically to programmatic API
+- ✅ **Maintainability** - Bug fixes in core automatically benefit annotations
+- ✅ **Type safety** - Use existing well-defined interfaces
+- ✅ **Documentation** - Existing JavaDoc applies
+
+**Anti-pattern Example:**
+
+```java
+// ❌ WRONG: Don't create custom server class
+public class AnnotationBasedServer implements TcpRestServer {
+    // Duplicating logic from SingleThreadTcpRestServer
+}
+
+// ❌ WRONG: Don't duplicate security config
+public class AnnotationSecurityConfig {
+    // Duplicating logic from SecurityConfig
+}
+
+// ❌ WRONG: Don't bypass factory
+public <T> T createClient() {
+    // Manual proxy creation instead of using TcpRestClientFactory
+}
+```
+
 ### Implementation
 
 #### 1. Client Producer
@@ -654,12 +748,19 @@ public class ProductionServerApp {
 
 ### Implementation
 
+**IMPORTANT:** Spring implementation must also **reuse existing TcpRest interfaces**:
+- Use `TcpRestClientFactory` for client creation (same as CDI)
+- Use existing server implementations (`SingleThreadTcpRestServer`, `NioTcpRestServer`, `NettyTcpRestServer`)
+- Use existing configuration classes (`SecurityConfig`, `SSLParam`, `CompressionConfig`)
+
+See "Implementation Principles" in CDI section for detailed guidelines.
+
 #### 1. Client Factory Bean
 ```java
 package cn.huiwings.tcprest.spring;
 
 import cn.huiwings.tcprest.annotations.TcpRestClient;
-import cn.huiwings.tcprest.client.TcpRestClientFactory;
+import cn.huiwings.tcprest.client.TcpRestClientFactory;  // ✅ Reuse existing
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.core.env.Environment;
@@ -675,12 +776,43 @@ public class TcpRestClientFactoryBean<T> implements FactoryBean<T>, EnvironmentA
         String host = environment.resolvePlaceholders(annotation.host());
         int port = resolvePort(annotation.port());
 
+        // ✅ CORRECT: Reuse TcpRestClientFactory
         TcpRestClientFactory<T> factory = new TcpRestClientFactory<>(
             clientInterface, host, port
         );
 
-        // Configure from annotation
-        return factory.getClient();
+        // ✅ CORRECT: Configure using existing APIs
+        configureFactory(factory, annotation);
+
+        return factory.getClient();  // ✅ Use existing method
+    }
+
+    private void configureFactory(TcpRestClientFactory<T> factory, TcpRestClient annotation) {
+        // ✅ CORRECT: Reuse SecurityConfig
+        if (!"NONE".equals(annotation.checksumAlgorithm())) {
+            SecurityConfig securityConfig = new SecurityConfig();
+            if ("HMAC_SHA256".equals(annotation.checksumAlgorithm())) {
+                securityConfig.enableHMAC(annotation.hmacSecret());
+            } else if ("CRC32".equals(annotation.checksumAlgorithm())) {
+                securityConfig.enableCRC32();
+            }
+            factory.setSecurityConfig(securityConfig);
+        }
+
+        // ✅ CORRECT: Reuse SSLParam
+        if (annotation.ssl()) {
+            SSLParam sslParam = new SSLParam();
+            sslParam.setKeyStorePath(resolveProperty(annotation.sslKeyStore()));
+            sslParam.setKeyStoreKeyPass(resolveProperty(annotation.sslPassword()));
+            if (!annotation.sslTrustStore().isEmpty()) {
+                sslParam.setTrustStorePath(resolveProperty(annotation.sslTrustStore()));
+            }
+            factory.setSslParam(sslParam);
+        }
+    }
+
+    private String resolveProperty(String value) {
+        return environment.resolvePlaceholders(value);
     }
 
     @Override
@@ -1192,14 +1324,16 @@ compression = false         // Match server
 
 ### Phase 2: CDI Support Module
 - Create tcprest-cdi module
-- Implement client producer
-- Implement server manager
+- Implement client producer (**MUST reuse `TcpRestClientFactory`**)
+- Implement server manager (**MUST reuse existing server implementations**)
+- Configure using existing APIs (`SecurityConfig`, `SSLParam`, `CompressionConfig`)
 - Add Weld SE tests
 
 ### Phase 3: Spring Support Module
 - Create tcprest-spring module
-- Implement factory beans
-- Implement auto-configuration
+- Implement factory beans (**MUST reuse `TcpRestClientFactory`**)
+- Implement auto-configuration (**MUST reuse existing server implementations**)
+- Configure using existing APIs (same as CDI)
 - Add Spring Boot starter
 
 ### Phase 4: Documentation
@@ -1221,6 +1355,9 @@ compression = false         // Match server
 - ✅ **Framework agnostic** - Support multiple DI containers
 - ✅ **Maintainable** - Clear separation of concerns
 - ✅ **Testable** - Can test with Weld/Spring Test
+- ✅ **Code reuse** - Implementation leverages existing tested interfaces
+- ✅ **Consistency** - Annotation behavior matches programmatic API exactly
+- ✅ **No duplication** - Single source of truth for core logic
 
 ## Example Comparison
 
