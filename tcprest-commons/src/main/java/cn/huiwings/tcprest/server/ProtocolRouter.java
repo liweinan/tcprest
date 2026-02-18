@@ -1,300 +1,169 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.compression.CompressionConfig;
-import cn.huiwings.tcprest.compression.CompressionUtil;
 import cn.huiwings.tcprest.codec.ProtocolCodec;
 import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
 import cn.huiwings.tcprest.parser.RequestParser;
 import cn.huiwings.tcprest.parser.v2.ProtocolV2Parser;
-import cn.huiwings.tcprest.invoker.Invoker;
 import cn.huiwings.tcprest.invoker.v2.ProtocolV2Invoker;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
 
-import java.io.IOException;
 import java.util.Map;
 
 /**
- * Router for protocol version detection and request processing.
+ * Protocol V2 request router and processor.
  *
- * <p>The ProtocolRouter detects the protocol version from the request
- * and routes it to the appropriate handler (v1 or v2).</p>
+ * <p>The ProtocolRouter handles all Protocol V2 requests with comprehensive
+ * exception handling and status code support.</p>
  *
- * <p><b>Version Detection:</b></p>
+ * <p><b>Protocol V2 Features:</b></p>
  * <ul>
- *   <li>If request starts with "V2|" → Protocol v2</li>
- *   <li>Otherwise → Protocol v1 (backward compatible)</li>
+ *   <li>Method signature support (enables overloading)</li>
+ *   <li>Status codes (SUCCESS, BUSINESS_EXCEPTION, SERVER_ERROR, PROTOCOL_ERROR)</li>
+ *   <li>Intelligent type mapping (auto-serialization, collection support)</li>
+ *   <li>Security features (checksum, class whitelist)</li>
  * </ul>
  *
- * <p><b>Server Configuration:</b></p>
- * <ul>
- *   <li><b>AUTO</b> (default): Accepts both v1 and v2</li>
- *   <li><b>V1</b>: Only accepts v1 requests</li>
- *   <li><b>V2</b>: Only accepts v2 requests</li>
- * </ul>
+ * <p><b>Request Format:</b></p>
+ * <pre>
+ * V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2]|CHK:value
+ * </pre>
  *
- * @since 1.1.0
+ * <p><b>Response Format:</b></p>
+ * <pre>
+ * V2|0|STATUS|{{base64(BODY)}}|CHK:value
+ * </pre>
+ *
+ * @since 1.1.0 (V1 support removed in version 2.0.0)
  */
 public class ProtocolRouter {
 
     private final Logger logger;
-    private final ProtocolVersion serverVersion;
-
-    // V1 components (from AbstractTcpRestServer)
-    private final RequestParser v1Parser;
-    private final Invoker v1Invoker;
-    private final Map<String, Mapper> mappers;
-    private final CompressionConfig compressionConfig;
-
-    // V2 components
-    private final RequestParser v2Parser;
-    private final ProtocolV2Invoker v2Invoker;
-    private final ProtocolCodec v2Codec;
+    private final RequestParser parser;
+    private final ProtocolV2Invoker invoker;
+    private final ProtocolCodec codec;
 
     /**
-     * Create protocol router with unified component initialization.
+     * Create protocol router with V2 components.
      *
-     * <p><b>Note on V1 vs V2 initialization:</b></p>
-     * <ul>
-     *   <li><b>V1 Extractor</b>: Requires TcpRestServer reference for backward compatibility
-     *       (handles inner class naming, legacy resource lookup)</li>
-     *   <li><b>V2 Components</b>: Use modern initialization with mappers only</li>
-     * </ul>
-     *
-     * @param serverVersion server protocol version (V1, V2, or AUTO)
-     * @param resourceRegister resource register (for V1 backward compatibility)
-     * @param mappers mapper registry shared between V1 and V2
-     * @param compressionConfig compression configuration
+     * @param mappers mapper registry for parameter serialization
      * @param logger logger instance
      */
-    public ProtocolRouter(
-            ProtocolVersion serverVersion,
-            ResourceRegister resourceRegister,
-            Map<String, Mapper> mappers,
-            CompressionConfig compressionConfig,
-            Logger logger) {
-        this.serverVersion = serverVersion != null ? serverVersion : ProtocolVersion.AUTO;
-        this.mappers = mappers;
-        this.compressionConfig = compressionConfig;
+    public ProtocolRouter(Map<String, Mapper> mappers, Logger logger) {
         this.logger = logger;
-
-        // V1 components - use legacy constructor for backward compatibility
-        // (V1 parser needs TcpRestServer for inner class handling, legacy resource lookup)
-        if (!(resourceRegister instanceof cn.huiwings.tcprest.server.TcpRestServer)) {
-            throw new IllegalArgumentException(
-                "ResourceRegister must implement TcpRestServer for V1 protocol support"
-            );
-        }
-        this.v1Parser = new cn.huiwings.tcprest.parser.DefaultRequestParser(
-            ((cn.huiwings.tcprest.server.TcpRestServer) resourceRegister).getMappers()
-        );
-        this.v1Invoker = new cn.huiwings.tcprest.invoker.DefaultInvoker();
-
-        // V2 components - modern initialization (no server dependency)
-        this.v2Parser = new ProtocolV2Parser(mappers);
-        this.v2Invoker = new ProtocolV2Invoker();
-        this.v2Codec = new ProtocolV2Codec(mappers);
+        this.parser = new ProtocolV2Parser(mappers);
+        this.invoker = new ProtocolV2Invoker();
+        this.codec = new ProtocolV2Codec(mappers);
     }
 
     /**
-     * Set security configuration for V2 protocol components.
+     * Set security configuration for protocol components.
      *
      * @param securityConfig security configuration
      */
-    public void setV2SecurityConfig(cn.huiwings.tcprest.security.SecurityConfig securityConfig) {
+    public void setSecurityConfig(cn.huiwings.tcprest.security.SecurityConfig securityConfig) {
         if (securityConfig != null) {
-            // Cast to implementation classes to access security config setters
-            if (v2Parser instanceof cn.huiwings.tcprest.parser.v2.ProtocolV2Parser) {
-                ((cn.huiwings.tcprest.parser.v2.ProtocolV2Parser) v2Parser).setSecurityConfig(securityConfig);
+            if (parser instanceof ProtocolV2Parser) {
+                ((ProtocolV2Parser) parser).setSecurityConfig(securityConfig);
             }
-            if (v2Codec instanceof cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) {
-                ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).setSecurityConfig(securityConfig);
+            if (codec instanceof ProtocolV2Codec) {
+                ((ProtocolV2Codec) codec).setSecurityConfig(securityConfig);
             }
         }
     }
 
     /**
-     * Process request with automatic version detection.
+     * Process Protocol V2 request.
      *
-     * @param request the request string
-     * @param resourceRegister resource register for v1
-     * @return response string
+     * @param request the V2 request string
+     * @param resourceRegister resource register for finding service instances
+     * @return V2 response string with status code
      */
     public String processRequest(String request, ResourceRegister resourceRegister) {
+        // Validate request
         if (request == null || request.isEmpty()) {
-            return handleError(new ProtocolException("Empty request"), ProtocolVersion.V1);
+            return handleError(new ProtocolException("Empty request"));
         }
 
-        // Detect protocol version from request
-        ProtocolVersion requestVersion = detectVersion(request);
-
-        // Validate server supports this version
-        if (!isVersionSupported(requestVersion)) {
-            return handleError(
-                new ProtocolException("Server does not support " + requestVersion +
-                                     " (server version: " + serverVersion + ")"),
-                requestVersion
-            );
+        // Validate protocol version
+        if (!request.startsWith(ProtocolV2Constants.PREFIX)) {
+            return handleError(new ProtocolException(
+                "Only Protocol V2 is supported. Request must start with '" +
+                ProtocolV2Constants.PREFIX + "'"
+            ));
         }
 
-        // Route to appropriate handler
-        if (requestVersion == ProtocolVersion.V2) {
-            return processV2Request(request, resourceRegister);
-        } else {
-            return processV1Request(request, resourceRegister);
-        }
-    }
-
-    /**
-     * Detect protocol version from request.
-     *
-     * @param request the request string
-     * @return detected version (V1 or V2)
-     */
-    private ProtocolVersion detectVersion(String request) {
-        if (request.startsWith(ProtocolV2Constants.PREFIX)) {
-            return ProtocolVersion.V2;
-        } else {
-            return ProtocolVersion.V1;
-        }
-    }
-
-    /**
-     * Check if server supports the requested version.
-     *
-     * @param requestVersion the requested version
-     * @return true if supported
-     */
-    private boolean isVersionSupported(ProtocolVersion requestVersion) {
-        if (serverVersion == ProtocolVersion.AUTO) {
-            return true; // AUTO accepts both
-        }
-        return serverVersion == requestVersion;
-    }
-
-    /**
-     * Process v2 request with exception handling.
-     *
-     * @param request the v2 request
-     * @param resourceRegister resource register
-     * @return v2 response with status code
-     */
-    private String processV2Request(String request, ResourceRegister resourceRegister) {
+        // Process V2 request
         try {
-            // Extract context
-            Context context = v2Parser.parse(request);
+            // Parse request into context
+            Context context = parser.parse(request);
 
-            // Get or create resource instance using ResourceResolver
+            // Resolve resource instance
             Class<?> targetClass = context.getTargetClass();
             Object instance = ResourceResolver.findResourceInstance(targetClass, resourceRegister, logger);
             context.setTargetInstance(instance);
 
             // Invoke method
-            Object result = v2Invoker.invoke(context);
+            Object result = invoker.invoke(context);
 
             // Encode success response
-            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeResponse(result, StatusCode.SUCCESS);
+            return ((ProtocolV2Codec) codec).encodeResponse(result, StatusCode.SUCCESS);
 
         } catch (BusinessException e) {
-            // Business exception - expected error
+            // Business exception - expected error from business logic
             logger.warn("Business exception: " + e.getMessage());
-            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(e, StatusCode.BUSINESS_EXCEPTION);
+            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.BUSINESS_EXCEPTION);
 
         } catch (ProtocolException e) {
-            // Protocol error - malformed request
+            // Protocol error - malformed request or parsing failure
             logger.error("Protocol error: " + e.getMessage());
-            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(e, StatusCode.PROTOCOL_ERROR);
+            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.PROTOCOL_ERROR);
 
         } catch (Exception e) {
-            // Server error - unexpected exception
+            // Server error - unexpected exception during processing
             logger.error("Server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
-            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(e, StatusCode.SERVER_ERROR);
+            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.SERVER_ERROR);
         }
     }
-
-    /**
-     * Process v1 request (legacy behavior with compression support).
-     *
-     * @param request the v1 request
-     * @param resourceRegister resource register
-     * @return v1 response
-     */
-    private String processV1Request(String request, ResourceRegister resourceRegister) {
-        try {
-            // Extract calling class and method from request (new secure format)
-            Context context = v1Parser.parse(request);
-
-            // V1 parser sets targetInstance if using legacy constructor
-            // If not set (new constructor), use ResourceResolver
-            Class<?> targetClass = context.getTargetClass();
-            if (context.getTargetInstance() == null) {
-                Object instance = ResourceResolver.findResourceInstance(targetClass, resourceRegister, logger);
-                context.setTargetInstance(instance);
-            }
-
-            // Invoke method (v1 invoker swallows exceptions and returns NullObj)
-            Object responseObject = v1Invoker.invoke(context);
-            logger.debug("***responseObject: " + responseObject);
-
-            // Get returned object and encode using new secure format
-            Mapper responseMapper = context.getCodec().getMapper(mappers, responseObject.getClass());
-            String resultString = responseMapper.objectToString(responseObject);
-
-            // Encode result parameter
-            String resultEncoded = context.getCodec().encodeParam(resultString);
-
-            // Build response: 0|{{base64(result)}}|CHK:value
-            String message = "0|" + resultEncoded;
-
-            // Add checksum if security is enabled
-            if (context.getCodec() instanceof cn.huiwings.tcprest.codec.DefaultProtocolCodec) {
-                cn.huiwings.tcprest.codec.DefaultProtocolCodec defaultCodec =
-                    (cn.huiwings.tcprest.codec.DefaultProtocolCodec) context.getCodec();
-                cn.huiwings.tcprest.security.SecurityConfig securityConfig = defaultCodec.getSecurityConfig();
-
-                String checksum = cn.huiwings.tcprest.security.ProtocolSecurity.calculateChecksum(message, securityConfig);
-                if (!checksum.isEmpty()) {
-                    message += "|" + checksum;
-                }
-            }
-
-            logger.debug("***V1 response: " + message);
-            return message;
-
-        } catch (Exception e) {
-            logger.error("V1 request processing error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
-            e.printStackTrace();
-            return "0||"; // V1 returns empty result: 0|empty|
-        }
-    }
-
 
     /**
      * Handle errors and return appropriate error response.
      *
      * @param error the error
-     * @param version the protocol version
      * @return error response
      */
-    private String handleError(Exception error, ProtocolVersion version) {
-        if (version == ProtocolVersion.V2) {
-            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(error, StatusCode.PROTOCOL_ERROR);
-        } else {
-            return ""; // V1 returns empty on error
-        }
+    private String handleError(Exception error) {
+        return ((ProtocolV2Codec) codec).encodeException(error, StatusCode.PROTOCOL_ERROR);
     }
 
     /**
-     * Get server protocol version.
+     * Get the request parser.
      *
-     * @return server version
+     * @return request parser
      */
-    public ProtocolVersion getServerVersion() {
-        return serverVersion;
+    public RequestParser getParser() {
+        return parser;
+    }
+
+    /**
+     * Get the protocol codec.
+     *
+     * @return protocol codec
+     */
+    public ProtocolCodec getCodec() {
+        return codec;
+    }
+
+    /**
+     * Get the method invoker.
+     *
+     * @return method invoker
+     */
+    public ProtocolV2Invoker getInvoker() {
+        return invoker;
     }
 }

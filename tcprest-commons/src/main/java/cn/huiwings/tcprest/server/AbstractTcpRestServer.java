@@ -1,22 +1,22 @@
 package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
-import cn.huiwings.tcprest.compression.CompressionUtil;
-import cn.huiwings.tcprest.parser.DefaultRequestParser;
-import cn.huiwings.tcprest.parser.RequestParser;
-import cn.huiwings.tcprest.invoker.DefaultInvoker;
-import cn.huiwings.tcprest.invoker.Invoker;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.logger.LoggerFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * Abstract base class for TcpRest server implementations.
+ *
+ * <p>Provides common functionality for resource management, mapper configuration,
+ * and Protocol V2 request processing.</p>
+ *
+ * <p><b>Protocol Support:</b> Protocol V2 only (V1 removed in version 2.0.0)</p>
+ *
  * @author Weinan Li
  * @created_at 08 26 2012
  */
@@ -32,28 +32,12 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
 
     public final Map<String, Object> singletonResources = new HashMap<String, Object>();
 
-    public RequestParser parser = new DefaultRequestParser(this.getMappers());
-
-    /**
-     * V1 invoker field - no longer used by ProtocolRouter.
-     * <p>ProtocolRouter now creates its own invoker instances internally
-     * to maintain consistency between V1 and V2 component initialization.</p>
-     * <p>This field is kept for backward compatibility in case external code references it.</p>
-     *
-     * @deprecated No longer used internally. ProtocolRouter creates its own invokers.
-     */
-    @Deprecated
-    public Invoker invoker = new DefaultInvoker();
-
     protected CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
 
-    private ProtocolVersion protocolVersion = ProtocolVersion.AUTO; // Default: support both v1 and v2
-
     /**
-     * Protocol router for handling V1 and V2 requests.
+     * Protocol router for handling V2 requests.
      * <p>Initialized when server starts (in up() method) with current configuration.</p>
      * <p>Once initialized, remains constant during server lifetime.</p>
-     * <p>AUTO mode: Router handles both V1 and V2 requests by detecting protocol prefix.</p>
      */
     private volatile ProtocolRouter protocolRouter;
 
@@ -106,7 +90,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
     }
 
     /**
-     * Initialize protocol router with current configuration.
+     * Initialize Protocol V2 router with current configuration.
      * <p>Should be called by subclasses in their {@code up()} method to initialize
      * the router before accepting requests.</p>
      *
@@ -120,14 +104,8 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
      */
     protected void initializeProtocolRouter() {
         if (protocolRouter == null) {
-            protocolRouter = new ProtocolRouter(
-                protocolVersion,
-                this,  // Pass 'this' as ResourceRegister for V1 backward compatibility
-                mappers,
-                compressionConfig,
-                logger
-            );
-            logger.info("Protocol router initialized with version: " + protocolVersion);
+            protocolRouter = new ProtocolRouter(mappers, logger);
+            logger.info("Protocol V2 router initialized");
         }
     }
 
@@ -142,8 +120,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
             initializeProtocolRouter();
         }
 
-        // Route request to appropriate protocol handler (V1 or V2)
-        // In AUTO mode, router detects version from request prefix and routes accordingly
+        // Process V2 request
         return protocolRouter.processRequest(request, this);
     }
 
@@ -172,7 +149,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
     }
 
     /**
-     * Enable compression with default settings
+     * Enable compression with default settings.
      */
     public void enableCompression() {
         this.compressionConfig.setEnabled(true);
@@ -180,66 +157,11 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
     }
 
     /**
-     * Disable compression
+     * Disable compression.
      */
     public void disableCompression() {
         this.compressionConfig.setEnabled(false);
         logger.info("Compression disabled");
-    }
-
-    /**
-     * Set protocol version for the server.
-     *
-     * <p><b>IMPORTANT:</b> This should be called BEFORE starting the server (before {@code up()}).
-     * Changing protocol version after server is running will reset the router on next request,
-     * causing a small performance penalty.</p>
-     *
-     * <p><b>Protocol Version Options:</b></p>
-     * <ul>
-     *   <li><b>AUTO</b> (default): Server accepts both V1 and V2 clients. Recommended for:
-     *       <ul>
-     *         <li>Migration period (supporting old V1 and new V2 clients)</li>
-     *         <li>Public APIs with mixed client versions</li>
-     *         <li>Backward compatibility requirements</li>
-     *       </ul>
-     *   </li>
-     *   <li><b>V2</b>: Only accept V2 clients. Use when:
-     *       <ul>
-     *         <li>All clients upgraded to V2</li>
-     *         <li>New projects (no V1 legacy)</li>
-     *       </ul>
-     *   </li>
-     *   <li><b>V1</b>: Only accept V1 clients. Use for:
-     *       <ul>
-     *         <li>Legacy systems</li>
-     *         <li>Backward compatibility</li>
-     *       </ul>
-     *   </li>
-     * </ul>
-     *
-     * @param version protocol version (V1, V2, or AUTO)
-     */
-    public void setProtocolVersion(ProtocolVersion version) {
-        if (version == null) {
-            throw new IllegalArgumentException("Protocol version cannot be null");
-        }
-        if (protocolRouter != null) {
-            logger.warn("Changing protocol version after router initialization. " +
-                       "Router will be reset on next request. " +
-                       "Recommend setting protocol version before calling up().");
-        }
-        this.protocolVersion = version;
-        this.protocolRouter = null; // Reset router to pick up new version
-        logger.info("Protocol version set to: " + version);
-    }
-
-    /**
-     * Get current protocol version.
-     *
-     * @return protocol version
-     */
-    public ProtocolVersion getProtocolVersion() {
-        return protocolVersion;
     }
 
     /**

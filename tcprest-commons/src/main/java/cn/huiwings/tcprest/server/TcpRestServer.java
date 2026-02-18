@@ -3,7 +3,6 @@ package cn.huiwings.tcprest.server;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 
 import java.util.Map;
 
@@ -69,16 +68,4 @@ public interface TcpRestServer {
      * Disable compression
      */
     void disableCompression();
-
-    /**
-     * Set protocol version (V1, V2, or AUTO)
-     * @param version protocol version
-     */
-    void setProtocolVersion(ProtocolVersion version);
-
-    /**
-     * Get current protocol version
-     * @return protocol version
-     */
-    ProtocolVersion getProtocolVersion();
 }
