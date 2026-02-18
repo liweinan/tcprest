@@ -543,6 +543,31 @@ Base64 decodes to: `{"name":"Alice","age":25}` (human-readable JSON)
    }
    ```
 
+6. **Avoid complex object hierarchies** - Use simple, flat DTOs instead of deep inheritance
+   ```java
+   // ❌ Avoid: Deep inheritance and complex object graphs
+   public class Car extends Vehicle extends MovableObject { ... }
+   public class Person {
+       private Address address;          // nested
+       private Company company;          // nested
+       private List<Skill> skills;       // nested collection
+       private Map<String, Certificate> certs;  // nested map
+   }
+
+   // ✅ Better: Simple, focused DTOs
+   public class PersonBasicInfo implements Serializable {
+       private String name;
+       private int age;
+       private String city;  // Flatten nested Address.city
+   }
+
+   // ✅ Best: Use service interfaces with simple parameters
+   public interface UserService {
+       UserInfo getUserInfo(String userId);
+       boolean updateUser(String userId, String name, String city);
+   }
+   ```
+
 #### Mapper Resolution Algorithm
 
 ```java
@@ -602,6 +627,163 @@ See test files for complete examples:
 - **Auto-serialization**: `tcprest-singlethread/src/test/java/.../v2mapper/V2MapperDemoTest.java#testAutoSerialization`
 - **Custom Gson mapper**: `tcprest-singlethread/src/test/java/.../v2mapper/V2MapperDemoTest.java#testCustomMapperWithGson`
 - **Mixed types**: `tcprest-singlethread/src/test/java/.../v2mapper/V2MapperDemoTest.java#testMixedTypes`
+- **Collection interfaces**: `tcprest-commons/src/test/java/.../protocol/V2CollectionInterfaceTest.java`
+- **Complex objects**: `tcprest-commons/src/test/java/.../protocol/V2ComplexObjectTest.java`
+
+---
+
+### Complex Object Support (Nested Objects & Inheritance)
+
+V2 protocol supports complex object scenarios through Java serialization:
+- ✅ **Nested objects** (objects containing other objects)
+- ✅ **Class inheritance** (subclasses and superclasses)
+- ✅ **Complex object graphs** (collections of nested objects)
+
+**How It Works:**
+
+Java serialization automatically handles object graphs:
+1. Serializes entire object tree (including nested objects)
+2. Preserves exact class types (Car remains Car, not just Vehicle)
+3. Handles circular references (automatically detects and resolves)
+4. Maintains object identity (same object referenced twice = one serialization)
+
+**Example - Nested Objects:**
+
+```java
+// Nested object structure: Person -> Address -> City
+public class Person implements Serializable {
+    private String name;
+    private Address address;  // Nested object
+}
+
+public class Address implements Serializable {
+    private String street;
+    private City city;  // Nested object (2 levels deep)
+}
+
+public class City implements Serializable {
+    private String name;
+    private String country;
+}
+
+// Service interface
+public interface UserService {
+    String processUser(Person person);  // Works automatically!
+}
+
+// Client call
+Person person = new Person("Alice",
+    new Address("123 Main St",
+        new City("Beijing", "China")));
+String result = client.processUser(person);  // All nested objects preserved
+```
+
+**Example - Inheritance:**
+
+```java
+// Base class
+public class Vehicle implements Serializable {
+    private String brand;
+    private int year;
+}
+
+// Subclass
+public class Car extends Vehicle {
+    private String model;
+    private int doors;
+}
+
+// Service interface
+public interface GarageService {
+    String processVehicle(Vehicle vehicle);  // Base class parameter
+}
+
+// Client call with subclass
+Car car = new Car("Toyota", 2023, "Camry", 4);
+String result = client.processVehicle(car);  // Car type preserved, not just Vehicle!
+
+// Server can check actual type
+public String processVehicle(Vehicle vehicle) {
+    if (vehicle instanceof Car) {
+        Car car = (Car) vehicle;
+        return "Car: " + car.getModel();
+    }
+    return "Vehicle: " + vehicle.getBrand();
+}
+```
+
+**Example - Collections of Complex Objects:**
+
+```java
+// List of mixed subclass instances
+List<Vehicle> fleet = new ArrayList<>();
+fleet.add(new Car("Honda", 2021, "Accord", 4));
+fleet.add(new Truck("Volvo", 2022, 15.5));  // Different subclass
+fleet.add(new Car("BMW", 2023, "X5", 4));
+
+String result = client.processFleet(fleet);  // All types preserved!
+```
+
+**⚠️ IMPORTANT - Best Practice Recommendation:**
+
+While V2 supports these complex scenarios, **we strongly recommend keeping object structures simple**:
+
+**❌ Avoid:**
+- Deep inheritance hierarchies (Vehicle → Car → SportsCar → FerrariF40)
+- Deeply nested objects (Person → Address → Building → Floor → Room → Desk)
+- Complex object graphs with circular references
+- Large collections of nested objects
+
+**✅ Prefer:**
+- **Interface-based design**: Define service interfaces with simple parameter types
+- **Flat DTOs**: Single-level objects with primitive fields
+- **Separate concerns**: Multiple simple methods instead of one complex method
+- **Custom mappers**: Use Gson/Jackson for complex data with controlled serialization
+
+**Why Simple is Better:**
+
+| Aspect | Complex Objects | Simple DTOs |
+|--------|----------------|-------------|
+| **Wire size** | Large (includes class metadata, object graphs) | Small (just data) |
+| **Debugging** | Hard to inspect binary serialization | Easy with JSON mappers |
+| **Cross-language** | Java-only | JSON works everywhere |
+| **Versioning** | `serialVersionUID` required | Easy to evolve |
+| **Performance** | Slower (deep object graph traversal) | Faster |
+| **Clarity** | Hard to understand API contract | Clear, explicit parameters |
+
+**Migration Path:**
+
+If you have complex objects, consider refactoring:
+
+```java
+// ❌ Complex: One method with nested object
+public interface UserService {
+    void updateUser(Person person);  // Person contains Address, Company, etc.
+}
+
+// ✅ Simple: Multiple focused methods
+public interface UserService {
+    void updateBasicInfo(String userId, String name, int age);
+    void updateAddress(String userId, String city, String country);
+    void updateCompany(String userId, String companyName);
+}
+```
+
+**When Complex Objects Make Sense:**
+
+Use complex objects for:
+- **Internal microservices**: Where both ends are Java and you control both
+- **Rapid prototyping**: Get working quickly, refactor later
+- **Existing systems**: Gradual migration (V2 supports legacy code)
+
+**Test Coverage:**
+
+See `V2ComplexObjectTest.java` for comprehensive examples:
+- ✅ Nested objects (2+ levels deep)
+- ✅ Inheritance (base class, subclass preservation)
+- ✅ Mixed collections (List\<Vehicle\> with Car and Truck instances)
+- ✅ Maps of nested objects (Map\<String, Person\>)
+- ✅ Null handling in nested structures
 
 ---
 
