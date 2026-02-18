@@ -59,16 +59,22 @@ public class ProtocolRouter {
     /**
      * Create protocol router with unified component initialization.
      *
-     * <p>This constructor creates all protocol components (V1 and V2) internally
-     * to maintain consistency in initialization logic.</p>
+     * <p><b>Note on V1 vs V2 initialization:</b></p>
+     * <ul>
+     *   <li><b>V1 Extractor</b>: Requires TcpRestServer reference for backward compatibility
+     *       (handles inner class naming, legacy resource lookup)</li>
+     *   <li><b>V2 Components</b>: Use modern initialization with mappers only</li>
+     * </ul>
      *
      * @param serverVersion server protocol version (V1, V2, or AUTO)
+     * @param resourceRegister resource register (for V1 backward compatibility)
      * @param mappers mapper registry shared between V1 and V2
      * @param compressionConfig compression configuration
      * @param logger logger instance
      */
     public ProtocolRouter(
             ProtocolVersion serverVersion,
+            ResourceRegister resourceRegister,
             Map<String, Mapper> mappers,
             CompressionConfig compressionConfig,
             Logger logger) {
@@ -77,11 +83,19 @@ public class ProtocolRouter {
         this.compressionConfig = compressionConfig;
         this.logger = logger;
 
-        // V1 components - created internally for consistency with V2
-        this.v1Extractor = new cn.huiwings.tcprest.extractor.DefaultExtractor(mappers);
+        // V1 components - use legacy constructor for backward compatibility
+        // (V1 extractor needs TcpRestServer for inner class handling, legacy resource lookup)
+        if (!(resourceRegister instanceof cn.huiwings.tcprest.server.TcpRestServer)) {
+            throw new IllegalArgumentException(
+                "ResourceRegister must implement TcpRestServer for V1 protocol support"
+            );
+        }
+        this.v1Extractor = new cn.huiwings.tcprest.extractor.DefaultExtractor(
+            (cn.huiwings.tcprest.server.TcpRestServer) resourceRegister
+        );
         this.v1Invoker = new cn.huiwings.tcprest.invoker.DefaultInvoker();
 
-        // V2 components - created with same pattern as V1
+        // V2 components - modern initialization (no server dependency)
         this.v2Extractor = new ProtocolV2Extractor(mappers);
         this.v2Invoker = new ProtocolV2Invoker();
         this.v2Converter = new ProtocolV2Converter(mappers);
@@ -170,9 +184,9 @@ public class ProtocolRouter {
             // Extract context
             Context context = v2Extractor.extract(request);
 
-            // Get or create resource instance
+            // Get or create resource instance using ResourceResolver
             Class<?> targetClass = context.getTargetClass();
-            Object instance = findResourceInstance(targetClass, resourceRegister);
+            Object instance = ResourceResolver.findResourceInstance(targetClass, resourceRegister, logger);
             context.setTargetInstance(instance);
 
             // Invoke method
@@ -210,10 +224,13 @@ public class ProtocolRouter {
             // Extract calling class and method from request (new secure format)
             Context context = v1Extractor.extract(request);
 
-            // Get singleton resource instance (v1 invoker will create if null)
+            // V1 extractor sets targetInstance if using legacy constructor
+            // If not set (new constructor), use ResourceResolver
             Class<?> targetClass = context.getTargetClass();
-            Object instance = resourceRegister.getResource(targetClass.getName());
-            context.setTargetInstance(instance);
+            if (context.getTargetInstance() == null) {
+                Object instance = ResourceResolver.findResourceInstance(targetClass, resourceRegister, logger);
+                context.setTargetInstance(instance);
+            }
 
             // Invoke method (v1 invoker swallows exceptions and returns NullObj)
             Object responseObject = v1Invoker.invoke(context);
@@ -251,103 +268,6 @@ public class ProtocolRouter {
         }
     }
 
-    /**
-     * Find resource instance for target class.
-     * Searches both resource classes and singleton resources.
-     * If target class is an interface, finds the implementation class.
-     *
-     * @param targetClass the target class or interface
-     * @param resourceRegister resource register
-     * @return resource instance
-     * @throws Exception if instance cannot be found or created
-     */
-    private Object findResourceInstance(Class<?> targetClass, ResourceRegister resourceRegister) throws Exception {
-        String targetClassName = targetClass.getName();
-
-        // Step 1: Try direct singleton lookup
-        Object instance = resourceRegister.getResource(targetClassName);
-        if (instance != null) {
-            return instance;
-        }
-
-        // Step 2: If target is an interface, search for implementation
-        // Check both resource classes and singleton resources
-        Class<?> implClass = findImplementationClass(targetClassName, resourceRegister);
-
-        if (implClass != null) {
-            // Found implementation class
-            targetClassName = implClass.getName();
-
-            // Try singleton lookup again with implementation class name
-            instance = resourceRegister.getResource(targetClassName);
-            if (instance != null) {
-                return instance;
-            }
-
-            // Also try with canonical name (for inner classes: Foo.Bar vs Foo$Bar)
-            String canonicalName = implClass.getCanonicalName();
-            if (canonicalName != null && !canonicalName.equals(targetClassName)) {
-                instance = resourceRegister.getResource(canonicalName);
-                if (instance != null) {
-                    return instance;
-                }
-            }
-
-            // Create new instance from implementation class
-            return v2Invoker.createInstance(implClass);
-        }
-
-        // Step 3: No implementation found, try to create instance directly
-        instance = v2Invoker.createInstance(targetClass);
-        return instance;
-    }
-
-    /**
-     * Find implementation class for an interface.
-     * Searches both resource classes and singleton resources.
-     *
-     * @param interfaceName the interface name
-     * @param resourceRegister resource register
-     * @return implementation class, or null if not found
-     */
-    private Class<?> findImplementationClass(String interfaceName, ResourceRegister resourceRegister) {
-        // Check resource classes
-        Map<String, Class> resourceClasses = resourceRegister.getResourceClasses();
-        for (Class<?> clazz : resourceClasses.values()) {
-            // Check if this class directly matches
-            if (clazz.getName().equals(interfaceName)) {
-                return clazz;
-            }
-            // Check if this class implements the interface
-            for (Class<?> ifc : clazz.getInterfaces()) {
-                if (ifc.getName().equals(interfaceName)) {
-                    logger.debug("Found resource class implementing interface: " + interfaceName +
-                               " -> " + clazz.getName());
-                    return clazz;
-                }
-            }
-        }
-
-        // Check singleton resources
-        Map<String, Object> singletons = resourceRegister.getSingletonResources();
-        for (Object singleton : singletons.values()) {
-            Class<?> clazz = singleton.getClass();
-            // Check if this class directly matches
-            if (clazz.getName().equals(interfaceName)) {
-                return clazz;
-            }
-            // Check if this singleton implements the interface
-            for (Class<?> ifc : clazz.getInterfaces()) {
-                if (ifc.getName().equals(interfaceName)) {
-                    logger.debug("Found singleton implementing interface: " + interfaceName +
-                               " -> " + clazz.getName());
-                    return clazz;
-                }
-            }
-        }
-
-        return null;
-    }
 
     /**
      * Handle errors and return appropriate error response.

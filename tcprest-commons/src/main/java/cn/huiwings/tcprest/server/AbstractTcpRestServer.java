@@ -122,6 +122,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
         if (protocolRouter == null) {
             protocolRouter = new ProtocolRouter(
                 protocolVersion,
+                this,  // Pass 'this' as ResourceRegister for V1 backward compatibility
                 mappers,
                 compressionConfig,
                 logger
