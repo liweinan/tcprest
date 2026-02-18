@@ -9,7 +9,9 @@
     <url>https://github.com/liweinan/tcprest</url>
 
     <modules>
-        <module>tcprest-core</module>
+        <module>tcprest-commons</module>
+        <module>tcprest-singlethread</module>
+        <module>tcprest-nio</module>
         <module>tcprest-netty</module>
     </modules>
 

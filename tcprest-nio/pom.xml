@@ -9,22 +9,16 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>tcprest-netty</artifactId>
-    <name>Tcp Rest Netty</name>
-    <description>Optional Netty-based server implementation for high-performance scenarios</description>
+    <artifactId>tcprest-nio</artifactId>
+    <name>Tcp Rest NIO Server</name>
+    <description>Non-blocking I/O server using Java NIO</description>
 
     <dependencies>
-        <!-- Commons module -->
+        <!-- Core module -->
         <dependency>
             <groupId>cn.huiwings</groupId>
             <artifactId>tcprest-commons</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <!-- Netty -->
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
@@ -40,18 +34,4 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <!-- Use TestNG XML configuration for strict sequential execution -->
-                    <suiteXmlFiles>
-                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
-                    </suiteXmlFiles>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
