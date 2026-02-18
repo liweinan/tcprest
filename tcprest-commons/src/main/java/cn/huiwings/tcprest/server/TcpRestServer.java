@@ -3,6 +3,7 @@ package cn.huiwings.tcprest.server;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
+import cn.huiwings.tcprest.security.SecurityConfig;
 
 import java.util.Map;
 
@@ -68,4 +69,14 @@ public interface TcpRestServer {
      * Disable compression
      */
     void disableCompression();
+
+    /**
+     * Set security configuration
+     */
+    void setSecurityConfig(SecurityConfig securityConfig);
+
+    /**
+     * Get security configuration
+     */
+    SecurityConfig getSecurityConfig();
 }

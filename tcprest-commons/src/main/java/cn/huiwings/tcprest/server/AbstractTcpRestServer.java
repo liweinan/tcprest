@@ -277,12 +277,15 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
                resourceClasses.containsKey(className);
     }
 
+    private SecurityConfig securityConfig;
+
     /**
      * Set security configuration for protocol components.
      *
      * @param securityConfig security configuration
      */
     public void setSecurityConfig(SecurityConfig securityConfig) {
+        this.securityConfig = securityConfig;
         if (securityConfig != null) {
             if (parser instanceof ProtocolV2Parser) {
                 ((ProtocolV2Parser) parser).setSecurityConfig(securityConfig);
@@ -291,6 +294,15 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
                 ((ProtocolV2Codec) codec).setSecurityConfig(securityConfig);
             }
         }
+    }
+
+    /**
+     * Get security configuration.
+     *
+     * @return security configuration
+     */
+    public SecurityConfig getSecurityConfig() {
+        return securityConfig;
     }
 
     /**
