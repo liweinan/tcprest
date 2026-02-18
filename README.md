@@ -7,6 +7,16 @@
 
 A lightweight, zero-dependency RPC framework that transforms POJOs into network-accessible services over TCP.
 
+## ⚡ What's New in v2.0 (2026-02-19)
+
+**Protocol V2 is now the default!** Enjoy:
+- ✨ **Simplified format**: JSON-style arrays `[p1,p2,p3]` instead of verbose `{{p1}}:::{{p2}}`
+- 🚀 **Better performance**: Single-layer Base64 encoding (no double encoding)
+- 🎯 **Method overloading**: Full support with type signatures
+- 📦 **Cleaner protocol**: More readable and easier to debug
+
+**Upgrading from v1?** V1 is still fully supported. See [Migration Guide](#migration-from-v1-to-v2).
+
 ## Quick Start
 
 ### 1. Define Your Service Interface
@@ -794,4 +804,76 @@ SecurityConfig securityConfig = new SecurityConfig()
 **📖 Full Documentation:** See [SECURITY-PROTOCOL.md](SECURITY-PROTOCOL.md) for complete security guide.
 
 **⚠️ Breaking Change:** The security-enhanced protocol is NOT backward compatible. Migration guide available in security documentation.
+
+
+## Migration from V1 to V2
+
+### What Changed?
+
+**Protocol V2 is now the default** (as of v2.0, 2026-02-19). The new format is cleaner and more efficient:
+
+#### Old V1 Format:
+```
+0|base64(ClassName/methodName)|base64({{p1}}:::{{p2}})
+```
+
+#### New V2 Format (Simplified):
+```
+V2|0|{{base64(ClassName/methodName(Signature))}}|[p1,p2,p3]
+```
+
+### Do You Need to Migrate?
+
+**Existing applications using V1:**
+- ✅ **No changes required** - V1 is still fully supported
+- ✅ **Servers auto-detect** protocol version (V1 or V2)
+- ✅ **Gradual migration** - mix V1 and V2 clients
+
+**New applications:**
+- ✨ **Use V2 by default** - it's automatic!
+- No configuration needed
+
+### How to Continue Using V1
+
+If you want to explicitly use V1:
+
+```java
+// Client side
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8001
+);
+factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
+MyService client = factory.getClient();
+
+// Server side (optional - AUTO supports both)
+server.setProtocolVersion(ProtocolVersion.V1);
+```
+
+### How to Use V2 (Default)
+
+No configuration needed! Just create your client:
+
+```java
+// V2 is automatic - no setup required
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    MyService.class, "localhost", 8001
+);
+MyService client = factory.getClient();
+```
+
+### V2 Benefits
+
+- **Method Overloading**: Same method name, different parameters
+- **Exception Propagation**: Exceptions sent to client properly
+- **Better Performance**: Single-layer encoding (faster)
+- **Cleaner Format**: JSON-style arrays easy to read/debug
+
+### Version Compatibility Matrix
+
+| Client | Server AUTO | Server V1 | Server V2 |
+|--------|-------------|-----------|-----------|
+| **V1** | ✅ Works    | ✅ Works  | ❌ Error  |
+| **V2** | ✅ Works    | ❌ Error  | ✅ Works  |
+
+**Recommendation:** Use `ProtocolVersion.AUTO` on servers (default) to support all clients.
 
