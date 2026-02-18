@@ -1,4 +1,4 @@
-package cn.huiwings.tcprest.conveter;
+package cn.huiwings.tcprest.converter;
 
 import cn.huiwings.tcprest.commons.Base64;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;

@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.test.smoke;
 
-import cn.huiwings.tcprest.conveter.Converter;
-import cn.huiwings.tcprest.conveter.DefaultConverter;
+import cn.huiwings.tcprest.converter.Converter;
+import cn.huiwings.tcprest.converter.DefaultConverter;
 import cn.huiwings.tcprest.protocol.TcpRestProtocol;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;

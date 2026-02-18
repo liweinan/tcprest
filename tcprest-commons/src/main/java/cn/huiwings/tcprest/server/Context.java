@@ -1,6 +1,6 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.conveter.Converter;
+import cn.huiwings.tcprest.converter.Converter;
 
 import java.lang.reflect.Method;
 

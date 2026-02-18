@@ -2,7 +2,7 @@ package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.compression.CompressionUtil;
-import cn.huiwings.tcprest.conveter.Converter;
+import cn.huiwings.tcprest.converter.Converter;
 import cn.huiwings.tcprest.converter.v2.ProtocolV2Converter;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
@@ -229,9 +229,9 @@ public class ProtocolRouter {
             String message = "0|" + resultEncoded;
 
             // Add checksum if security is enabled
-            if (context.getConverter() instanceof cn.huiwings.tcprest.conveter.DefaultConverter) {
-                cn.huiwings.tcprest.conveter.DefaultConverter defaultConverter =
-                    (cn.huiwings.tcprest.conveter.DefaultConverter) context.getConverter();
+            if (context.getConverter() instanceof cn.huiwings.tcprest.converter.DefaultConverter) {
+                cn.huiwings.tcprest.converter.DefaultConverter defaultConverter =
+                    (cn.huiwings.tcprest.converter.DefaultConverter) context.getConverter();
                 cn.huiwings.tcprest.security.SecurityConfig securityConfig = defaultConverter.getSecurityConfig();
 
                 String checksum = cn.huiwings.tcprest.security.ProtocolSecurity.calculateChecksum(message, securityConfig);

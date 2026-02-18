@@ -1,6 +1,6 @@
 package cn.huiwings.tcprest.compression;
 
-import cn.huiwings.tcprest.conveter.Converter;
+import cn.huiwings.tcprest.converter.Converter;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.logger.LoggerFactory;

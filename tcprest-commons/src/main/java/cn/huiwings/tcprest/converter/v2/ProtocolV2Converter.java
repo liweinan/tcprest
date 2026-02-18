@@ -1,6 +1,6 @@
 package cn.huiwings.tcprest.converter.v2;
 
-import cn.huiwings.tcprest.conveter.Converter;
+import cn.huiwings.tcprest.converter.Converter;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.protocol.NullObj;
