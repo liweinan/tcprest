@@ -33,6 +33,15 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
 
     public Extractor extractor = new DefaultExtractor(this);
 
+    /**
+     * V1 invoker field - no longer used by ProtocolRouter.
+     * <p>ProtocolRouter now creates its own invoker instances internally
+     * to maintain consistency between V1 and V2 component initialization.</p>
+     * <p>This field is kept for backward compatibility in case external code references it.</p>
+     *
+     * @deprecated No longer used internally. ProtocolRouter creates its own invokers.
+     */
+    @Deprecated
     public Invoker invoker = new DefaultInvoker();
 
     protected CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
@@ -98,12 +107,11 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
                 if (protocolRouter == null) {
                     protocolRouter = new ProtocolRouter(
                         protocolVersion,
-                        extractor,
-                        invoker,
+                        extractor,  // V1 extractor needs TcpRestServer reference
                         mappers,
                         compressionConfig,
                         logger
-                    );
+                    );  // V1 and V2 invokers are created internally by ProtocolRouter
                 }
             }
         }

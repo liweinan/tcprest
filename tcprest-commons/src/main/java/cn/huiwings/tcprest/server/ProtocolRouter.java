@@ -57,30 +57,35 @@ public class ProtocolRouter {
     private final ProtocolV2Converter v2Converter;
 
     /**
-     * Create protocol router.
+     * Create protocol router with unified component initialization.
+     *
+     * <p>This constructor creates all protocol components (V1 and V2) internally
+     * to maintain consistency in initialization logic.</p>
      *
      * @param serverVersion server protocol version (V1, V2, or AUTO)
-     * @param v1Extractor v1 extractor
-     * @param v1Invoker v1 invoker
-     * @param mappers mapper registry for v1
+     * @param v1Extractor v1 extractor (requires TcpRestServer reference for resource lookup)
+     * @param mappers mapper registry shared between V1 and V2
      * @param compressionConfig compression configuration
      * @param logger logger instance
      */
     public ProtocolRouter(
             ProtocolVersion serverVersion,
             Extractor v1Extractor,
-            Invoker v1Invoker,
             Map<String, Mapper> mappers,
             CompressionConfig compressionConfig,
             Logger logger) {
         this.serverVersion = serverVersion != null ? serverVersion : ProtocolVersion.AUTO;
-        this.v1Extractor = v1Extractor;
-        this.v1Invoker = v1Invoker;
         this.mappers = mappers;
         this.compressionConfig = compressionConfig;
         this.logger = logger;
 
-        // Initialize v2 components with mappers support
+        // V1 components
+        // Note: V1 extractor must be passed in because it needs TcpRestServer reference
+        // for backward compatibility with resource lookup logic
+        this.v1Extractor = v1Extractor;
+        this.v1Invoker = new cn.huiwings.tcprest.invoker.DefaultInvoker();
+
+        // V2 components - created uniformly with V1 invoker
         this.v2Extractor = new ProtocolV2Extractor(mappers);
         this.v2Invoker = new ProtocolV2Invoker();
         this.v2Converter = new ProtocolV2Converter(mappers);
