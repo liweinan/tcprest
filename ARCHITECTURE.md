@@ -271,7 +271,7 @@ public class GsonUserMapper implements Mapper {
 }
 
 // Register (Priority 1 - overrides auto-serialization)
-server.addMapper(User.class.getName(), new GsonUserMapper());
+server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
 ```
 
 **Protocol Markers (V2):**
@@ -651,11 +651,11 @@ public class MyInvoker {
 Configure SSL parameters:
 
 ```java
-SSLParam sslParam = new SSLParam();
-sslParam.setKeyStore("/path/to/keystore");
-sslParam.setKeyStorePassword("password");
+SSLParam sslParams = new SSLParam();
+sslParams.setKeyStore("/path/to/keystore");
+sslParams.setKeyStorePassword("password");
 
-TcpRestServer server = new SingleThreadTcpRestServer(8080, sslParam);
+TcpRestServer server = new SingleThreadTcpRestServer(8080, sslParams);
 ```
 
 ### Input Validation

@@ -41,7 +41,7 @@ package cn.huiwings.tcprest.mapper;
  * }
  *
  * // Register mapper
- * server.addMapper(User.class.getName(), new GsonUserMapper());
+ * server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
  * </pre>
  *
  * <p><b>Example 2: Date Mapper with Custom Format</b></p>
@@ -75,11 +75,11 @@ package cn.huiwings.tcprest.mapper;
  * <p><b>Registration:</b></p>
  * <pre>
  * // Server-side
- * server.addMapper(User.class.getName(), new GsonUserMapper());
+ * server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
  *
  * // Client-side
  * Map&lt;String, Mapper&gt; mappers = new HashMap&lt;&gt;();
- * mappers.put(User.class.getName(), new GsonUserMapper());
+ * mappers.put(User.class.getCanonicalName(), new GsonUserMapper());
  * TcpRestClientFactory factory = new TcpRestClientFactory(
  *     UserService.class, "localhost", 8080, mappers
  * );

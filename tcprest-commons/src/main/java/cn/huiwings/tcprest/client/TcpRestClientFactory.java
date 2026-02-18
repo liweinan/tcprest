@@ -3,7 +3,7 @@ package cn.huiwings.tcprest.client;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.security.SecurityConfig;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 
 import java.lang.reflect.Proxy;
 import java.util.Map;
@@ -43,7 +43,7 @@ public class TcpRestClientFactory {
     String host;
     int port;
     Map<String, Mapper> extraMappers;
-    SSLParam sslParam;
+    SSLParams sslParams;
     CompressionConfig compressionConfig;
     SecurityConfig securityConfig;
 
@@ -60,20 +60,20 @@ public class TcpRestClientFactory {
         this.extraMappers = extraMappers;
     }
 
-    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam) {
+    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams) {
         this.resourceClass = resourceClass;
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
-        this.sslParam = sslParam;
+        this.sslParams = sslParams;
     }
 
-    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParam sslParam, CompressionConfig compressionConfig) {
+    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
         this.resourceClass = resourceClass;
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
-        this.sslParam = sslParam;
+        this.sslParams = sslParams;
         this.compressionConfig = compressionConfig;
     }
 
@@ -87,7 +87,7 @@ public class TcpRestClientFactory {
         return (T) Proxy.newProxyInstance(resourceClass.getClassLoader(),
                 new Class[]{resourceClass},
                 new TcpRestClientProxy(resourceClass.getCanonicalName(), host, port,
-                        extraMappers, sslParam, compressionConfig, securityConfig));
+                        extraMappers, sslParams, compressionConfig, securityConfig));
     }
 
     /**

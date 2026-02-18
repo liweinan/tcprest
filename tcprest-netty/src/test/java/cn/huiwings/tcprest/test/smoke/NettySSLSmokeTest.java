@@ -3,7 +3,7 @@ package cn.huiwings.tcprest.test.smoke;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.server.NettyTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 import cn.huiwings.tcprest.test.HelloWorld;
 import cn.huiwings.tcprest.test.HelloWorldResource;
 import org.testng.Assert;
@@ -24,13 +24,13 @@ public class NettySSLSmokeTest {
 
     @BeforeMethod
     public void startTcpRestServer() throws Exception {
-        SSLParam serverSSLParam = new SSLParam();
-        serverSSLParam.setTrustStorePath("classpath:server_ks");
-        serverSSLParam.setKeyStorePath("classpath:server_ks");
-        serverSSLParam.setKeyStoreKeyPass("123123");
-        serverSSLParam.setNeedClientAuth(true);
+        SSLParams serverSSLParams = new SSLParams();
+        serverSSLParams.setTrustStorePath("classpath:server_ks");
+        serverSSLParams.setKeyStorePath("classpath:server_ks");
+        serverSSLParams.setKeyStoreKeyPass("123123");
+        serverSSLParams.setNeedClientAuth(true);
 
-        tcpRestServer = new NettyTcpRestServer(PortGenerator.get(), serverSSLParam);
+        tcpRestServer = new NettyTcpRestServer(PortGenerator.get(), serverSSLParams);
         tcpRestServer.up();
         // Allow async server to fully start
         Thread.sleep(500);
@@ -47,15 +47,15 @@ public class NettySSLSmokeTest {
     public void testTwoWayHandShake() {
         tcpRestServer.addResource(HelloWorldResource.class);
 
-        SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStoreKeyPass("456456");
-        clientSSLParam.setNeedClientAuth(true);
+        SSLParams clientSSLParams = new SSLParams();
+        clientSSLParams.setTrustStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStoreKeyPass("456456");
+        clientSSLParams.setNeedClientAuth(true);
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        tcpRestServer.getServerPort(), null, clientSSLParam);
+                        tcpRestServer.getServerPort(), null, clientSSLParams);
 
         HelloWorld client = factory.getInstance();
 
@@ -67,13 +67,13 @@ public class NettySSLSmokeTest {
         tcpRestServer.addResource(HelloWorldResource.class);
 
         // Client without SSL authentication (one-way SSL)
-        SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("classpath:client_ks");
-        clientSSLParam.setNeedClientAuth(false);
+        SSLParams clientSSLParams = new SSLParams();
+        clientSSLParams.setTrustStorePath("classpath:client_ks");
+        clientSSLParams.setNeedClientAuth(false);
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        tcpRestServer.getServerPort(), null, clientSSLParam);
+                        tcpRestServer.getServerPort(), null, clientSSLParams);
 
         HelloWorld client = factory.getInstance();
 
@@ -84,15 +84,15 @@ public class NettySSLSmokeTest {
     public void testSSLWithLargePayload() {
         tcpRestServer.addResource(HelloWorldResource.class);
 
-        SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStoreKeyPass("456456");
-        clientSSLParam.setNeedClientAuth(true);
+        SSLParams clientSSLParams = new SSLParams();
+        clientSSLParams.setTrustStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStoreKeyPass("456456");
+        clientSSLParams.setNeedClientAuth(true);
 
         TcpRestClientFactory factory =
                 new TcpRestClientFactory(HelloWorld.class, "localhost",
-                        tcpRestServer.getServerPort(), null, clientSSLParam);
+                        tcpRestServer.getServerPort(), null, clientSSLParams);
 
         HelloWorld client = factory.getInstance();
 

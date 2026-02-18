@@ -26,7 +26,7 @@ public class SimpleGsonTest {
         TcpRestServer server = new SingleThreadTcpRestServer(port);
 
         // Server side: Register Gson mapper
-        server.addMapper(Person.class.getName(), new GsonPersonMapper());
+        server.addMapper(Person.class.getCanonicalName(), new GsonPersonMapper());
 
         server.addResource(PersonServiceImpl.class);
         server.up();
@@ -35,7 +35,7 @@ public class SimpleGsonTest {
         try {
             // Client side: Register Gson mapper
             Map<String, Mapper> mappers = new HashMap<>();
-            mappers.put(Person.class.getName(), new GsonPersonMapper());
+            mappers.put(Person.class.getCanonicalName(), new GsonPersonMapper());
 
             TcpRestClientFactory factory = new TcpRestClientFactory(
                 PersonService.class, "localhost", port, mappers

@@ -8,10 +8,11 @@ import cn.huiwings.tcprest.logger.LoggerFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
 import cn.huiwings.tcprest.security.SecurityConfig;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -46,14 +47,15 @@ public class TcpRestClientProxy implements InvocationHandler {
      * @param host server host
      * @param port server port
      * @param extraMappers custom mappers (optional)
-     * @param sslParam SSL configuration (optional)
+     * @param sslParams SSL configuration (optional)
      * @param compressionConfig compression configuration (optional)
      * @param securityConfig security configuration (optional)
      */
     public TcpRestClientProxy(String delegatedClassName, String host, int port,
-                              Map<String, Mapper> extraMappers, SSLParam sslParam,
+                              Map<String, Mapper> extraMappers, SSLParams sslParams,
                               CompressionConfig compressionConfig, SecurityConfig securityConfig) {
-        mappers = MapperHelper.DEFAULT_MAPPERS;
+        // Create a new HashMap to avoid polluting the static DEFAULT_MAPPERS
+        mappers = new HashMap<>(MapperHelper.DEFAULT_MAPPERS);
 
         if (extraMappers != null) {
             mappers.putAll(extraMappers);
@@ -70,7 +72,7 @@ public class TcpRestClientProxy implements InvocationHandler {
         // Initialize Protocol V2 codec with security config and mappers
         this.codec = new ProtocolV2Codec(this.securityConfig, this.mappers);
 
-        tcpRestClient = new DefaultTcpRestClient(sslParam, delegatedClassName, host, port);
+        tcpRestClient = new DefaultTcpRestClient(sslParams, delegatedClassName, host, port);
     }
 
     /**
@@ -80,13 +82,13 @@ public class TcpRestClientProxy implements InvocationHandler {
      * @param host server host
      * @param port server port
      * @param extraMappers custom mappers (optional)
-     * @param sslParam SSL configuration (optional)
+     * @param sslParams SSL configuration (optional)
      * @param compressionConfig compression configuration (optional)
      */
     public TcpRestClientProxy(String delegatedClassName, String host, int port,
-                              Map<String, Mapper> extraMappers, SSLParam sslParam,
+                              Map<String, Mapper> extraMappers, SSLParams sslParams,
                               CompressionConfig compressionConfig) {
-        this(delegatedClassName, host, port, extraMappers, sslParam, compressionConfig, null);
+        this(delegatedClassName, host, port, extraMappers, sslParams, compressionConfig, null);
     }
 
     /**
@@ -96,11 +98,11 @@ public class TcpRestClientProxy implements InvocationHandler {
      * @param host server host
      * @param port server port
      * @param extraMappers custom mappers (optional)
-     * @param sslParam SSL configuration (optional)
+     * @param sslParams SSL configuration (optional)
      */
     public TcpRestClientProxy(String delegatedClassName, String host, int port,
-                              Map<String, Mapper> extraMappers, SSLParam sslParam) {
-        this(delegatedClassName, host, port, extraMappers, sslParam, null, null);
+                              Map<String, Mapper> extraMappers, SSLParams sslParams) {
+        this(delegatedClassName, host, port, extraMappers, sslParams, null, null);
     }
 
     /**
@@ -120,10 +122,10 @@ public class TcpRestClientProxy implements InvocationHandler {
      * @param delegatedClassName target service class name
      * @param host server host
      * @param port server port
-     * @param sslParam SSL configuration
+     * @param sslParams SSL configuration
      */
-    public TcpRestClientProxy(String delegatedClassName, String host, int port, SSLParam sslParam) {
-        this(delegatedClassName, host, port, null, sslParam, null, null);
+    public TcpRestClientProxy(String delegatedClassName, String host, int port, SSLParams sslParams) {
+        this(delegatedClassName, host, port, null, sslParams, null, null);
     }
 
     public void setMappers(Map<String, Mapper> mappers) {

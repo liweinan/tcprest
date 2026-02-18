@@ -79,7 +79,6 @@ import cn.huiwings.tcprest.server.Context;
  * @see cn.huiwings.tcprest.codec.ProtocolCodec
  * @see cn.huiwings.tcprest.parser.v2.ProtocolV2Parser
  * @see cn.huiwings.tcprest.server.Context
- * @see cn.huiwings.tcprest.server.ProtocolRouter
  */
 public interface RequestParser {
     /**

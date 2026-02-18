@@ -1,6 +1,6 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -21,7 +21,7 @@ import java.security.KeyStore;
 /**
  * NettyTcpRestServer uses Netty 4.x framework for high-performance async I/O.
  *
- * <p><b>SSL Support:</b> This server supports SSL/TLS via {@link cn.huiwings.tcprest.ssl.SSLParam}.</p>
+ * <p><b>SSL Support:</b> This server supports SSL/TLS via {@link SSLParams}.</p>
  *
  * <p><b>Bind Address Support:</b> Supports binding to specific IP addresses for security and multi-homing.</p>
  *
@@ -48,7 +48,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
     private Channel serverChannel;
     private final int port;
     private final String bindAddress;
-    private final SSLParam sslParam;
+    private final SSLParams sslParams;
 
     /**
      * Creates a NettyTcpRestServer with default port (8000) and no SSL, binding to all interfaces.
@@ -80,10 +80,10 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
      * Creates a NettyTcpRestServer with specified port and SSL configuration, binding to all interfaces.
      *
      * @param port     the port to listen on
-     * @param sslParam SSL configuration (null for no SSL)
+     * @param sslParams SSL configuration (null for no SSL)
      */
-    public NettyTcpRestServer(int port, SSLParam sslParam) {
-        this(port, null, sslParam);
+    public NettyTcpRestServer(int port, SSLParams sslParams) {
+        this(port, null, sslParams);
     }
 
     /**
@@ -91,12 +91,12 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
      *
      * @param port        the port to listen on
      * @param bindAddress the IP address to bind to (null = all interfaces, "127.0.0.1" = localhost only)
-     * @param sslParam    SSL configuration (null for no SSL)
+     * @param sslParams    SSL configuration (null for no SSL)
      */
-    public NettyTcpRestServer(int port, String bindAddress, SSLParam sslParam) {
+    public NettyTcpRestServer(int port, String bindAddress, SSLParams sslParams) {
         this.port = port;
         this.bindAddress = bindAddress;
-        this.sslParam = sslParam;
+        this.sslParams = sslParams;
     }
 
     @Override
@@ -183,7 +183,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
      * @throws Exception if SSL configuration fails
      */
     private SslContext createSslContext() throws Exception {
-        if (sslParam == null) {
+        if (sslParams == null) {
             return null;
         }
 
@@ -191,14 +191,14 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
         KeyStore keyStore = KeyStore.getInstance("jceks");
         InputStream keyStoreStream;
 
-        if (sslParam.getKeyStorePath().startsWith("classpath:")) {
-            String path = sslParam.getKeyStorePath().substring("classpath:".length());
+        if (sslParams.getKeyStorePath().startsWith("classpath:")) {
+            String path = sslParams.getKeyStorePath().substring("classpath:".length());
             keyStoreStream = getClass().getClassLoader().getResourceAsStream(path);
             if (keyStoreStream == null) {
                 throw new IllegalArgumentException("Keystore not found in classpath: " + path);
             }
         } else {
-            keyStoreStream = new FileInputStream(sslParam.getKeyStorePath());
+            keyStoreStream = new FileInputStream(sslParams.getKeyStorePath());
         }
 
         try {
@@ -209,7 +209,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
         }
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
-        keyManagerFactory.init(keyStore, sslParam.getKeyStoreKeyPass().toCharArray());
+        keyManagerFactory.init(keyStore, sslParams.getKeyStoreKeyPass().toCharArray());
 
         return SslContextBuilder.forServer(keyManagerFactory).build();
     }

@@ -430,11 +430,11 @@ public class GsonUserMapper implements Mapper {
 }
 
 // Server side: Register custom mapper
-server.addMapper(User.class.getName(), new GsonUserMapper());
+server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
 
 // Client side: Register custom mapper
 Map<String, Mapper> mappers = new HashMap<>();
-mappers.put(User.class.getName(), new GsonUserMapper());
+mappers.put(User.class.getCanonicalName(), new GsonUserMapper());
 
 TcpRestClientFactory factory = new TcpRestClientFactory(
     UserService.class, "localhost", 8001, mappers
@@ -478,7 +478,7 @@ Base64 decodes to: `{"name":"Alice","age":25}` (human-readable JSON)
 
 3. **For public APIs**: Use custom mappers with JSON
    ```java
-   server.addMapper(MyDTO.class.getName(), new GsonMapper());
+   server.addMapper(MyDTO.class.getCanonicalName(), new GsonMapper());
    ```
 
 4. **For sensitive data**: Mark fields `transient` or use custom mapper
@@ -526,7 +526,7 @@ Base64 decodes to: `{"name":"Alice","age":25}` (human-readable JSON)
 String encodeParam(Object param, Map<String, Mapper> mappers) {
     // 1. Check user-defined mapper
     if (mappers != null) {
-        Mapper mapper = mappers.get(param.getClass().getName());
+        Mapper mapper = mappers.get(param.getClass().getCanonicalName());
         if (mapper != null) {
             return base64(mapper.objectToString(param));
         }
@@ -549,7 +549,7 @@ String encodeParam(Object param, Map<String, Mapper> mappers) {
 Object decodeParam(String paramStr, Class<?> paramType, Map<String, Mapper> mappers) {
     // 1. Check user-defined mapper
     if (mappers != null) {
-        Mapper mapper = mappers.get(paramType.getName());
+        Mapper mapper = mappers.get(paramType.getCanonicalName());
         if (mapper != null) {
             return mapper.stringToObject(unbase64(paramStr));
         }

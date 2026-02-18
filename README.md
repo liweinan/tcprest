@@ -268,12 +268,12 @@ TcpRestServer server = new SingleThreadTcpRestServer(8001, null);
 
 **Combine with SSL:**
 ```java
-SSLParam sslParam = new SSLParam();
-sslParam.setKeyStorePath("classpath:server_ks");
-sslParam.setKeyStoreKeyPass("password");
+SSLParam sslParams = new SSLParam();
+sslParams.setKeyStorePath("classpath:server_ks");
+sslParams.setKeyStoreKeyPass("password");
 
 // Secure server on localhost only
-TcpRestServer server = new SingleThreadTcpRestServer(8443, "127.0.0.1", sslParam);
+TcpRestServer server = new SingleThreadTcpRestServer(8443, "127.0.0.1", sslParams);
 server.up();
 ```
 
@@ -314,15 +314,15 @@ server.up();
 
 **With SSL/TLS:**
 ```java
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 
-SSLParam sslParam = new SSLParam();
-sslParam.setKeyStorePath("classpath:server_ks");
-sslParam.setKeyStoreKeyPass("password");
-sslParam.setTrustStorePath("classpath:server_ks");
-sslParam.setNeedClientAuth(true);  // Optional: mutual TLS
+SSLParam sslParams = new SSLParam();
+sslParams.setKeyStorePath("classpath:server_ks");
+sslParams.setKeyStoreKeyPass("password");
+sslParams.setTrustStorePath("classpath:server_ks");
+sslParams.setNeedClientAuth(true);  // Optional: mutual TLS
 
-TcpRestServer server = new NettyTcpRestServer(8443, sslParam);
+TcpRestServer server = new NettyTcpRestServer(8443, sslParams);
 server.addSingletonResource(new MyServiceImpl());
 server.up();
 ```
@@ -333,18 +333,18 @@ server.up();
 TcpRestServer server = new NettyTcpRestServer(8001, "127.0.0.1");
 
 // Or combine with SSL
-TcpRestServer server = new NettyTcpRestServer(8443, "192.168.1.100", sslParam);
+TcpRestServer server = new NettyTcpRestServer(8443, "192.168.1.100", sslParams);
 ```
 
 **Complete Production Example:**
 ```java
 // Production-ready setup: Netty + SSL + localhost binding
-SSLParam sslParam = new SSLParam();
-sslParam.setKeyStorePath("classpath:server_ks");
-sslParam.setKeyStoreKeyPass("password");
-sslParam.setTrustStorePath("classpath:server_ks");
+SSLParam sslParams = new SSLParam();
+sslParams.setKeyStorePath("classpath:server_ks");
+sslParams.setKeyStoreKeyPass("password");
+sslParams.setTrustStorePath("classpath:server_ks");
 
-TcpRestServer server = new NettyTcpRestServer(8443, "127.0.0.1", sslParam);
+TcpRestServer server = new NettyTcpRestServer(8443, "127.0.0.1", sslParams);
 server.addSingletonResource(new UserServiceImpl());
 server.up();
 
@@ -620,10 +620,10 @@ Custom mappers for fine-grained control (e.g., JSON serialization with Gson):
 
 ```java
 // Register custom Gson mapper (for public APIs or custom formats)
-server.addMapper(User.class.getName(), new GsonUserMapper());
+server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
 
 Map<String, Mapper> mappers = new HashMap<>();
-mappers.put(User.class.getName(), new GsonUserMapper());
+mappers.put(User.class.getCanonicalName(), new GsonUserMapper());
 TcpRestClientFactory factory = new TcpRestClientFactory(
     UserService.class, "localhost", 8001, mappers
 );
@@ -992,8 +992,8 @@ public class GsonUserMapper implements Mapper {
 }
 
 // Register on both server and client
-server.addMapper(User.class.getName(), new GsonUserMapper());
-mappers.put(User.class.getName(), new GsonUserMapper());
+server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
+mappers.put(User.class.getCanonicalName(), new GsonUserMapper());
 ```
 
 **Custom Mapper Benefits:**

@@ -503,7 +503,7 @@ mvn dependency:tree -pl tcprest-netty | grep -E "tcprest-commons|netty"
 public class MyNewServer extends AbstractTcpRestServer {
 
     // Must support SSL via constructor
-    public MyNewServer(int port, SSLParam sslParam) throws Exception {
+    public MyNewServer(int port, SSLParam sslParams) throws Exception {
         // Implementation
     }
 

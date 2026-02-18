@@ -4,7 +4,7 @@ package cn.huiwings.tcprest.ssl;
  * @author Weinan Li
  * @created_at 08 25 2012
  */
-public class SSLParam {
+public class SSLParams {
     private String keyStorePath;
     private String keyStoreStorePass;
     private String keyStoreKeyPass;

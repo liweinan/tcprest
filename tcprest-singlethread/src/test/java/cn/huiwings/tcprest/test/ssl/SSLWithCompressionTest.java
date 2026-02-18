@@ -4,7 +4,7 @@ import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 import cn.huiwings.tcprest.test.HelloWorld;
 import cn.huiwings.tcprest.test.HelloWorldResource;
 import org.testng.annotations.AfterMethod;
@@ -30,14 +30,14 @@ public class SSLWithCompressionTest {
         port = Math.abs(new Random().nextInt()) % 10000 + 8000;
 
         // Configure SSL
-        SSLParam serverSSLParam = new SSLParam();
-        serverSSLParam.setTrustStorePath("classpath:server_ks");
-        serverSSLParam.setKeyStorePath("classpath:server_ks");
-        serverSSLParam.setKeyStoreKeyPass("123123");
-        serverSSLParam.setNeedClientAuth(true);
+        SSLParams serverSSLParams = new SSLParams();
+        serverSSLParams.setTrustStorePath("classpath:server_ks");
+        serverSSLParams.setKeyStorePath("classpath:server_ks");
+        serverSSLParams.setKeyStoreKeyPass("123123");
+        serverSSLParams.setNeedClientAuth(true);
 
         // Create server with SSL
-        server = new SingleThreadTcpRestServer(port, serverSSLParam);
+        server = new SingleThreadTcpRestServer(port, serverSSLParams);
 
         // Enable compression
         server.enableCompression();
@@ -58,15 +58,15 @@ public class SSLWithCompressionTest {
     @Test
     public void testSSLWithCompression() throws Exception {
         // Configure client SSL
-        SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStoreKeyPass("456456");
-        clientSSLParam.setNeedClientAuth(true);
+        SSLParams clientSSLParams = new SSLParams();
+        clientSSLParams.setTrustStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStoreKeyPass("456456");
+        clientSSLParams.setNeedClientAuth(true);
 
         // Create client with SSL and compression
         TcpRestClientFactory factory = new TcpRestClientFactory(
-            HelloWorld.class, "localhost", port, null, clientSSLParam
+            HelloWorld.class, "localhost", port, null, clientSSLParams
         ).withCompression();
 
         HelloWorld client = factory.getInstance();
@@ -79,15 +79,15 @@ public class SSLWithCompressionTest {
     @Test
     public void testSSLWithCompressionLargeData() throws Exception {
         // Configure client SSL
-        SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStoreKeyPass("456456");
-        clientSSLParam.setNeedClientAuth(true);
+        SSLParams clientSSLParams = new SSLParams();
+        clientSSLParams.setTrustStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStoreKeyPass("456456");
+        clientSSLParams.setNeedClientAuth(true);
 
         // Create client with SSL and aggressive compression
         TcpRestClientFactory factory = new TcpRestClientFactory(
-            HelloWorld.class, "localhost", port, null, clientSSLParam
+            HelloWorld.class, "localhost", port, null, clientSSLParams
         ).withCompression(new CompressionConfig(true, 100, 9));
 
         HelloWorld client = factory.getInstance();
@@ -108,15 +108,15 @@ public class SSLWithCompressionTest {
         // Server has compression enabled
         // Client doesn't enable compression (backward compatibility test)
 
-        SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStoreKeyPass("456456");
-        clientSSLParam.setNeedClientAuth(true);
+        SSLParams clientSSLParams = new SSLParams();
+        clientSSLParams.setTrustStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStoreKeyPass("456456");
+        clientSSLParams.setNeedClientAuth(true);
 
         // Client without compression
         TcpRestClientFactory factory = new TcpRestClientFactory(
-            HelloWorld.class, "localhost", port, null, clientSSLParam
+            HelloWorld.class, "localhost", port, null, clientSSLParams
         );
 
         HelloWorld client = factory.getInstance();
@@ -127,14 +127,14 @@ public class SSLWithCompressionTest {
 
     @Test
     public void testMultipleSSLConnectionsWithCompression() throws Exception {
-        SSLParam clientSSLParam = new SSLParam();
-        clientSSLParam.setTrustStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStorePath("classpath:client_ks");
-        clientSSLParam.setKeyStoreKeyPass("456456");
-        clientSSLParam.setNeedClientAuth(true);
+        SSLParams clientSSLParams = new SSLParams();
+        clientSSLParams.setTrustStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStorePath("classpath:client_ks");
+        clientSSLParams.setKeyStoreKeyPass("456456");
+        clientSSLParams.setNeedClientAuth(true);
 
         TcpRestClientFactory factory = new TcpRestClientFactory(
-            HelloWorld.class, "localhost", port, null, clientSSLParam
+            HelloWorld.class, "localhost", port, null, clientSSLParams
         ).withCompression();
 
         HelloWorld client = factory.getInstance();

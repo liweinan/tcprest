@@ -2,7 +2,7 @@ package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.exception.ParseException;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,7 +15,7 @@ import java.util.Scanner;
 /**
  * SingleThreadTcpRestServer uses a single threaded Socket Server to serve the clients.
  *
- * <p><b>SSL Support:</b> This server supports SSL/TLS via {@link cn.huiwings.tcprest.ssl.SSLParam}.</p>
+ * <p><b>SSL Support:</b> This server supports SSL/TLS via {@link SSLParams}.</p>
  *
  * <p><b>Bind Address Support:</b> Supports binding to specific IP addresses for security and multi-homing.</p>
  *
@@ -74,11 +74,11 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
      * Create SSL server on specified port binding to all interfaces.
      *
      * @param port the port to bind to
-     * @param sslParam SSL parameters
+     * @param sslParams SSL parameters
      * @throws Exception if server creation fails
      */
-    public SingleThreadTcpRestServer(int port, SSLParam sslParam) throws Exception {
-        this(TcpRestServerSocketFactory.getServerSocket(port, null, sslParam));
+    public SingleThreadTcpRestServer(int port, SSLParams sslParams) throws Exception {
+        this(TcpRestServerSocketFactory.getServerSocket(port, null, sslParams));
     }
 
     /**
@@ -86,11 +86,11 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
      *
      * @param port the port to bind to
      * @param bindAddress the IP address to bind to (null = all interfaces, "127.0.0.1" = localhost only)
-     * @param sslParam SSL parameters
+     * @param sslParams SSL parameters
      * @throws Exception if server creation fails or address is invalid
      */
-    public SingleThreadTcpRestServer(int port, String bindAddress, SSLParam sslParam) throws Exception {
-        this(TcpRestServerSocketFactory.getServerSocket(port, bindAddress, sslParam));
+    public SingleThreadTcpRestServer(int port, String bindAddress, SSLParams sslParams) throws Exception {
+        this(TcpRestServerSocketFactory.getServerSocket(port, bindAddress, sslParams));
     }
 
     /**

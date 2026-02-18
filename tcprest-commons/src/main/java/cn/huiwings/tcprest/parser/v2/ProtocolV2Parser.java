@@ -364,20 +364,32 @@ public class ProtocolV2Parser implements RequestParser {
 
             // Priority 1: User-defined Mapper
             if (mappers != null) {
-                cn.huiwings.tcprest.mapper.Mapper mapper = mappers.get(paramType.getName());
+                // Use getCanonicalName() to match MapperHelper.DEFAULT_MAPPERS keys
+                cn.huiwings.tcprest.mapper.Mapper mapper = mappers.get(paramType.getCanonicalName());
                 if (mapper != null) {
-                    // Decode from Base64 first
-                    String decoded = new String(Base64.getDecoder().decode(paramStr));
-                    return mapper.stringToObject(decoded);
+                    // Convert URL-safe Base64 to standard first
+                    String standardBase64 = convertUrlSafeToStandard(paramStr);
+
+                    // RawTypeMapper expects Base64 string directly, other mappers expect decoded string
+                    if (mapper instanceof cn.huiwings.tcprest.mapper.RawTypeMapper) {
+                        // RawTypeMapper handles Base64 decoding internally
+                        return mapper.stringToObject(standardBase64);
+                    } else {
+                        // Other mappers expect decoded string
+                        String decoded = new String(Base64.getDecoder().decode(standardBase64));
+                        return mapper.stringToObject(decoded);
+                    }
                 }
             }
 
             // Priority 2: Common collection interfaces (List, Map, Set, etc.)
             // These interfaces aren't Serializable themselves, but their implementations are
             if (isCommonCollectionInterface(paramType)) {
+                // Convert URL-safe Base64 back to standard Base64 for RawTypeMapper
+                String standardBase64 = convertUrlSafeToStandard(paramStr);
                 // Use RawTypeMapper to deserialize the actual implementation (ArrayList, HashMap, etc.)
                 cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
-                return rawMapper.stringToObject(paramStr);
+                return rawMapper.stringToObject(standardBase64);
             }
 
             // Priority 3: Auto Deserialization for Serializable types
@@ -385,13 +397,16 @@ public class ProtocolV2Parser implements RequestParser {
                 paramType != String.class &&
                 !paramType.isArray() &&
                 !isWrapperType(paramType)) {
+                // Convert URL-safe Base64 back to standard Base64 for RawTypeMapper
+                String standardBase64 = convertUrlSafeToStandard(paramStr);
                 // RawTypeMapper expects direct Base64 string (not decoded)
                 cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
-                return rawMapper.stringToObject(paramStr);
+                return rawMapper.stringToObject(standardBase64);
             }
 
-            // Priority 4: Decode from Base64
-            String decoded = new String(Base64.getDecoder().decode(paramStr));
+            // Priority 4: Decode from URL-safe Base64
+            String standardBase64 = convertUrlSafeToStandard(paramStr);
+            String decoded = new String(Base64.getDecoder().decode(standardBase64));
 
             // Priority 5: Convert to expected type
             return convertToType(decoded, paramType);
@@ -401,6 +416,27 @@ public class ProtocolV2Parser implements RequestParser {
             }
             throw new ParseException("Failed to parse parameter: " + e.getMessage());
         }
+    }
+
+    /**
+     * Convert URL-safe Base64 to standard Base64.
+     *
+     * <p>Converts '-' → '+', '_' → '/', and adds padding '='</p>
+     *
+     * @param urlSafeBase64 URL-safe Base64 string
+     * @return standard Base64 string
+     */
+    private String convertUrlSafeToStandard(String urlSafeBase64) {
+        // Restore standard Base64 characters
+        String standard = urlSafeBase64.replace('-', '+').replace('_', '/');
+
+        // Add padding if needed
+        int padding = (4 - standard.length() % 4) % 4;
+        for (int i = 0; i < padding; i++) {
+            standard += "=";
+        }
+
+        return standard;
     }
 
     /**

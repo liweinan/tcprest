@@ -531,10 +531,10 @@ factory.setSecurityConfig(securityConfig);
 
 // ✅ CORRECT: Reuse SSLParam
 if (annotation.ssl()) {
-    SSLParam sslParam = new SSLParam();
-    sslParam.setKeyStorePath(annotation.sslKeyStore());
-    sslParam.setKeyStoreKeyPass(annotation.sslPassword());
-    factory.setSslParam(sslParam);
+    SSLParam sslParams = new SSLParam();
+    sslParams.setKeyStorePath(annotation.sslKeyStore());
+    sslParams.setKeyStoreKeyPass(annotation.sslPassword());
+    factory.setSslParam(sslParams);
 }
 
 return factory.getClient();  // ✅ Use existing method
@@ -545,13 +545,13 @@ return factory.getClient();  // ✅ Use existing method
 TcpRestServer server;
 switch (annotation.serverType()) {
     case SINGLE_THREAD:
-        server = new SingleThreadTcpRestServer(port, sslParam);
+        server = new SingleThreadTcpRestServer(port, sslParams);
         break;
     case NIO:
         server = new NioTcpRestServer(port);
         break;
     case NETTY:
-        server = new NettyTcpRestServer(port, sslParam);
+        server = new NettyTcpRestServer(port, sslParams);
         break;
 }
 
@@ -801,13 +801,13 @@ public class TcpRestClientFactoryBean<T> implements FactoryBean<T>, EnvironmentA
 
         // ✅ CORRECT: Reuse SSLParam
         if (annotation.ssl()) {
-            SSLParam sslParam = new SSLParam();
-            sslParam.setKeyStorePath(resolveProperty(annotation.sslKeyStore()));
-            sslParam.setKeyStoreKeyPass(resolveProperty(annotation.sslPassword()));
+            SSLParam sslParams = new SSLParam();
+            sslParams.setKeyStorePath(resolveProperty(annotation.sslKeyStore()));
+            sslParams.setKeyStoreKeyPass(resolveProperty(annotation.sslPassword()));
             if (!annotation.sslTrustStore().isEmpty()) {
-                sslParam.setTrustStorePath(resolveProperty(annotation.sslTrustStore()));
+                sslParams.setTrustStorePath(resolveProperty(annotation.sslTrustStore()));
             }
-            factory.setSslParam(sslParam);
+            factory.setSslParam(sslParams);
         }
     }
 
@@ -1110,11 +1110,11 @@ public interface HighSecurityService {
 SecurityConfig securityConfig = new SecurityConfig()
     .enableHMAC("secret-key-min-32-chars");
 
-SSLParam sslParam = new SSLParam();
-sslParam.setKeyStorePath("classpath:server.jks");
-sslParam.setKeyStoreKeyPass("password");
+SSLParam sslParams = new SSLParam();
+sslParams.setKeyStorePath("classpath:server.jks");
+sslParams.setKeyStoreKeyPass("password");
 
-NettyTcpRestServer server = new NettyTcpRestServer(8443, sslParam);
+NettyTcpRestServer server = new NettyTcpRestServer(8443, sslParams);
 server.setSecurityConfig(securityConfig);
 server.addSingletonResource(new UserServiceImpl());
 server.up();

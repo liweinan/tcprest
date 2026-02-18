@@ -228,7 +228,8 @@ public class ProtocolV2Codec implements ProtocolCodec {
 
         // Priority 1: User-defined Mapper
         if (mappers != null) {
-            String mapperKey = param.getClass().getName();
+            // Use getCanonicalName() to match MapperHelper.DEFAULT_MAPPERS keys
+            String mapperKey = param.getClass().getCanonicalName();
             Mapper mapper = mappers.get(mapperKey);
             if (mapper != null) {
                 paramStr = mapper.objectToString(param);
@@ -248,8 +249,13 @@ public class ProtocolV2Codec implements ProtocolCodec {
             !param.getClass().isArray() &&
             !isWrapperType(param.getClass())) {
             cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
-            // RawTypeMapper already returns Base64-encoded string, no need to encode again
-            return rawMapper.objectToString(param);
+            // RawTypeMapper returns standard Base64 - convert to URL-safe Base64
+            String standardBase64 = rawMapper.objectToString(param);
+            if (standardBase64 == null) {
+                return "~";
+            }
+            // Convert standard Base64 to URL-safe: + → -, / → _, remove =
+            return standardBase64.replace('+', '-').replace('/', '_').replace("=", "");
         }
 
         // Priority 3: Arrays
@@ -266,6 +272,27 @@ public class ProtocolV2Codec implements ProtocolCodec {
         }
 
         return Base64.getEncoder().encodeToString(paramStr.getBytes());
+    }
+
+    /**
+     * Convert URL-safe Base64 to standard Base64.
+     *
+     * <p>Converts '-' → '+', '_' → '/', and adds padding '='</p>
+     *
+     * @param urlSafeBase64 URL-safe Base64 string
+     * @return standard Base64 string
+     */
+    private String convertUrlSafeToStandard(String urlSafeBase64) {
+        // Restore standard Base64 characters
+        String standard = urlSafeBase64.replace('-', '+').replace('_', '/');
+
+        // Add padding if needed
+        int padding = (4 - standard.length() % 4) % 4;
+        for (int i = 0; i < padding; i++) {
+            standard += "=";
+        }
+
+        return standard;
     }
 
     /**
@@ -406,10 +433,21 @@ public class ProtocolV2Codec implements ProtocolCodec {
 
         // Priority 1: User-defined Mapper
         if (mappers != null && expectedType != null) {
-            Mapper mapper = mappers.get(expectedType.getName());
+            // Use getCanonicalName() to match MapperHelper.DEFAULT_MAPPERS keys
+            Mapper mapper = mappers.get(expectedType.getCanonicalName());
             if (mapper != null) {
-                String decoded = new String(Base64.getDecoder().decode(base64Content));
-                return mapper.stringToObject(decoded);
+                // Convert URL-safe Base64 to standard first
+                String standardBase64 = convertUrlSafeToStandard(base64Content);
+
+                // RawTypeMapper expects Base64 string directly, other mappers expect decoded string
+                if (mapper instanceof cn.huiwings.tcprest.mapper.RawTypeMapper) {
+                    // RawTypeMapper handles Base64 decoding internally
+                    return mapper.stringToObject(standardBase64);
+                } else {
+                    // Other mappers expect decoded string
+                    String decoded = new String(Base64.getDecoder().decode(standardBase64));
+                    return mapper.stringToObject(decoded);
+                }
             }
         }
 
@@ -419,13 +457,16 @@ public class ProtocolV2Codec implements ProtocolCodec {
             expectedType != String.class &&
             !expectedType.isArray() &&
             !isWrapperType(expectedType)) {
-            // RawTypeMapper expects direct Base64 string
+            // Convert URL-safe Base64 back to standard Base64
+            String standardBase64 = convertUrlSafeToStandard(base64Content);
+            // RawTypeMapper expects standard Base64 string
             cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
-            return rawMapper.stringToObject(base64Content);
+            return rawMapper.stringToObject(standardBase64);
         }
 
-        // Priority 3: Decode from Base64
-        String decoded = new String(Base64.getDecoder().decode(base64Content));
+        // Priority 3: Decode from URL-safe Base64
+        String standardBase64 = convertUrlSafeToStandard(base64Content);
+        String decoded = new String(Base64.getDecoder().decode(standardBase64));
 
         // Priority 4: Convert to expected type
         return convertToType(decoded, expectedType);
@@ -445,12 +486,14 @@ public class ProtocolV2Codec implements ProtocolCodec {
                     new RuntimeException("Unknown server error");
         }
 
-        // Decode from Base64 if wrapped
+        // Decode from URL-safe Base64 if wrapped
         String decoded;
         if (body.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) &&
             body.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
             String base64 = body.substring(2, body.length() - 2);
-            decoded = new String(Base64.getDecoder().decode(base64));
+            // Convert URL-safe Base64 to standard first
+            String standardBase64 = convertUrlSafeToStandard(base64);
+            decoded = new String(Base64.getDecoder().decode(standardBase64));
         } else {
             decoded = body;
         }
@@ -629,7 +672,8 @@ public class ProtocolV2Codec implements ProtocolCodec {
 
         // Priority 1: User-defined Mapper
         if (mappers != null) {
-            Mapper mapper = mappers.get(obj.getClass().getName());
+            // Use getCanonicalName() to match MapperHelper.DEFAULT_MAPPERS keys
+            Mapper mapper = mappers.get(obj.getClass().getCanonicalName());
             if (mapper != null) {
                 value = mapper.objectToString(obj);
                 String base64 = Base64.getEncoder().encodeToString(value.getBytes());
@@ -644,8 +688,10 @@ public class ProtocolV2Codec implements ProtocolCodec {
             !isWrapperType(obj.getClass())) {
             cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
             String base64Serialized = rawMapper.objectToString(obj);
-            // RawTypeMapper already returns Base64, wrap it with {{}}
-            return ProtocolV2Constants.PARAM_WRAPPER_START + base64Serialized + ProtocolV2Constants.PARAM_WRAPPER_END;
+            // Convert standard Base64 to URL-safe Base64
+            String urlSafeBase64 = base64Serialized.replace('+', '-').replace('/', '_').replace("=", "");
+            // Wrap with {{}}
+            return ProtocolV2Constants.PARAM_WRAPPER_START + urlSafeBase64 + ProtocolV2Constants.PARAM_WRAPPER_END;
         }
 
         // Priority 3: Arrays
@@ -778,7 +824,8 @@ public class ProtocolV2Codec implements ProtocolCodec {
         if (mappers == null || targetClazz == null) {
             return null;
         }
-        return mappers.get(targetClazz.getName());
+        // Use getCanonicalName() to match MapperHelper.DEFAULT_MAPPERS keys
+        return mappers.get(targetClazz.getCanonicalName());
     }
 
     /**

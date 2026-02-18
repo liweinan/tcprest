@@ -1,5 +1,7 @@
 package cn.huiwings.tcprest.server;
 
+import cn.huiwings.tcprest.ssl.SSLParams;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -30,7 +32,7 @@ import java.util.concurrent.Executors;
  *
  * <p><b>Alternatives for SSL:</b></p>
  * <ul>
- *   <li>For low-traffic SSL: Use {@link SingleThreadTcpRestServer} with {@link cn.huiwings.tcprest.ssl.SSLParam}</li>
+ *   <li>For low-traffic SSL: Use {@link SingleThreadTcpRestServer} with {@link SSLParams}</li>
  *   <li>For high-traffic SSL: Use {@code NettyTcpRestServer} (in tcprest-netty module)</li>
  * </ul>
  *

@@ -85,7 +85,7 @@ public class V2MapperDemoTest {
         TcpRestServer server = new SingleThreadTcpRestServer(port);
 
         // Server side: Register custom Gson mapper
-        server.addMapper(User.class.getName(), new GsonUserMapper());
+        server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
 
         server.addResource(UserServiceImpl.class);
         server.up();
@@ -94,7 +94,7 @@ public class V2MapperDemoTest {
         try {
             // Client-side: Register custom Gson mapper
             Map<String, Mapper> mappers = new HashMap<>();
-            mappers.put(User.class.getName(), new GsonUserMapper());
+            mappers.put(User.class.getCanonicalName(), new GsonUserMapper());
 
             TcpRestClientFactory factory = new TcpRestClientFactory(
                 UserService.class, "localhost", port, mappers

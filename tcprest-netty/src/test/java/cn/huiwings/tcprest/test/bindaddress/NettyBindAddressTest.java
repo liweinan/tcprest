@@ -3,7 +3,7 @@ package cn.huiwings.tcprest.test.bindaddress;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.server.NettyTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -51,7 +51,7 @@ public class NettyBindAddressTest {
     public void testNetty_bindToLocalhostWithSSL() throws Exception {
         int port = portRange.next();
 
-        SSLParam serverSSL = new SSLParam();
+        SSLParams serverSSL = new SSLParams();
         serverSSL.setKeyStorePath("classpath:server_ks");
         serverSSL.setKeyStoreKeyPass("123123");
         serverSSL.setTrustStorePath("classpath:server_ks");
@@ -63,7 +63,7 @@ public class NettyBindAddressTest {
         Thread.sleep(500);
 
         // Create SSL client
-        SSLParam clientSSL = new SSLParam();
+        SSLParams clientSSL = new SSLParams();
         clientSSL.setKeyStorePath("classpath:client_ks");
         clientSSL.setKeyStoreKeyPass("456456");
         clientSSL.setTrustStorePath("classpath:client_ks");

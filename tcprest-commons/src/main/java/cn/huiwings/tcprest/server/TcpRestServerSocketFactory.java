@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.commons.PropertyProcessor;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.KeyManagerFactory;
@@ -24,12 +24,12 @@ public class TcpRestServerSocketFactory {
      * Create server socket with optional SSL support (binds to all interfaces).
      *
      * @param port the port to bind to
-     * @param sslParam SSL parameters, or null for plain socket
+     * @param sslParams SSL parameters, or null for plain socket
      * @return server socket
      * @throws Exception if socket creation fails
      */
-    public static ServerSocket getServerSocket(int port, SSLParam sslParam) throws Exception {
-        return getServerSocket(port, null, sslParam);
+    public static ServerSocket getServerSocket(int port, SSLParams sslParams) throws Exception {
+        return getServerSocket(port, null, sslParams);
     }
 
     /**
@@ -45,33 +45,33 @@ public class TcpRestServerSocketFactory {
      *
      * @param port the port to bind to
      * @param bindAddress the IP address to bind to, or null to bind to all interfaces
-     * @param sslParam SSL parameters, or null for plain socket
+     * @param sslParams SSL parameters, or null for plain socket
      * @return server socket
      * @throws Exception if socket creation fails or address is invalid
      */
-    public static ServerSocket getServerSocket(int port, String bindAddress, SSLParam sslParam) throws Exception {
+    public static ServerSocket getServerSocket(int port, String bindAddress, SSLParams sslParams) throws Exception {
         InetAddress addr = (bindAddress == null || bindAddress.isEmpty())
                 ? null  // Bind to all interfaces (0.0.0.0)
                 : InetAddress.getByName(bindAddress);
 
-        if (sslParam == null) {
+        if (sslParams == null) {
             return new ServerSocket(port, DEFAULT_BACKLOG, addr);
         }
 
 //        System.setProperty("javax.net.debug", "ssl,handshake");
-        System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParam.getTrustStorePath()));
+        System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParams.getTrustStorePath()));
         javax.net.ssl.SSLContext context = javax.net.ssl.SSLContext.getInstance("TLS");
 
         KeyStore ks = KeyStore.getInstance("jceks");
-        ks.load(PropertyProcessor.getFileInputStream(sslParam.getKeyStorePath()), null);
+        ks.load(PropertyProcessor.getFileInputStream(sslParams.getKeyStorePath()), null);
         KeyManagerFactory kf = KeyManagerFactory.getInstance("SunX509");
-        kf.init(ks, sslParam.getKeyStoreKeyPass().toCharArray());
+        kf.init(ks, sslParams.getKeyStoreKeyPass().toCharArray());
 
         context.init(kf.getKeyManagers(), null, null);
 
         ServerSocketFactory factory = context.getServerSocketFactory();
         ServerSocket _socket = factory.createServerSocket(port, DEFAULT_BACKLOG, addr);
-        ((SSLServerSocket) _socket).setNeedClientAuth(sslParam.isNeedClientAuth());
+        ((SSLServerSocket) _socket).setNeedClientAuth(sslParams.isNeedClientAuth());
         return _socket;
     }
 }

@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.client;
 
 import cn.huiwings.tcprest.commons.PropertyProcessor;
-import cn.huiwings.tcprest.ssl.SSLParam;
+import cn.huiwings.tcprest.ssl.SSLParams;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.KeyManagerFactory;
@@ -22,13 +22,13 @@ public class DefaultTcpRestClient implements TcpRestClient {
     private String deletgatedClassName;
     private String host;
     private int port;
-    private SSLParam sslParam;
+    private SSLParams sslParams;
 
-    public DefaultTcpRestClient(SSLParam sslParam, String deletgatedClassName, String host, int port) {
+    public DefaultTcpRestClient(SSLParams sslParams, String deletgatedClassName, String host, int port) {
         this.deletgatedClassName = deletgatedClassName;
         this.host = host;
         this.port = port;
-        this.sslParam = sslParam;
+        this.sslParams = sslParams;
     }
 
     private String sendRequest(String request, Socket socket) throws Exception {
@@ -43,7 +43,7 @@ public class DefaultTcpRestClient implements TcpRestClient {
     }
 
     public String sendRequest(String request, int timeout) throws Exception {
-        if (sslParam == null) {
+        if (sslParams == null) {
             Socket clientSocket = new Socket(host, port);
 
             if (timeout > 0)
@@ -53,10 +53,10 @@ public class DefaultTcpRestClient implements TcpRestClient {
         }
 
         // Set the key store to use for validating the server cert.
-        System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParam.getTrustStorePath()));
+        System.setProperty("javax.net.ssl.trustStore", PropertyProcessor.getFilePath(sslParams.getTrustStorePath()));
         Socket socket = null;
-        if (sslParam.isNeedClientAuth()) {
-            socket = sslClientWithCert(sslParam, host, port, timeout);
+        if (sslParams.isNeedClientAuth()) {
+            socket = sslClientWithCert(sslParams, host, port, timeout);
         } else {
             socket = sslClientWithoutCert(host, port, timeout);
         }
@@ -76,14 +76,14 @@ public class DefaultTcpRestClient implements TcpRestClient {
         return socket;
     }
 
-    private Socket sslClientWithCert(SSLParam sslParam, String host, int port, int timeout) throws Exception {
+    private Socket sslClientWithCert(SSLParams sslParams, String host, int port, int timeout) throws Exception {
         SSLContext context = SSLContext.getInstance("TLS");
         KeyStore ks = KeyStore.getInstance("jceks");
 
-        FileInputStream fi = PropertyProcessor.getFileInputStream(sslParam.getKeyStorePath());
+        FileInputStream fi = PropertyProcessor.getFileInputStream(sslParams.getKeyStorePath());
         ks.load(fi, null);
         KeyManagerFactory kf = KeyManagerFactory.getInstance("SunX509");
-        kf.init(ks, sslParam.getKeyStoreKeyPass().toCharArray());
+        kf.init(ks, sslParams.getKeyStoreKeyPass().toCharArray());
         context.init(kf.getKeyManagers(), null, null);
 
         SocketFactory factory = context.getSocketFactory();
