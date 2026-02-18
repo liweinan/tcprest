@@ -1,6 +1,6 @@
 # TcpRest Protocol Specification
 
-This document explains the TcpRest wire protocol formats for both Protocol v1 (legacy) and Protocol v2 (current).
+This document explains the TcpRest wire protocol format (Protocol V2 only, as of v2.0).
 
 ## Design Philosophy
 
@@ -12,58 +12,9 @@ TcpRest uses a simple, text-based protocol that is:
 
 ---
 
-## Protocol v1 (Legacy)
+## Protocol V2
 
-### Request Format
-
-```
-[COMPRESSION]|ClassName/methodName(PARAMS)
-```
-
-**Components:**
-- `COMPRESSION`: `0` (uncompressed) or `1` (gzip)
-- `ClassName`: Fully qualified class name (e.g., `com.example.Calculator`)
-- `methodName`: Method name (e.g., `add`)
-- `PARAMS`: Base64-encoded parameters separated by `:::`
-
-**Example:**
-```
-0|com.example.Calculator/add({{NQ==}}:::{{Mw==}})
-```
-
-Decoded: Call `Calculator.add` with params `5` and `3`
-
-### Response Format
-
-```
-[COMPRESSION]|{{BASE64_RESULT}}
-```
-
-**Example:**
-```
-0|{{OA==}}
-```
-
-Decoded: Result is `8`
-
-### Limitations
-
-1. **No method overloading support**: Only method name is sent, not parameter types
-   - If a class has `add(int, int)` and `add(double, double)`, only the first match is called
-   - The extractor stops at the first name match (breaking other overloads)
-
-2. **No exception propagation**: Exceptions are swallowed and return `NullObj`
-   - Server catches `InvocationTargetException` and returns null instead of error details
-   - Clients cannot distinguish between null result and server error
-
-3. **No status codes**: Success and failure look identical
-   - Empty response could mean null, error, or network issue
-
----
-
-## Protocol v2 (Current)
-
-Protocol v2 solves v1's limitations by adding **method signatures**, **status codes**, and **intelligent mapper support**.
+The TcpRest protocol provides **method signatures**, **status codes**, and **intelligent mapper support** for robust RPC communication.
 
 ### Request Format
 
@@ -787,123 +738,13 @@ See `V2ComplexObjectTest.java` for comprehensive examples:
 
 ---
 
-## Version Detection & Compatibility
+## Protocol Format
 
-### Auto-Detection
-
-The server automatically detects protocol version by checking the request prefix:
-
-```java
-if (request.startsWith("V2|")) {
-    return processV2Request(request);
-} else {
-    return processV1Request(request);  // Default to v1
-}
-```
-
-No handshake or negotiation is needed - the protocol version is self-describing.
-
-### Server Modes
-
-Servers can be configured with three protocol modes:
-
-| Mode | Accepts V1 | Accepts V2 | Use Case |
-|------|------------|------------|----------|
-| `ProtocolVersion.V1` | ✅ | ❌ | Legacy systems only |
-| `ProtocolVersion.V2` | ❌ | ✅ | New deployments |
-| `ProtocolVersion.AUTO` | ✅ | ✅ | **Default** - mixed environments |
-
-```java
-// Server configuration
-TcpRestServer server = new SingleThreadTcpRestServer(8080);
-server.setProtocolVersion(ProtocolVersion.AUTO);  // Default: accept both
-```
-
-### Client Configuration
-
-**As of version 2.0 (2026-02-19):** Clients default to V2 protocol.
-
-```java
-// V2 client (default - recommended)
-TcpRestClientFactory factory = new TcpRestClientFactory(
-    MyService.class, "localhost", 8080
-);
-// Uses ProtocolVersion.V2 by default
-
-// V1 client (legacy - for backward compatibility)
-TcpRestClientFactory factory = new TcpRestClientFactory(
-    MyService.class, "localhost", 8080
-);
-factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
-```
-
-### Compatibility Matrix
-
-| Client | Server Mode | Result | Notes |
-|--------|-------------|--------|-------|
-| V1 | V1 only | ✅ Works | Legacy mode |
-| V1 | AUTO | ✅ Works | Server accepts v1 requests |
-| V1 | V2 only | ❌ Protocol error | Server rejects v1 format |
-| V2 | V1 only | ❌ Protocol error | Server doesn't understand V2| prefix |
-| V2 | AUTO | ✅ Works | Server accepts v2 requests |
-| V2 | V2 only | ✅ Works | Recommended for new systems |
-
-### Migration Strategy
-
-**Current State (Version 2.0+):**
-- Clients default to V2 protocol
-- Servers default to AUTO mode (accept both V1 and V2)
-
-**For New Projects:**
-- Use defaults (V2 client + AUTO server)
-- No configuration needed
-
-**For Upgrading from Version 1.x:**
-
-**Phase 1: Update Dependencies**
-- Upgrade tcprest libraries to 2.0+
-- Servers automatically use `ProtocolVersion.AUTO` (accepts both V1 and V2)
-
-**Phase 2: Identify Legacy Clients**
-- New clients will use V2 by default
-- Identify any old clients still using V1 protocol
-
-**Phase 3: Update Legacy Clients**
-- Option A: Upgrade to tcprest 2.0+ (uses V2 by default)
-- Option B: Keep old version but explicitly set V1:
-  ```java
-  factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
-  ```
-
-**Phase 4: (Optional) V2-Only Mode**
-- Once all clients upgraded to V2, switch servers to `ProtocolVersion.V2`
-- Reject legacy V1 clients
-
-**Rollback:**
-- If issues occur, explicitly set clients to V1:
-  ```java
-  factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
-  ```
+All requests and responses use the Protocol V2 format with the `V2|` prefix.
 
 ---
 
 ## Exception Handling
-
-### V1 Exception Handling
-
-**Server Behavior:**
-```java
-try {
-    Object result = method.invoke(instance, params);
-    return encodeResult(result);
-} catch (InvocationTargetException e) {
-    return encodeResult(NullObj);  // Swallows exception!
-}
-```
-
-**Client Receives:** Null value (cannot distinguish from legitimate null)
-
-### V2 Exception Handling
 
 **Server Behavior:**
 ```java
@@ -1456,4 +1297,4 @@ echo "SGVsbG8=" | base64 -d
 
 **Document Version:** 2.0
 **Last Updated:** 2026-02-19
-**TcpRest Version:** 2.0+ (V2 protocol simplified, default changed to V2)
+**TcpRest Version:** 2.0+ (V2-only, V1 removed)

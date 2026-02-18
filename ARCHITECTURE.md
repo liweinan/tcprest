@@ -13,10 +13,10 @@ The project is organized into four Maven modules:
 
 **Key components:**
 - Client factory and proxy
-- Protocol layer (v1 and v2)
+- Protocol V2 layer
 - Serialization/deserialization (mappers)
 - Annotations (@TcpRestMethod, @Timeout)
-- Extractors and invokers
+- Request parser and invoker
 - Compression support
 - Security utilities
 - SSL parameter configuration
@@ -70,23 +70,9 @@ The project is organized into four Maven modules:
 
 **Package:** `cn.huiwings.tcprest.protocol`
 
-TcpRest supports two protocol versions with automatic detection:
+TcpRest uses Protocol V2 exclusively (as of v2.0, V1 has been removed).
 
-#### Protocol V1 (Legacy)
-
-**Format:**
-```
-0|base64(ClassName/methodName)|base64({{p1}}:::{{p2}}:::{{p3}})
-```
-
-**Characteristics:**
-- Double Base64 encoding (class/method + parameters)
-- Verbose parameter separator (`:::`)
-- No method overloading support (only method name, no signature)
-- No status codes (success/failure indistinguishable)
-- Legacy format for backward compatibility
-
-#### Protocol V2 (Default since v2.0)
+#### Protocol V2
 
 **Format:**
 ```
@@ -116,45 +102,9 @@ V2 | SUCCESS | Calculator/add(II) | [5, 3]
 | 1 | BUSINESS_EXCEPTION | Business logic error (thrown exception extends BusinessException) | Validation errors, business rule violations |
 | 2 | SERVER_ERROR | Server-side error (unexpected exception) | NPE, reflection errors, system failures |
 
-**Protocol Detection:**
-
-Servers use `ProtocolRouter` to automatically detect protocol version by prefix:
-- Starts with `"V2|"` → ProtocolV2Extractor
-- Starts with `"0|"` → DefaultExtractor (V1)
-- No configuration needed - clients choose, servers auto-detect
-
 **Key classes:**
-- `ProtocolVersion`: Enum defining V1, V2, AUTO
-- `ProtocolRouter`: Automatic protocol detection and routing
-- `ProtocolConfig`: Client-side protocol configuration
-- `StatusCode`: V2 status code constants
-
-#### Protocol Version Comparison
-
-**Complete V1 vs V2 Feature Matrix:**
-
-| Feature | Protocol V1 | Protocol V2 |
-|---------|-------------|-------------|
-| **Format** | `0\|base64(class/method)\|base64({{p1}}:::{{p2}})` | `V2\|status\|{{base64(class/method(sig))}}\|[p1,p2]` |
-| **Encoding** | Double Base64 (class+method AND params) | Single Base64 (class+method+sig only) |
-| **Method Overloading** | ❌ No (method name only) | ✅ Yes (type signatures) |
-| **Status Codes** | ❌ No (success/failure indistinguishable) | ✅ Yes (0=SUCCESS, 1=BUSINESS, 2=ERROR) |
-| **Mapper System** | Basic built-in mappers only | 4-tier (User→Collection→Auto→Built-in) |
-| **Collection Interfaces** | ❌ No (must use concrete types) | ✅ Yes (List, Map, Set, Queue, Deque) |
-| **Auto-Serialization** | ❌ No (manual mapper required) | ✅ Yes (Serializable → automatic) |
-| **Null Handling** | `NullObj` wrapper | `~` marker (cleaner) |
-| **Empty String** | Ambiguous with null | `""` (distinct from `~`) |
-| **Security** | None (only SSL/TLS) | CRC32, HMAC-SHA256, class whitelist |
-| **Exception Propagation** | Swallowed (returns NullObj) | Propagated with status codes |
-| **Client Error Info** | ❌ Silent failures | ✅ Full exception details |
-| **Compression** | ✅ Yes | ✅ Yes |
-| **Backward Compatibility** | N/A | ✅ V1 clients work with V2 servers |
-| **Default** | Legacy (still supported) | ✅ Default since v2.0 |
-
-**Migration recommendation:**
-- **Existing V1 apps**: No changes needed (fully supported)
-- **New apps**: Use V2 (automatic, no config)
-- **Gradual migration**: Mix V1 and V2 clients with AUTO server
+- `StatusCode`: Status code constants (SUCCESS, BUSINESS_EXCEPTION, SERVER_ERROR, PROTOCOL_ERROR)
+- `ProtocolV2Constants`: Protocol constants and markers
 
 ### 2. Server Layer
 
@@ -331,24 +281,21 @@ server.addMapper(User.class.getName(), new GsonUserMapper());
 
 **Thread safety:** Mappers should be stateless or thread-safe.
 
-### 5. Extractor and Invoker
+### 5. Request Parser and Invoker
 
-**Package:** `cn.huiwings.tcprest.extractor`, `cn.huiwings.tcprest.invoker`
+**Package:** `cn.huiwings.tcprest.parser`, `cn.huiwings.tcprest.invoker`
 
 These components form the server-side request processing pipeline:
 
-#### Extractor: Protocol Parsing
+#### RequestParser: Protocol Parsing
 
-**Extractor** parses protocol strings into invocation context (`Context` object).
+**RequestParser** parses protocol strings into invocation context (`Context` object).
 
-**Implementations:**
+**Implementation:**
 
-| Extractor | Protocol | Features |
-|-----------|----------|----------|
-| `DefaultExtractor` | V1 | Method name only (no overloading), double Base64 decoding |
-| `ProtocolV2Extractor` | V2 | Method signature (overloading support), security features, 4-tier mapper system |
+- `ProtocolV2Parser`: Protocol V2 parser with full feature support
 
-**ProtocolV2Extractor capabilities:**
+**ProtocolV2Parser capabilities:**
 - ✅ **Method signature parsing**: `add(II)` → finds `add(int, int)` even with overloads
 - ✅ **4-tier mapper resolution**: User → Collection → Auto-serialization → Built-in
 - ✅ **Security validation**: Checksum verification (CRC32/HMAC), class whitelist
@@ -358,7 +305,7 @@ These components form the server-side request processing pipeline:
 **Example:**
 ```java
 // Request: V2|0|{{Y2FsYy9hZGQoSUkp}}|[NQ==,Mw==]
-Context context = extractor.extract(request);
+Context context = parser.parse(request);
 
 context.getTargetClass()   // → Calculator.class
 context.getTargetMethod()  // → public int add(int, int)
@@ -369,12 +316,9 @@ context.getParams()        // → [5, 3]
 
 **Invoker** executes the method invocation using Java reflection.
 
-**Implementations:**
+**Implementation:**
 
-| Invoker | Protocol | Exception Handling | Return Value |
-|---------|----------|-------------------|--------------|
-| `DefaultInvoker` | V1 | Catches exceptions, returns `NullObj` | Always `NullObj` on error |
-| `ProtocolV2Invoker` | V2 | Propagates exceptions to caller | Throws for status code encoding |
+- `ProtocolV2Invoker`: Protocol V2 invoker with exception propagation
 
 **ProtocolV2Invoker behavior:**
 - ✅ **Exception propagation**: `BusinessException` → status code 1, others → status code 2
@@ -395,10 +339,6 @@ try {
     // Server error → encode with StatusCode.SERVER_ERROR (2)
 }
 ```
-
-**Key difference:**
-- **V1**: Errors are silent (client sees `NullObj`, doesn't know what happened)
-- **V2**: Errors propagate with status codes (client knows exactly what failed)
 
 ### 6. Annotations
 
@@ -672,13 +612,13 @@ public class Color implements Serializable {
 // Works automatically with V2 protocol (Priority 3: Auto-serialization)
 ```
 
-### 2. Custom Extractors
+### 2. Custom Request Parsers
 
-Implement `Extractor` interface for custom protocol parsing:
+Implement `RequestParser` interface for custom protocol parsing:
 
 ```java
-public class MyExtractor implements Extractor {
-    public Context extract(String request) {
+public class MyRequestParser implements RequestParser {
+    public Context parse(String request) {
         // Custom parsing logic
     }
 }
@@ -686,10 +626,10 @@ public class MyExtractor implements Extractor {
 
 ### 3. Custom Invokers
 
-Implement `Invoker` interface for custom invocation logic:
+Implement custom invoker for custom invocation logic:
 
 ```java
-public class MyInvoker implements Invoker {
+public class MyInvoker {
     public Object invoke(Context ctx) {
         // Custom invocation logic (e.g., AOP, security checks)
     }
@@ -1166,14 +1106,20 @@ public class PersonService {
 
 ## Recent Enhancements (2026)
 
-**Protocol V2 (2026-02-19):**
+**V2-Only Refactoring (2026-02-19):**
+- ✅ V1 protocol completely removed (1000+ lines of code reduced)
+- ✅ API renamed: Converter → ProtocolCodec, Extractor → RequestParser
+- ✅ ProtocolRouter merged into AbstractTcpRestServer
+- ✅ Deleted legacy utilities: Base64, NullObj, DefaultInvoker
+- ✅ Simplified architecture with single protocol version
+
+**Protocol V2 Features:**
 - ✅ JSON-style parameter arrays `[p1,p2,p3]`
 - ✅ Method overloading support via type signatures
-- ✅ Status codes (SUCCESS, BUSINESS_EXCEPTION, SERVER_ERROR)
+- ✅ Status codes (SUCCESS, BUSINESS_EXCEPTION, SERVER_ERROR, PROTOCOL_ERROR)
 - ✅ 4-tier intelligent mapper system
 - ✅ Collection interfaces support (List, Map, Set)
 - ✅ Protocol markers (`~` for null, empty for empty)
-- ✅ Backward compatibility with V1
 
 **Security Features (2026-02-18):**
 - ✅ HMAC-SHA256 message authentication

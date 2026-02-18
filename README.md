@@ -9,14 +9,18 @@ A lightweight, zero-dependency RPC framework that transforms POJOs into network-
 
 ## ⚡ What's New in v2.0 (2026-02-19)
 
-**Protocol V2 is now the default!** Enjoy:
-- ✨ **Simplified format**: JSON-style arrays `[p1,p2,p3]` instead of verbose `{{p1}}:::{{p2}}`
-- 🚀 **Better performance**: Single-layer Base64 encoding (no double encoding)
-- 🎯 **Method overloading**: Full support with type signatures
-- 🧠 **Intelligent mappers**: 4-tier system with collection interfaces (List, Map, Set), auto-serialization for `Serializable` objects - **zero configuration for DTOs and collections!**
-- 📦 **Cleaner protocol**: More readable and easier to debug
+**Major Simplification - V2-Only Architecture:**
+- 🗑️ **V1 protocol removed**: Cleaner codebase, reduced complexity
+- 📦 **Simplified API**: ProtocolCodec, RequestParser (renamed from Converter/Extractor)
+- 🏗️ **Architecture cleanup**: ProtocolRouter merged into AbstractTcpRestServer
+- ⚡ **Reduced footprint**: 1000+ lines of code removed
 
-**Upgrading from v1?** V1 is still fully supported. See [Migration Guide](#migration-from-v1-to-v2).
+**V2 Protocol Features:**
+- ✨ **Method overloading**: Full support with type signatures
+- 🧠 **Intelligent mappers**: 4-tier system with auto-serialization for `Serializable` objects
+- 📊 **Collection interfaces**: List, Map, Set work automatically - zero configuration!
+- 🎯 **Exception propagation**: Full error details with status codes
+- 📦 **Clean wire format**: JSON-style arrays, compact markers (`~` for null)
 
 ## Quick Start
 
@@ -126,9 +130,9 @@ TcpRest is organized into focused modules - choose what you need:
 ### Zero Dependencies
 The `tcprest-commons` module has **zero runtime dependencies** - only JDK built-in APIs. This minimizes dependency conflicts and reduces security vulnerabilities. Server modules (`tcprest-singlethread`, `tcprest-nio`) inherit this zero-dependency principle through `tcprest-commons`.
 
-### Protocol v2 with Method Overloading
+### Method Overloading Support
 
-Use Protocol v2 to support method overloading and proper exception handling:
+TcpRest supports method overloading using type signatures:
 
 ```java
 // Service with overloaded methods
@@ -150,17 +154,9 @@ calc.add(2.5, 3.5);     // Calls double add(double, double) → 6.0
 calc.add("Hello", "!"); // Calls String add(String, String) → "Hello!"
 ```
 
-**Server Configuration:**
-```java
-TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.setProtocolVersion(ProtocolVersion.AUTO);  // Default: accept both v1 and v2
-server.addSingletonResource(new CalculatorImpl());
-server.up();
-```
+### Exception Handling
 
-### Exception Handling (Protocol v2)
-
-With Protocol v2, exceptions are properly propagated to the client:
+Exceptions are properly propagated to the client with detailed error information:
 
 ```java
 // Server-side service
@@ -340,27 +336,15 @@ TcpRestServer server = new NettyTcpRestServer(8001, "127.0.0.1");
 TcpRestServer server = new NettyTcpRestServer(8443, "192.168.1.100", sslParam);
 ```
 
-**With Protocol v2 (default, optional explicit config):**
-```java
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
-
-TcpRestServer server = new NettyTcpRestServer(8001);
-// V2 is default - this line is optional (shown for clarity)
-server.setProtocolVersion(ProtocolVersion.V2);  // Explicit V2 (same as default)
-server.addSingletonResource(new MyServiceImpl());
-server.up();
-```
-
 **Complete Production Example:**
 ```java
-// Production-ready setup: Netty + SSL + localhost binding + Protocol v2
+// Production-ready setup: Netty + SSL + localhost binding
 SSLParam sslParam = new SSLParam();
 sslParam.setKeyStorePath("classpath:server_ks");
 sslParam.setKeyStoreKeyPass("password");
 sslParam.setTrustStorePath("classpath:server_ks");
 
 TcpRestServer server = new NettyTcpRestServer(8443, "127.0.0.1", sslParam);
-// V2 is default, explicit config optional
 server.addSingletonResource(new UserServiceImpl());
 server.up();
 
@@ -373,7 +357,6 @@ clientSSL.setTrustStorePath("classpath:client_ks");
 TcpRestClientFactory factory = new TcpRestClientFactory(
     UserService.class, "127.0.0.1", 8443, null, clientSSL
 );
-factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
 UserService client = factory.getClient();
 ```
 
@@ -577,17 +560,15 @@ public class UserServiceImpl implements UserService {
 }
 ```
 
-**Server Setup (V2 is default):**
+**Server Setup:**
 ```java
 TcpRestServer server = new NettyTcpRestServer(8001);
-// No protocol config needed - V2 is default!
 server.addSingletonResource(new UserServiceImpl());
 server.up();
 ```
 
 **Client Usage:**
 ```java
-// V2 is default - no configuration needed!
 TcpRestClientFactory factory = new TcpRestClientFactory(
     UserService.class, "localhost", 8001
 );
@@ -630,9 +611,9 @@ System.out.println("User: " + retrieved.getName());  // All fields preserved
 
 **See Full Example:** [`ProtocolV2IntegrationTest.java`](tcprest-singlethread/src/test/java/cn/huiwings/tcprest/test/integration/ProtocolV2IntegrationTest.java) for complete working code with tests.
 
-### V2 Intelligent Mapper System (Zero-Configuration Support)
+### Intelligent Mapper System (Zero-Configuration Support)
 
-**Protocol V2 features a 4-tier intelligent mapper system - collections, DTOs, and most classes work automatically with zero configuration!**
+**TcpRest features a 4-tier intelligent mapper system - collections, DTOs, and most classes work automatically with zero configuration!**
 
 #### Priority 1: User-Defined Mappers (Highest)
 Custom mappers for fine-grained control (e.g., JSON serialization with Gson):
@@ -648,7 +629,7 @@ TcpRestClientFactory factory = new TcpRestClientFactory(
 );
 ```
 
-#### Priority 2: Collection Interfaces (High) 🆕 **Zero Config**
+#### Priority 2: Collection Interfaces (High) **Zero Config**
 Built-in support for `List`, `Map`, `Set`, `Queue`, `Deque`, `Collection` - **no mapper needed!**
 
 ```java
@@ -704,12 +685,12 @@ public interface UserService {
     List<User> getAllUsers();  // Collections + Serializable = ✅✅
 }
 
-// Server setup - no mapper needed (V2 is default)
+// Server setup - no mapper needed
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
 server.addSingletonResource(new UserServiceImpl());
 server.up();
 
-// Client setup - no mapper needed (V2 is default)
+// Client setup - no mapper needed
 TcpRestClientFactory factory = new TcpRestClientFactory(
     UserService.class, "localhost", 8001
 );
@@ -721,7 +702,7 @@ List<User> users = client.getAllUsers();  // Collections + DTOs = ✅
 
 **What's supported automatically:**
 - ✅ Any class implementing `Serializable` (DTOs, entities, domain objects)
-- ✅ Collection interfaces (List, Map, Set) - NEW in v2.0!
+- ✅ Collection interfaces (List, Map, Set)
 - ✅ Arrays of any type
 - ✅ `transient` fields (automatically excluded)
 - ✅ Nested Serializable objects (entire object graph)
@@ -898,22 +879,7 @@ public boolean updateUserProfile(int id, UserProfile profile);
 | **High performance** | Binary serialization (Serializable) | Faster than JSON |
 | **Cross-language** | Custom JSON mappers | Universal format |
 
-### 5. Protocol Version Strategy
-
-**✅ For new projects:**
-- Use Protocol V2 (default) - no configuration needed
-- Enjoy method overloading and exception propagation
-
-**✅ For existing V1 projects:**
-- Server: Keep `ProtocolVersion.AUTO` (default)
-- Gradually migrate clients to V2
-- No breaking changes required
-
-**❌ Don't:**
-- Mix V1 and V2 protocols on the same client without awareness
-- Use V1 for new projects (V2 is better)
-
-### 6. Common Anti-Patterns to Avoid
+### 5. Common Anti-Patterns to Avoid
 
 | Anti-Pattern | Why It's Bad | Better Alternative |
 |--------------|--------------|-------------------|
@@ -924,7 +890,7 @@ public boolean updateUserProfile(int id, UserProfile profile);
 | **Ignoring transient** | Sends sensitive data | Mark passwords/secrets transient |
 | **Large collections** | Memory/performance issues | Pagination or streaming |
 
-### 7. Testing Best Practices
+### 6. Testing Best Practices
 
 ```java
 // Good: Easy to test with simple objects
@@ -947,7 +913,7 @@ public void testComplexOrder() {
 }
 ```
 
-### 8. Performance Tips
+### 7. Performance Tips
 
 ✅ **Enable compression for bandwidth-heavy scenarios:**
 ```java
@@ -963,11 +929,6 @@ server.addSingletonResource(new MyServiceImpl());  // One instance for all reque
 ✅ **Implement Serializable for automatic binary serialization:**
 ```java
 public class MyData implements Serializable { ... }  // Faster than custom JSON
-```
-
-✅ **Use Protocol V2 for optimized method lookup:**
-```java
-// V2 is default - no config needed!
 ```
 
 ### Summary: The TcpRest Way
@@ -1092,12 +1053,11 @@ mvn dependency:tree -pl tcprest-commons
 
 See the test directories for comprehensive examples:
 
-**Commons (protocol, converters, mappers):**
+**Commons (protocol, codecs, mappers):**
 - `tcprest-commons/src/test/java/cn/huiwings/tcprest/`
 
-**SingleThread server (integration tests, SSL, Protocol v2):**
-- **Protocol v2**: `tcprest-singlethread/src/test/java/.../integration/ProtocolV2IntegrationTest`
-- **Backward compatibility**: `tcprest-singlethread/src/test/java/.../integration/BackwardCompatibilityTest`
+**SingleThread server (integration tests, SSL):**
+- **Integration tests**: `tcprest-singlethread/src/test/java/.../integration/ProtocolV2IntegrationTest`
 - **Compression**: `tcprest-singlethread/src/test/java/.../compression/*`
 - **SSL**: `tcprest-singlethread/src/test/java/.../ssl/*`
 
@@ -1168,81 +1128,4 @@ SecurityConfig securityConfig = new SecurityConfig()
 ✅ **Unauthorized Access** - Whitelist restricts classes
 
 **📖 Full Documentation:** See [SECURITY-PROTOCOL.md](SECURITY-PROTOCOL.md) for complete security guide.
-
-**⚠️ Breaking Change:** The security-enhanced protocol is NOT backward compatible. Migration guide available in security documentation.
-
-
-## Migration from V1 to V2
-
-### What Changed?
-
-**Protocol V2 is now the default** (as of v2.0, 2026-02-19). The new format is cleaner and more efficient:
-
-#### Old V1 Format:
-```
-0|base64(ClassName/methodName)|base64({{p1}}:::{{p2}})
-```
-
-#### New V2 Format (Simplified):
-```
-V2|0|{{base64(ClassName/methodName(Signature))}}|[p1,p2,p3]
-```
-
-### Do You Need to Migrate?
-
-**Existing applications using V1:**
-- ✅ **No changes required** - V1 is still fully supported
-- ✅ **Servers auto-detect** protocol version (V1 or V2)
-- ✅ **Gradual migration** - mix V1 and V2 clients
-
-**New applications:**
-- ✨ **Use V2 by default** - it's automatic!
-- No configuration needed
-
-### How to Continue Using V1
-
-If you want to explicitly use V1:
-
-```java
-// Client side
-TcpRestClientFactory factory = new TcpRestClientFactory(
-    MyService.class, "localhost", 8001
-);
-factory.getProtocolConfig().setVersion(ProtocolVersion.V1);
-MyService client = factory.getClient();
-
-// Server side (optional - AUTO supports both)
-server.setProtocolVersion(ProtocolVersion.V1);
-```
-
-### How to Use V2 (Default)
-
-No configuration needed! Just create your client:
-
-```java
-// V2 is automatic - no setup required
-TcpRestClientFactory factory = new TcpRestClientFactory(
-    MyService.class, "localhost", 8001
-);
-MyService client = factory.getClient();
-```
-
-### V2 Benefits
-
-- **Method Overloading**: Same method name, different parameters (with type signatures)
-- **Exception Propagation**: Exceptions sent to client properly with full stack trace
-- **Collection Interfaces**: List, Map, Set work automatically (zero config)
-- **Auto-Serialization**: Serializable objects work automatically (zero config)
-- **Better Performance**: Single-layer encoding (faster), optimized markers (~ for null)
-- **Cleaner Format**: JSON-style arrays `[p1,p2,p3]` easy to read/debug
-- **Smaller Protocol**: `~` instead of "NULL", empty string instead of "EMPTY"
-
-### Version Compatibility Matrix
-
-| Client | Server AUTO | Server V1 | Server V2 |
-|--------|-------------|-----------|-----------|
-| **V1** | ✅ Works    | ✅ Works  | ❌ Error  |
-| **V2** | ✅ Works    | ❌ Error  | ✅ Works  |
-
-**Recommendation:** Use `ProtocolVersion.AUTO` on servers (default) to support all clients.
 
