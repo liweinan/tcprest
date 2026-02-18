@@ -1,11 +1,11 @@
 package cn.huiwings.tcprest.security;
 
-import cn.huiwings.tcprest.commons.Base64;
 import cn.huiwings.tcprest.exception.SecurityException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.zip.CRC32;
 
 /**
@@ -42,7 +42,7 @@ public class ProtocolSecurity {
         if (component == null) {
             throw new IllegalArgumentException("Component to encode cannot be null");
         }
-        return Base64.encode(component.getBytes(StandardCharsets.UTF_8))
+        return Base64.getEncoder().encodeToString(component.getBytes(StandardCharsets.UTF_8))
                 .replace('+', '-')
                 .replace('/', '_')
                 .replace("=", "");
@@ -75,7 +75,7 @@ public class ProtocolSecurity {
                 standard += "=";
             }
 
-            byte[] decoded = Base64.decode(standard);
+            byte[] decoded = Base64.getDecoder().decode(standard);
             return new String(decoded, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new SecurityException("Failed to decode component: " + e.getMessage(), e);

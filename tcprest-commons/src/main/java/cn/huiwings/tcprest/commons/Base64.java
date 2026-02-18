@@ -5,7 +5,11 @@ package cn.huiwings.tcprest.commons;
  *
  * @author Weinan Li
  * @created_at 08 20 2012
+ * @deprecated Use {@link java.util.Base64} instead. This custom implementation is maintained
+ *             for backward compatibility with V1 protocol components only. All new code should
+ *             use the JDK standard library Base64 which is more reliable and well-tested.
  */
+@Deprecated
 public class Base64 {
 
     private final static char[] ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".toCharArray();
