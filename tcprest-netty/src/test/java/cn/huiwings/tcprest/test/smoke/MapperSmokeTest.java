@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * @author Weinan Li
@@ -138,4 +139,5 @@ public class MapperSmokeTest {
         public Color getFirst() { return first; }
         public Color getSecond() { return second; }
     }
+
 }
