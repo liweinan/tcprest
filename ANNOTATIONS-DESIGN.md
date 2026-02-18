@@ -217,25 +217,24 @@ import java.lang.annotation.*;
 /**
  * Declares a class as a TcpRest server with automatic configuration.
  *
- * <p><b>CDI Usage:</b></p>
+ * <p><b>CDI Usage (Simple - All Defaults):</b></p>
  * <pre>
+ * // Uses defaults: SINGLE_THREAD, V2, no SSL, no checksum
  * &#64;TcpRestServer(
  *     port = 8001,
- *     serverType = ServerType.NETTY,
  *     resources = {UserServiceImpl.class, OrderServiceImpl.class}
  * )
  * public class MyApplication {
  *     public static void main(String[] args) {
- *         // CDI container will start server automatically
  *         SeContainer container = SeContainerInitializer.newInstance().initialize();
  *     }
  * }
  * </pre>
  *
- * <p><b>Spring Usage:</b></p>
+ * <p><b>Spring Usage (Simple - All Defaults):</b></p>
  * <pre>
  * &#64;Configuration
- * &#64;TcpRestServer(port = 8001, serverType = ServerType.NETTY)
+ * &#64;TcpRestServer(port = 8001)  // Uses defaults: SINGLE_THREAD, V2
  * public class TcpRestConfig {
  *     &#64;Bean
  *     public UserServiceImpl userService() {
@@ -244,24 +243,24 @@ import java.lang.annotation.*;
  * }
  * </pre>
  *
- * <p><b>With Security (HMAC + Class Whitelist):</b></p>
+ * <p><b>High-Performance Production:</b></p>
  * <pre>
  * &#64;TcpRestServer(
  *     port = 8001,
- *     serverType = ServerType.NETTY,
+ *     serverType = ServerType.NETTY,  // Override for high concurrency
  *     checksumAlgorithm = "HMAC_SHA256",
  *     hmacSecret = "${tcprest.server.security.secret}",
  *     enableClassWhitelist = true,
  *     allowedClasses = {"com.example.api.*"}
  * )
- * public class SecureServerConfig { }
+ * public class ProductionServerConfig { }
  * </pre>
  *
  * <p><b>With SSL/TLS (Production):</b></p>
  * <pre>
  * &#64;TcpRestServer(
  *     port = 8443,
- *     serverType = ServerType.NETTY,
+ *     serverType = ServerType.NETTY,  // Override: SSL requires NETTY for performance
  *     ssl = true,
  *     sslKeyStore = "classpath:server.jks",
  *     sslPassword = "${ssl.password}",
@@ -298,13 +297,17 @@ public @interface TcpRestServer {
 
     /**
      * Server implementation type.
+     * <p>Default: SINGLE_THREAD (simple, zero dependencies, SSL supported)</p>
+     * <p>Use NETTY for high-concurrency production scenarios.</p>
      */
-    ServerType serverType() default ServerType.NETTY;
+    ServerType serverType() default ServerType.SINGLE_THREAD;
 
     /**
      * Protocol version (V1, V2, AUTO).
+     * <p>Default: V2 (recommended, supports method overloading and status codes)</p>
+     * <p>Use AUTO to support both V1 and V2 clients.</p>
      */
-    String protocol() default "AUTO";
+    String protocol() default "V2";
 
     /**
      * Enable compression.
@@ -594,16 +597,29 @@ public class MyApp {
     }
 }
 
-// 3. Server configuration
+// 3. Server configuration (simple - uses defaults)
 @TcpRestServer(
     port = 8001,
-    serverType = ServerType.NETTY,
     resources = {UserServiceImpl.class}
+    // Defaults: SINGLE_THREAD, V2, no SSL, no checksum
 )
 public class ServerApp {
     public static void main(String[] args) {
         SeContainer container = SeContainerInitializer.newInstance().initialize();
-        // Server starts automatically
+        // Server starts automatically with SINGLE_THREAD
+    }
+}
+
+// 3b. High-performance server (override for production)
+@TcpRestServer(
+    port = 8001,
+    serverType = ServerType.NETTY,  // Override for high concurrency
+    resources = {UserServiceImpl.class}
+)
+public class ProductionServerApp {
+    public static void main(String[] args) {
+        SeContainer container = SeContainerInitializer.newInstance().initialize();
+        // Server starts with NETTY for better performance
     }
 }
 ```
@@ -754,10 +770,21 @@ public class MyService {
     }
 }
 
-// 3. Server configuration
+// 3. Server configuration (simple - uses defaults)
+@Configuration
+@TcpRestServer(port = 8001)  // Defaults: SINGLE_THREAD, V2
+public class TcpRestConfig {
+
+    @Bean
+    public UserServiceImpl userService() {
+        return new UserServiceImpl();
+    }
+}
+
+// 3b. For high-performance production, override server type
 @Configuration
 @TcpRestServer(port = 8001, serverType = ServerType.NETTY)
-public class TcpRestConfig {
+public class ProductionTcpRestConfig {
 
     @Bean
     public UserServiceImpl userService() {
@@ -1012,6 +1039,149 @@ public class SpringClientTest {
     }
 }
 ```
+
+## Default Values and Rationale
+
+### Design Philosophy: Start Simple, Scale Later
+
+The default values are chosen to provide the **simplest, most reliable setup** for getting started:
+
+| Annotation | Parameter | Default | Rationale |
+|------------|-----------|---------|-----------|
+| @TcpRestServer | serverType | SINGLE_THREAD | Zero dependencies, easy debugging, SSL supported |
+| @TcpRestServer | protocol | V2 | Latest protocol with full features (not AUTO to avoid ambiguity) |
+| @TcpRestServer | ssl | false | Security should be explicit opt-in |
+| @TcpRestServer | checksumAlgorithm | NONE | Performance first, add security when needed |
+| @TcpRestServer | compression | false | Avoid overhead for small messages |
+| @TcpRestClient | protocol | V2 | Match server default |
+| @TcpRestClient | ssl | false | Match server default |
+| @TcpRestClient | checksumAlgorithm | NONE | Match server default |
+| @TcpRestClient | timeout | 0 | No timeout (use @Timeout per method for fine control) |
+
+### When to Override Defaults
+
+**Use SINGLE_THREAD (default):**
+- ✅ Development and testing
+- ✅ Low-traffic internal services (<500 req/s)
+- ✅ When SSL is required but you don't want Netty dependency
+- ✅ Simple deployments with minimal dependencies
+
+**Override to NIO:**
+```java
+@TcpRestServer(
+    port = 8001,
+    serverType = ServerType.NIO  // Override: Medium concurrency, no SSL
+)
+```
+- ✅ Medium-traffic internal services (500-5K req/s)
+- ✅ When SSL is NOT needed
+- ✅ Want better performance than SINGLE_THREAD but avoid external dependencies
+
+**Override to NETTY:**
+```java
+@TcpRestServer(
+    port = 8443,
+    serverType = ServerType.NETTY,  // Override: High concurrency or SSL
+    ssl = true
+)
+```
+- ✅ High-traffic production services (>5K req/s)
+- ✅ When SSL is required AND high performance needed
+- ✅ Public-facing APIs
+
+**Override protocol to AUTO:**
+```java
+@TcpRestServer(
+    port = 8001,
+    protocol = "AUTO"  // Override: Support both V1 and V2 clients
+)
+```
+- ✅ During migration period (V1 clients → V2)
+- ✅ Public APIs with legacy clients
+- ❌ **Not recommended for new projects** (use V2 for clarity)
+
+**Enable security features:**
+```java
+@TcpRestServer(
+    port = 8001,
+    checksumAlgorithm = "HMAC_SHA256",  // Override: Add security
+    hmacSecret = "${tcprest.security.secret}"
+)
+```
+- ✅ Production environments
+- ✅ When message integrity is critical
+- ✅ Public APIs or untrusted networks
+
+### Minimal Configuration Examples
+
+**Simplest server (all defaults):**
+```java
+// Uses: SINGLE_THREAD, V2, no SSL, no checksum
+@TcpRestServer(port = 8001)
+public class SimpleServer {
+    @Bean
+    public UserServiceImpl userService() {
+        return new UserServiceImpl();
+    }
+}
+```
+
+**Simplest client (all defaults):**
+```java
+// Uses: V2, no SSL, no checksum
+@TcpRestClient(host = "localhost", port = 8001)
+public interface UserService {
+    User getUser(int id);
+}
+```
+
+**High-performance production (override server type only):**
+```java
+@TcpRestServer(
+    port = 8001,
+    serverType = ServerType.NETTY  // Only override for performance
+    // Still uses: V2, no SSL, no checksum (add security via HMAC instead of SSL)
+)
+```
+
+**Secure production (override server type + security):**
+```java
+@TcpRestServer(
+    port = 8443,
+    serverType = ServerType.NETTY,
+    ssl = true,
+    sslKeyStore = "classpath:server.jks",
+    sslPassword = "${ssl.password}",
+    checksumAlgorithm = "HMAC_SHA256",
+    hmacSecret = "${tcprest.security.secret}"
+)
+```
+
+### Default Values Summary
+
+**@TcpRestServer defaults:**
+```java
+port = 8001
+serverType = SINGLE_THREAD  // Simple, debuggable, zero deps
+protocol = "V2"             // Latest protocol
+ssl = false                 // Security explicit opt-in
+checksumAlgorithm = "NONE"  // Performance first
+compression = false         // No overhead by default
+enableClassWhitelist = false
+```
+
+**@TcpRestClient defaults:**
+```java
+host = "localhost"
+port = 8001
+protocol = "V2"             // Match server
+ssl = false                 // Match server
+checksumAlgorithm = "NONE"  // Match server
+timeout = 0                 // No default timeout
+compression = false         // Match server
+```
+
+**Matching principle:** Client and server defaults are designed to work together without configuration. Override security/performance settings explicitly based on requirements.
 
 ## Migration Path
 
