@@ -41,12 +41,34 @@ import java.util.List;
 public class DefaultExtractor implements Extractor {
 
     private Logger logger = LoggerFactory.getDefaultLogger();
-    private TcpRestServer tcpRestServer;
+    private TcpRestServer tcpRestServer; // Deprecated: only for backward compatibility
+    private java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers;
     private final Converter converter;
     private SecurityConfig securityConfig;
 
+    /**
+     * Create extractor with mappers support (recommended).
+     *
+     * @param mappers mapper registry
+     */
+    public DefaultExtractor(java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
+        this.mappers = mappers;
+        this.tcpRestServer = null;
+        this.securityConfig = new SecurityConfig(); // Default: no security
+        this.converter = new DefaultConverter(securityConfig);
+    }
+
+    /**
+     * Create extractor with TcpRestServer reference (legacy).
+     *
+     * @param server the TcpRestServer instance
+     * @deprecated Use {@link #DefaultExtractor(java.util.Map)} instead.
+     *             This constructor is maintained for backward compatibility only.
+     */
+    @Deprecated
     public DefaultExtractor(TcpRestServer server) {
         this.tcpRestServer = server;
+        this.mappers = null; // Will use tcpRestServer.getMappers() in legacy mode
         this.securityConfig = new SecurityConfig(); // Default: no security
         this.converter = new DefaultConverter(securityConfig);
     }
@@ -163,53 +185,63 @@ public class DefaultExtractor implements Extractor {
             );
         }
 
-        // Step 9: Find resource class (check both singleton and class resources)
-        List<Class> classesToSearch = new ArrayList<Class>();
+        // Step 9: Load target class
+        Context ctx = new Context();
+        Class<?> targetClass;
 
-        for (Class clazz : tcpRestServer.getResourceClasses().values()) {
-            classesToSearch.add(clazz);
-        }
+        if (tcpRestServer != null) {
+            // Legacy mode: Find resource class from registered resources
+            // (check both singleton and class resources)
+            List<Class> classesToSearch = new ArrayList<Class>();
 
-        for (Object instance : tcpRestServer.getSingletonResources().values()) {
-            classesToSearch.add(instance.getClass());
-        }
+            for (Class clazz : tcpRestServer.getResourceClasses().values()) {
+                classesToSearch.add(clazz);
+            }
 
-        // Search logic - support interface-based calls
-        for (Class clazz : classesToSearch) {
-            if (clazzName.equals(clazz.getCanonicalName())) {
-                break; // Found exact match
-            } else {
-                // Check if it's an interface implemented by this class
-                for (Class ifc : clazz.getInterfaces()) {
-                    if (ifc.getCanonicalName().equals(clazzName)) {
-                        logger.log("***DefaultExtractor - found implemented class: " + clazz.getCanonicalName());
-                        clazzName = clazz.getCanonicalName();
-                        break;
+            for (Object instance : tcpRestServer.getSingletonResources().values()) {
+                classesToSearch.add(instance.getClass());
+            }
+
+            // Search logic - support interface-based calls
+            for (Class clazz : classesToSearch) {
+                if (clazzName.equals(clazz.getCanonicalName())) {
+                    break; // Found exact match
+                } else {
+                    // Check if it's an interface implemented by this class
+                    for (Class ifc : clazz.getInterfaces()) {
+                        if (ifc.getCanonicalName().equals(clazzName)) {
+                            logger.log("***DefaultExtractor - found implemented class: " + clazz.getCanonicalName());
+                            clazzName = clazz.getCanonicalName();
+                            break;
+                        }
                     }
                 }
             }
+
+            // Set target instance (singleton takes precedence)
+            if (tcpRestServer.getSingletonResources().containsKey(clazzName)) {
+                ctx.setTargetInstance(tcpRestServer.getSingletonResources().get(clazzName));
+                ctx.setTargetClass(tcpRestServer.getSingletonResources().get(clazzName).getClass());
+            } else if (tcpRestServer.getResourceClasses().containsKey(clazzName)) {
+                ctx.setTargetClass(tcpRestServer.getResourceClasses().get(clazzName));
+            }
+
+            if (ctx.getTargetClass() == null) {
+                throw new ClassNotFoundException("***DefaultExtractor - Can't find resource for: " + clazzName);
+            }
+
+            targetClass = ctx.getTargetClass();
+        } else {
+            // New mode: Load class directly (resource lookup done by ProtocolRouter)
+            targetClass = Class.forName(clazzName);
+            ctx.setTargetClass(targetClass);
         }
 
-        // Step 10: Create Context
-        Context ctx = new Context();
-
-        // Set target instance (singleton takes precedence)
-        if (tcpRestServer.getSingletonResources().containsKey(clazzName)) {
-            ctx.setTargetInstance(tcpRestServer.getSingletonResources().get(clazzName));
-            ctx.setTargetClass(tcpRestServer.getSingletonResources().get(clazzName).getClass());
-        } else if (tcpRestServer.getResourceClasses().containsKey(clazzName)) {
-            ctx.setTargetClass(tcpRestServer.getResourceClasses().get(clazzName));
-        }
-
-        if (ctx.getTargetClass() == null) {
-            throw new ClassNotFoundException("***DefaultExtractor - Can't find resource for: " + clazzName);
-        }
-
-        // Step 11: Find method
+        // Step 10: Find method
         // V1 protocol: stops at first name match (no overloading support)
         // V2 protocol uses type signatures for overloading
         logger.debug("target method name: " + methodName);
-        for (Method mtd : ctx.getTargetClass().getDeclaredMethods()) {
+        for (Method mtd : targetClass.getDeclaredMethods()) {
             logger.debug("scanning method: " + mtd.getName());
             if (mtd.getName().equals(methodName.trim())) {
                 logger.debug("found method: " + mtd.getName());
@@ -222,8 +254,10 @@ public class DefaultExtractor implements Extractor {
             throw new NoSuchMethodException("***DefaultExtractor - Can't find method: " + methodName);
         }
 
-        // Step 12: Decode and parse parameters
-        Object params[] = converter.decode(ctx.getTargetMethod(), paramsBase64, tcpRestServer.getMappers());
+        // Step 11: Decode and parse parameters
+        java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappersToUse =
+            (tcpRestServer != null) ? tcpRestServer.getMappers() : mappers;
+        Object params[] = converter.decode(ctx.getTargetMethod(), paramsBase64, mappersToUse);
 
         ctx.setParams(params);
         ctx.setConverter(converter);

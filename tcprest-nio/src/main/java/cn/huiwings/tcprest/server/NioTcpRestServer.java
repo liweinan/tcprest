@@ -207,6 +207,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
 
     public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
+        initializeProtocolRouter();
         worker = new Thread() {
             public void run() {
                 while (status.equals(TcpRestServerStatus.RUNNING) && !Thread.currentThread().isInterrupted()) {

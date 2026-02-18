@@ -51,11 +51,11 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
 
     /**
      * Protocol router for handling V1 and V2 requests.
-     * <p>Initialized on first request to ensure all configuration (mappers, logger, etc.)
-     * is set before router creation.</p>
-     * <p>Once initialized, never changes - protocol version is determined at startup.</p>
+     * <p>Initialized when server starts (in up() method) with current configuration.</p>
+     * <p>Once initialized, remains constant during server lifetime.</p>
+     * <p>AUTO mode: Router handles both V1 and V2 requests by detecting protocol prefix.</p>
      */
-    private volatile ProtocolRouter protocolRouter; // Volatile for thread-safe lazy init
+    private volatile ProtocolRouter protocolRouter;
 
     public void addResource(Class resourceClass) {
         if (resourceClass == null) {
@@ -105,26 +105,44 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
         this.logger = logger;
     }
 
-    protected String processRequest(String request) throws Exception {
-        logger.debug("request: " + request);
-
-        // Lazy-initialize protocol router on first request
-        // Reason: Ensures all configuration is set (mappers, logger, compressionConfig, etc.)
-        //         before router creation. Users typically configure server before calling up().
-        // Thread-safety: Using volatile field. In rare concurrent first-request scenarios,
-        //                multiple instances may be created, but this is acceptable - only
-        //                one will be used (last write wins). No lock needed for performance.
+    /**
+     * Initialize protocol router with current configuration.
+     * <p>Should be called by subclasses in their {@code up()} method to initialize
+     * the router before accepting requests.</p>
+     *
+     * <p>Example usage in subclass:</p>
+     * <pre>
+     * public void up() {
+     *     initializeProtocolRouter();  // Initialize router first
+     *     // Then start accepting connections...
+     * }
+     * </pre>
+     */
+    protected void initializeProtocolRouter() {
         if (protocolRouter == null) {
             protocolRouter = new ProtocolRouter(
                 protocolVersion,
-                extractor,  // V1 extractor needs TcpRestServer reference
                 mappers,
                 compressionConfig,
                 logger
             );
+            logger.info("Protocol router initialized with version: " + protocolVersion);
+        }
+    }
+
+    protected String processRequest(String request) throws Exception {
+        logger.debug("request: " + request);
+
+        // Router should be initialized in up() method via initializeProtocolRouter()
+        // If not initialized (edge case), initialize now
+        if (protocolRouter == null) {
+            logger.warn("Protocol router not initialized - initializing now. " +
+                       "Consider calling initializeProtocolRouter() in up() method.");
+            initializeProtocolRouter();
         }
 
         // Route request to appropriate protocol handler (V1 or V2)
+        // In AUTO mode, router detects version from request prefix and routes accordingly
         return protocolRouter.processRequest(request, this);
     }
 

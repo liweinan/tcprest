@@ -114,6 +114,7 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
 
     public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
+        initializeProtocolRouter();
         serverThread = new Thread() {
             public void run() {
                 PrintWriter writer = null;

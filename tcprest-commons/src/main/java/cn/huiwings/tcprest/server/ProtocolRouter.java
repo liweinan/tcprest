@@ -63,14 +63,12 @@ public class ProtocolRouter {
      * to maintain consistency in initialization logic.</p>
      *
      * @param serverVersion server protocol version (V1, V2, or AUTO)
-     * @param v1Extractor v1 extractor (requires TcpRestServer reference for resource lookup)
      * @param mappers mapper registry shared between V1 and V2
      * @param compressionConfig compression configuration
      * @param logger logger instance
      */
     public ProtocolRouter(
             ProtocolVersion serverVersion,
-            Extractor v1Extractor,
             Map<String, Mapper> mappers,
             CompressionConfig compressionConfig,
             Logger logger) {
@@ -79,13 +77,11 @@ public class ProtocolRouter {
         this.compressionConfig = compressionConfig;
         this.logger = logger;
 
-        // V1 components
-        // Note: V1 extractor must be passed in because it needs TcpRestServer reference
-        // for backward compatibility with resource lookup logic
-        this.v1Extractor = v1Extractor;
+        // V1 components - created internally for consistency with V2
+        this.v1Extractor = new cn.huiwings.tcprest.extractor.DefaultExtractor(mappers);
         this.v1Invoker = new cn.huiwings.tcprest.invoker.DefaultInvoker();
 
-        // V2 components - created uniformly with V1 invoker
+        // V2 components - created with same pattern as V1
         this.v2Extractor = new ProtocolV2Extractor(mappers);
         this.v2Invoker = new ProtocolV2Invoker();
         this.v2Converter = new ProtocolV2Converter(mappers);
