@@ -2,9 +2,7 @@ package cn.huiwings.tcprest.test.smoke;
 
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.client.TcpRestClientProxy;
-import cn.huiwings.tcprest.server.NioTcpRestServer;
 import cn.huiwings.tcprest.server.NettyTcpRestServer;
-import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.Counter;
 import cn.huiwings.tcprest.test.HelloWorld;
@@ -35,9 +33,6 @@ public class TcpClientFactorySmokeTest {
     public static Object[] create()
             throws Exception {
         List result = new ArrayList();
-        result.add(new TcpClientFactorySmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
-        result.add(new TcpClientFactorySmokeTest(new NioTcpRestServer(PortGenerator.get())));
-        // ✅ FIXED: Upgraded to Netty 4.x with LineBasedFrameDecoder - handles large payloads correctly
         result.add(new TcpClientFactorySmokeTest(new NettyTcpRestServer(PortGenerator.get())));
         return result.toArray();
     }

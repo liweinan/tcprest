@@ -60,16 +60,36 @@ That's it! TcpRest handles all serialization, networking, and deserialization au
 
 ### Maven Dependencies
 
-**For most use cases** (zero dependencies):
+TcpRest is organized into focused modules - choose what you need:
+
+**1. Client-only applications** (zero dependencies):
 ```xml
 <dependency>
     <groupId>cn.huiwings</groupId>
-    <artifactId>tcprest-core</artifactId>
+    <artifactId>tcprest-commons</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 ```
 
-**For high-performance Netty server** (optional):
+**2. SingleThread server** (SSL supported, low-medium concurrency):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-singlethread</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+**3. NIO server** (medium-high concurrency, no SSL):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-nio</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+**4. Netty server** (high concurrency + SSL + production-ready):
 ```xml
 <dependency>
     <groupId>cn.huiwings</groupId>
@@ -78,10 +98,22 @@ That's it! TcpRest handles all serialization, networking, and deserialization au
 </dependency>
 ```
 
+### Server Comparison
+
+| Feature | SingleThread | NIO | Netty |
+|---------|-------------|-----|-------|
+| **Concurrency** | Low-Medium | Medium-High | Very High |
+| **SSL/TLS** | ✅ Yes | ❌ No | ✅ Yes |
+| **Async I/O** | ❌ Blocking | ✅ Non-blocking | ✅ Non-blocking |
+| **Dependencies** | Zero* | Zero* | Netty 4.1.x |
+| **Best For** | Development, Low traffic | Moderate traffic | Production, High traffic |
+
+*Through transitive dependency on `tcprest-commons` (which has zero runtime dependencies)
+
 ## Key Features
 
 ### Zero Dependencies
-The `tcprest-core` module has **zero runtime dependencies** - only JDK built-in APIs. This minimizes dependency conflicts and reduces security vulnerabilities.
+The `tcprest-commons` module has **zero runtime dependencies** - only JDK built-in APIs. This minimizes dependency conflicts and reduces security vulnerabilities. Server modules (`tcprest-singlethread`, `tcprest-nio`) inherit this zero-dependency principle through `tcprest-commons`.
 
 ### Protocol v2 with Method Overloading
 
@@ -250,8 +282,8 @@ TcpRest provides three server implementations:
 
 | Server | Module | Best For | SSL Support | IPv6 Support | Serializable Auto-Mapper |
 |--------|--------|----------|-------------|--------------|--------------------------|
-| `SingleThreadTcpRestServer` | tcprest-core | Low traffic, simple deployment | ✅ Yes | ✅ Yes | ✅ Yes |
-| `NioTcpRestServer` | tcprest-core | Medium traffic, non-blocking I/O | ❌ No | ✅ Yes | ✅ Yes |
+| `SingleThreadTcpRestServer` | tcprest-singlethread | Low traffic, simple deployment | ✅ Yes | ✅ Yes | ✅ Yes |
+| `NioTcpRestServer` | tcprest-nio | Medium traffic, non-blocking I/O | ❌ No | ✅ Yes | ✅ Yes |
 | `NettyTcpRestServer` | tcprest-netty | High traffic, production systems | ✅ Yes | ✅ Yes | ✅ Yes |
 
 **Notes:**
@@ -450,7 +482,7 @@ try {
 }
 ```
 
-**See Full Example:** [`ProtocolV2IntegrationTest.java`](tcprest-core/src/test/java/cn/huiwings/tcprest/test/integration/ProtocolV2IntegrationTest.java) for complete working code with tests.
+**See Full Example:** [`ProtocolV2IntegrationTest.java`](tcprest-singlethread/src/test/java/cn/huiwings/tcprest/test/integration/ProtocolV2IntegrationTest.java) for complete working code with tests.
 
 **Pro Tip:** In this example, if your `Cart` and `Product` classes implement `Serializable`, you don't need any custom mappers - TcpRest will handle serialization automatically, including proper handling of `transient` fields.
 
@@ -587,18 +619,28 @@ mvn clean install
 # Run tests
 mvn test
 
-# Verify zero dependencies in core
-mvn dependency:tree -pl tcprest-core
+# Verify zero dependencies in commons
+mvn dependency:tree -pl tcprest-commons
 ```
 
 ## Examples
 
-See the `src/test/java` directories for comprehensive examples:
-- **Basic usage**: `cn.huiwings.tcprest.test.smoke.*`
-- **Protocol v2**: `cn.huiwings.tcprest.test.integration.ProtocolV2IntegrationTest`
-- **Backward compatibility**: `cn.huiwings.tcprest.test.integration.BackwardCompatibilityTest`
-- **Compression**: `cn.huiwings.tcprest.test.compression.*`
-- **SSL**: `cn.huiwings.tcprest.test.ssl.*`
+See the test directories for comprehensive examples:
+
+**Commons (protocol, converters, mappers):**
+- `tcprest-commons/src/test/java/cn/huiwings/tcprest/`
+
+**SingleThread server (integration tests, SSL, Protocol v2):**
+- **Protocol v2**: `tcprest-singlethread/src/test/java/.../integration/ProtocolV2IntegrationTest`
+- **Backward compatibility**: `tcprest-singlethread/src/test/java/.../integration/BackwardCompatibilityTest`
+- **Compression**: `tcprest-singlethread/src/test/java/.../compression/*`
+- **SSL**: `tcprest-singlethread/src/test/java/.../ssl/*`
+
+**NIO server:**
+- See `tcprest-nio/src/main/java/.../example/NioServerDemo.java`
+
+**Netty server:**
+- See `tcprest-netty/src/test/java/cn/huiwings/tcprest/test/`
 
 ## Requirements
 

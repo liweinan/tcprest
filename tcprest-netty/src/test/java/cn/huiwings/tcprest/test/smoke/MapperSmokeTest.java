@@ -4,8 +4,6 @@ import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.RawTypeMapper;
 import cn.huiwings.tcprest.server.NettyTcpRestServer;
-import cn.huiwings.tcprest.server.NioTcpRestServer;
-import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.Color;
 import cn.huiwings.tcprest.test.ColorMapper;
@@ -37,8 +35,6 @@ public class MapperSmokeTest {
     public static Object[] create()
             throws Exception {
         List result = new ArrayList();
-        result.add(new MapperSmokeTest(new SingleThreadTcpRestServer(PortGenerator.get())));
-        result.add(new MapperSmokeTest(new NioTcpRestServer(PortGenerator.get())));
         result.add(new MapperSmokeTest(new NettyTcpRestServer(PortGenerator.get())));
         return result.toArray();
     }

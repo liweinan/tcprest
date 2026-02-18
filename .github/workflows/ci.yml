@@ -27,16 +27,16 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
 
-    - name: Verify zero dependencies in core module
+    - name: Verify zero dependencies in commons module
       run: |
-        echo "Verifying tcprest-core has zero runtime dependencies..."
-        mvn dependency:tree -pl tcprest-core -Dscope=compile | tee dep-tree.txt
+        echo "Verifying tcprest-commons has zero runtime dependencies..."
+        mvn dependency:tree -pl tcprest-commons -Dscope=compile | tee dep-tree.txt
         # Should only show the module itself, no dependencies
         if grep -E '\+\-.*compile' dep-tree.txt; then
-          echo "ERROR: tcprest-core has compile dependencies!"
+          echo "ERROR: tcprest-commons has compile dependencies!"
           exit 1
         fi
-        echo "✓ tcprest-core has zero dependencies"
+        echo "✓ tcprest-commons has zero dependencies"
 
     - name: Build with Maven
       run: mvn -B clean install -DskipTests

@@ -6,20 +6,50 @@ TcpRest is a lightweight TCP-based RPC framework that transforms Plain Old Java 
 
 ## Multi-Module Architecture
 
-The project is organized into two Maven modules:
+The project is organized into four Maven modules:
 
-### tcprest-core
-**Zero-dependency core module** containing all essential framework functionality using pure JDK implementations.
+### tcprest-commons
+**Zero-dependency commons module** containing all shared framework components using pure JDK implementations.
 
 **Key components:**
-- Server implementations (SingleThread, NIO)
 - Client factory and proxy
-- Protocol layer
+- Protocol layer (v1 and v2)
 - Serialization/deserialization (mappers)
-- Annotations
+- Annotations (@TcpRestMethod, @Timeout)
 - Extractors and invokers
+- Compression support
+- Security utilities
+- SSL parameter configuration
 
-**Dependencies:** None (only TestNG in test scope)
+**Dependencies:** None (only TestNG + SLF4J-Simple in test scope)
+
+**Philosophy:** Minimal, core functionality that all other modules depend on. Zero external runtime dependencies.
+
+### tcprest-singlethread
+**SingleThread server implementation module** providing a simple blocking I/O server.
+
+**Key components:**
+- SingleThreadTcpRestServer
+- SSL support via javax.net.ssl
+
+**Dependencies:**
+- tcprest-commons
+
+**Use case:** Development, testing, low-concurrency scenarios, SSL required
+
+### tcprest-nio
+**NIO server implementation module** providing non-blocking I/O server.
+
+**Key components:**
+- NioTcpRestServer
+- Selector-based async I/O
+
+**Dependencies:**
+- tcprest-commons
+
+**Use case:** Moderate concurrency without SSL requirements
+
+**Note:** SSL not supported due to Java NIO SocketChannel limitations
 
 ### tcprest-netty
 **Optional high-performance module** providing Netty-based server implementation.
@@ -29,8 +59,10 @@ The project is organized into two Maven modules:
 - NettyTcpRestProtocolHandler
 
 **Dependencies:**
-- tcprest-core
-- io.netty:netty:3.10.6.Final
+- tcprest-commons
+- io.netty:netty-all:4.1.131.Final
+
+**Use case:** High-concurrency production scenarios, SSL with NIO performance
 
 ## Core Components
 
@@ -61,27 +93,27 @@ Base class providing common functionality:
 
 #### Server Implementations
 
-**SingleThreadTcpRestServer** (`tcprest-core`)
+**SingleThreadTcpRestServer** (`tcprest-singlethread`)
 - Uses traditional blocking I/O with ServerSocket
 - Single-threaded request handling
 - **SSL Support:** ✅ Yes (via `javax.net.ssl.SSLServerSocketFactory`)
 - Best for: Development, testing, low-concurrency scenarios, SSL required
 - Thread model: One thread accepting connections sequentially
 - Lifecycle: Properly shuts down with port release and thread termination
-- Zero external dependencies
+- Zero external dependencies (only depends on tcprest-commons)
 
-**NioTcpRestServer** (`tcprest-core`)
+**NioTcpRestServer** (`tcprest-nio`)
 - Uses Java NIO with Selector
 - Non-blocking I/O with worker thread pool
 - **SSL Support:** ❌ No (Java NIO SocketChannel doesn't support SSL directly)
 - Best for: Moderate concurrency **without SSL requirements**
 - Thread model: One selector thread + cached thread pool for request processing
 - Lifecycle: Properly closes selector and all channels on shutdown
-- Zero external dependencies
+- Zero external dependencies (only depends on tcprest-commons)
 - **Technical limitation:** Java NIO's SocketChannel doesn't support SSL out of the box. SSL with NIO requires SSLEngine which adds significant complexity. For SSL with NIO performance, use NettyTcpRestServer instead.
 
 **NettyTcpRestServer** (`tcprest-netty`)
-- Uses Netty 3.x framework
+- Uses Netty 4.x framework
 - High-performance async I/O
 - **SSL Support:** ✅ Yes (via Netty's SSL handler)
 - Best for: High-concurrency production scenarios, SSL with NIO performance
@@ -320,18 +352,36 @@ import io.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 ```
 
-### From Single Module to Multi-Module
+### Module Structure Migration
 
-**If you only need core features:**
+**Client-only applications** (no server):
 ```xml
 <dependency>
     <groupId>cn.huiwings</groupId>
-    <artifactId>tcprest-core</artifactId>
+    <artifactId>tcprest-commons</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 ```
 
-**If you need Netty server:**
+**SingleThread server** (blocking I/O, SSL support):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-singlethread</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+**NIO server** (non-blocking I/O, no SSL):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-nio</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+**Netty server** (high-performance, SSL support):
 ```xml
 <dependency>
     <groupId>cn.huiwings</groupId>
@@ -340,7 +390,7 @@ import cn.huiwings.tcprest.server.TcpRestServer;
 </dependency>
 ```
 
-Note: tcprest-netty automatically includes tcprest-core as a transitive dependency.
+**Note:** All server modules automatically include `tcprest-commons` as a transitive dependency.
 
 ## Testing
 

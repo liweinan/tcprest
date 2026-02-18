@@ -2,14 +2,12 @@ package cn.huiwings.tcprest.test.smoke;
 
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.server.NettyTcpRestServer;
-import cn.huiwings.tcprest.server.NioTcpRestServer;
-import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.HelloWorld;
 import cn.huiwings.tcprest.test.HelloWorldResource;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
@@ -31,25 +29,26 @@ public class ConcurrentTest {
         this.tcpRestServer = tcpRestServer;
     }
 
-    @BeforeMethod
+    @BeforeClass
     public void startTcpRestServer()
             throws Exception {
         tcpRestServer.up();
+        // Wait for async server to be fully ready
+        Thread.sleep(500);
     }
 
-    @AfterMethod
+    @AfterClass
     public void stopTcpRestServer()
             throws Exception {
         tcpRestServer.down();
+        // Wait for port release
+        Thread.sleep(300);
     }
 
     @Factory
     public static Object[] create()
             throws Exception {
         List results = new ArrayList();
-        results.add(new ConcurrentTest(new SingleThreadTcpRestServer(PortGenerator.get())));
-        Thread.sleep(5 * THRESHOLD);
-        results.add(new ConcurrentTest(new NioTcpRestServer(PortGenerator.get())));
         results.add(new ConcurrentTest(new NettyTcpRestServer(PortGenerator.get())));
         return results.toArray();
     }

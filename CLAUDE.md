@@ -4,13 +4,13 @@ This document outlines core design principles and constraints that must be maint
 
 ## Core Design Principles
 
-### 1. Zero-Dependency Core Module (CRITICAL)
+### 1. Zero-Dependency Commons Module (CRITICAL)
 
-**Rule:** The `tcprest-core` module MUST have ZERO runtime dependencies.
+**Rule:** The `tcprest-commons` module MUST have ZERO runtime dependencies.
 
 **Requirements:**
 - ✅ Only JDK built-in packages may be used (`java.*`, `javax.*`)
-- ✅ Test dependencies (e.g., TestNG) are allowed in `<scope>test</scope>` only
+- ✅ Test dependencies (e.g., TestNG, SLF4J-Simple) are allowed in `<scope>test</scope>` only
 - ❌ NO external libraries in compile or runtime scope
 - ❌ NO Apache Commons, Guava, Jackson, or any third-party libraries
 
@@ -23,7 +23,7 @@ This document outlines core design principles and constraints that must be maint
 **Verification:**
 ```bash
 # This command should show ZERO compile/runtime dependencies
-mvn dependency:tree -pl tcprest-core
+mvn dependency:tree -pl tcprest-commons
 ```
 
 **Allowed JDK packages for common tasks:**
@@ -35,16 +35,24 @@ mvn dependency:tree -pl tcprest-core
 - Collections: `java.util.*`
 - Concurrency: `java.util.concurrent.*`
 
-### 2. Optional Dependencies in Separate Modules
+### 2. Modular Architecture with Separation of Concerns
 
-**Rule:** External dependencies belong in separate modules with clear naming.
+**Rule:** External dependencies belong in separate modules with clear naming. Server implementations are isolated in dedicated modules.
 
 **Current structure:**
 ```
 tcprest-parent/
-├── tcprest-core/          # Zero dependencies
-└── tcprest-netty/         # Depends on: tcprest-core + Netty
+├── tcprest-commons/       # Zero dependencies - client, protocol, utilities
+├── tcprest-singlethread/  # Depends on: tcprest-commons (blocking I/O server)
+├── tcprest-nio/           # Depends on: tcprest-commons (NIO server)
+└── tcprest-netty/         # Depends on: tcprest-commons + Netty (high-perf server)
 ```
+
+**Benefits:**
+- `tcprest-commons` remains minimal and zero-dependency
+- Server implementations are cleanly separated
+- Users include only what they need (client-only apps use commons only)
+- Each module has focused tests for its specific functionality
 
 **Future extensions:**
 ```
@@ -327,8 +335,14 @@ src/test/java/cn/huiwings/tcprest/test/
    Each module should use a different port range:
 
    ```java
-   // tcprest-core/PortGenerator.java
+   // tcprest-commons/PortGenerator.java
    private static final AtomicInteger counter = new AtomicInteger(8000);
+
+   // tcprest-singlethread/PortGenerator.java
+   private static final AtomicInteger counter = new AtomicInteger(14000);
+
+   // tcprest-nio/PortGenerator.java
+   private static final AtomicInteger counter = new AtomicInteger(16000);
 
    // tcprest-netty/PortGenerator.java
    private static final AtomicInteger counter = new AtomicInteger(20000);
@@ -415,7 +429,7 @@ src/test/java/cn/huiwings/tcprest/test/
 
 Before committing changes, verify:
 
-- [ ] `tcprest-core` has zero runtime dependencies
+- [ ] `tcprest-commons` has zero runtime dependencies
 - [ ] All tests pass: `mvn test`
 - [ ] Build succeeds: `mvn clean install`
 - [ ] No deprecated APIs introduced
@@ -428,19 +442,31 @@ Before committing changes, verify:
 ## Dependency Verification Commands
 
 ```bash
-# Verify zero dependencies in core
-mvn dependency:tree -pl tcprest-core | grep -v test
+# Verify zero dependencies in commons
+mvn dependency:tree -pl tcprest-commons | grep -v test
 
 # Should output only:
-# cn.huiwings:tcprest-core:jar:1.0-SNAPSHOT
+# cn.huiwings:tcprest-commons:jar:1.0-SNAPSHOT
 # (no compile/runtime dependencies)
 
-# Verify Netty module has correct dependencies
-mvn dependency:tree -pl tcprest-netty | grep -E "tcprest-core|netty"
+# Verify singlethread module has only commons dependency
+mvn dependency:tree -pl tcprest-singlethread | grep -E "tcprest-commons"
 
 # Should show:
-# +- cn.huiwings:tcprest-core:jar:1.0-SNAPSHOT:compile
-# +- io.netty:netty:jar:3.10.6.Final:compile
+# +- cn.huiwings:tcprest-commons:jar:1.0-SNAPSHOT:compile
+
+# Verify nio module has only commons dependency
+mvn dependency:tree -pl tcprest-nio | grep -E "tcprest-commons"
+
+# Should show:
+# +- cn.huiwings:tcprest-commons:jar:1.0-SNAPSHOT:compile
+
+# Verify Netty module has correct dependencies
+mvn dependency:tree -pl tcprest-netty | grep -E "tcprest-commons|netty"
+
+# Should show:
+# +- cn.huiwings:tcprest-commons:jar:1.0-SNAPSHOT:compile
+# +- io.netty:netty-all:jar:4.1.131.Final:compile
 ```
 
 ## Common Patterns
@@ -495,9 +521,9 @@ public class MyNewServer extends AbstractTcpRestServer {
 
 ## Anti-Patterns to Avoid
 
-❌ **Don't add dependencies to core:**
+❌ **Don't add dependencies to commons:**
 ```xml
-<!-- BAD: Adding dependency to tcprest-core -->
+<!-- BAD: Adding dependency to tcprest-commons -->
 <dependency>
     <groupId>com.google.guava</groupId>
     <artifactId>guava</artifactId>
@@ -508,7 +534,10 @@ public class MyNewServer extends AbstractTcpRestServer {
 ```xml
 <!-- GOOD: Create tcprest-guava module -->
 <modules>
-    <module>tcprest-core</module>
+    <module>tcprest-commons</module>
+    <module>tcprest-singlethread</module>
+    <module>tcprest-nio</module>
+    <module>tcprest-netty</module>
     <module>tcprest-guava</module>
 </modules>
 ```
@@ -546,4 +575,5 @@ public void down() {
 
 ## Version History
 
+- 2026-02-18: Major module refactoring - split tcprest-core into 4 focused modules (tcprest-commons, tcprest-singlethread, tcprest-nio, tcprest-netty)
 - 2026-02-17: Initial version documenting zero-dependency principle and core guidelines

@@ -61,7 +61,9 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          tcprest-core/target/tcprest-core-*.jar
+          tcprest-commons/target/tcprest-commons-*.jar
+          tcprest-singlethread/target/tcprest-singlethread-*.jar
+          tcprest-nio/target/tcprest-nio-*.jar
           tcprest-netty/target/tcprest-netty-*.jar
           pom.xml
       env:
@@ -70,5 +72,7 @@ jobs:
     - name: Verify artifacts
       run: |
         echo "Release artifacts:"
-        ls -lh tcprest-core/target/*.jar
+        ls -lh tcprest-commons/target/*.jar
+        ls -lh tcprest-singlethread/target/*.jar
+        ls -lh tcprest-nio/target/*.jar
         ls -lh tcprest-netty/target/*.jar
