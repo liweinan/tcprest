@@ -13,7 +13,7 @@ A lightweight, zero-dependency RPC framework that transforms POJOs into network-
 - ✨ **Simplified format**: JSON-style arrays `[p1,p2,p3]` instead of verbose `{{p1}}:::{{p2}}`
 - 🚀 **Better performance**: Single-layer Base64 encoding (no double encoding)
 - 🎯 **Method overloading**: Full support with type signatures
-- 🧠 **Intelligent mappers**: 3-tier system with auto-serialization for `Serializable` objects - **zero configuration for DTOs!**
+- 🧠 **Intelligent mappers**: 4-tier system with collection interfaces (List, Map, Set), auto-serialization for `Serializable` objects - **zero configuration for DTOs and collections!**
 - 📦 **Cleaner protocol**: More readable and easier to debug
 
 **Upgrading from v1?** V1 is still fully supported. See [Migration Guide](#migration-from-v1-to-v2).
@@ -138,11 +138,10 @@ public interface Calculator {
     String add(String a, String b);   // String concatenation
 }
 
-// Client (opt-in to v2)
+// Client (V2 is default, no configuration needed)
 TcpRestClientFactory factory = new TcpRestClientFactory(
     Calculator.class, "localhost", 8001
-)
-    .withProtocolV2();  // Enable Protocol v2
+);
 
 Calculator calc = factory.getClient();
 
@@ -341,12 +340,13 @@ TcpRestServer server = new NettyTcpRestServer(8001, "127.0.0.1");
 TcpRestServer server = new NettyTcpRestServer(8443, "192.168.1.100", sslParam);
 ```
 
-**With Protocol v2:**
+**With Protocol v2 (default, optional explicit config):**
 ```java
 import cn.huiwings.tcprest.protocol.ProtocolVersion;
 
 TcpRestServer server = new NettyTcpRestServer(8001);
-server.setProtocolVersion(ProtocolVersion.V2);  // Enable method overloading and exceptions
+// V2 is default - this line is optional (shown for clarity)
+server.setProtocolVersion(ProtocolVersion.V2);  // Explicit V2 (same as default)
 server.addSingletonResource(new MyServiceImpl());
 server.up();
 ```
@@ -360,7 +360,7 @@ sslParam.setKeyStoreKeyPass("password");
 sslParam.setTrustStorePath("classpath:server_ks");
 
 TcpRestServer server = new NettyTcpRestServer(8443, "127.0.0.1", sslParam);
-server.setProtocolVersion(ProtocolVersion.V2);
+// V2 is default, explicit config optional
 server.addSingletonResource(new UserServiceImpl());
 server.up();
 
@@ -454,14 +454,13 @@ Overhead           | <1ms per operation
 // 1. Enable compression for bandwidth-heavy scenarios
 server.enableCompression();
 
-// 2. Use Protocol v2 (optimized method lookup)
-server.setProtocolVersion(ProtocolVersion.V2);
-
-// 3. Singleton resources (avoid instantiation overhead)
+// 2. Use singleton resources (avoid instantiation overhead)
 server.addSingletonResource(new MyServiceImpl());
 
-// 4. Implement Serializable for automatic binary serialization
+// 3. Implement Serializable for automatic binary serialization (V2 feature)
 public class MyData implements Serializable { ... }
+
+// Note: Protocol V2 is already default - no configuration needed!
 ```
 
 **Summary:** For controlled internal environments with high concurrency and low latency requirements, TcpRest can deliver **2-10x performance improvement** over traditional HTTP REST frameworks.
@@ -482,119 +481,164 @@ server.addResource(MyServiceImpl.class);
 // New instance created for each request
 ```
 
-### Complex Service Example
+### V2 Features Example (Best Practice: Simple Design)
 
-Here's a realistic example demonstrating advanced features with Protocol v2:
+Here's a clean example demonstrating V2 features using **simple, interface-based design**:
 
 ```java
+import java.io.Serializable;
+
 /**
- * Shopping cart service with method overloading and exception handling.
+ * Simple DTO - just implement Serializable for zero-config auto-serialization.
  */
-public interface ShoppingCartService {
-    // Cart operations
-    int createCart(String customerId);
-    boolean clearCart(int cartId);
+public class UserInfo implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    // Method overloading - different signatures
-    boolean addProduct(int cartId, String name, double price, int quantity);
-    boolean addProduct(int cartId, String name, double price);  // quantity=1
+    private int id;
+    private String name;
+    private String email;
+    private transient String password;  // Excluded from serialization
 
-    // More overloading
-    boolean updateQuantity(int cartId, String product, int newQuantity);
-    boolean updateQuantity(int cartId, String product, int delta, boolean increment);
+    public UserInfo(int id, String name, String email) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+    }
 
-    // Calculations
-    double getTotal(int cartId);
-    int getItemCount(int cartId);
-    double applyDiscount(int cartId, double percent);
+    // Getters/setters...
 }
 
 /**
- * Implementation with validation and business rules.
+ * Simple service interface - focus on clear method signatures.
+ *
+ * ✅ Best Practice: Use simple parameters and DTOs instead of complex objects.
  */
-public class ShoppingCartServiceImpl implements ShoppingCartService {
-    private static final double MAX_CART_VALUE = 10000.0;
-    private final Map<Integer, Cart> carts = new ConcurrentHashMap<>();
+public interface UserService {
+    // Basic CRUD with simple parameters
+    UserInfo getUser(int userId);
+    boolean updateUser(int userId, String name, String email);
+
+    // Method overloading (V2 feature)
+    UserInfo createUser(String name, String email);
+    UserInfo createUser(String name, String email, String role);
+
+    // Collections work automatically (V2 feature)
+    List<UserInfo> getAllUsers();
+    Map<String, UserInfo> getUsersByRole(String role);
+
+    // Exception handling (V2 feature)
+    void validateEmail(String email);  // Throws if invalid
+}
+
+/**
+ * Simple implementation - focus on business logic, not complex data structures.
+ */
+public class UserServiceImpl implements UserService {
+    private final Map<Integer, UserInfo> users = new ConcurrentHashMap<>();
+    private final AtomicInteger idCounter = new AtomicInteger(1);
 
     @Override
-    public boolean addProduct(int cartId, String name, double price, int qty) {
-        // Validation
-        if (price <= 0) {
-            throw new ValidationException("Price must be positive");
-        }
-        if (qty <= 0) {
-            throw new ValidationException("Quantity must be positive");
-        }
-
-        Cart cart = getCart(cartId);  // Throws if not found
-
-        // Business rule check
-        if (cart.getTotal() + (price * qty) > MAX_CART_VALUE) {
-            throw new BusinessException("Cart value exceeds maximum: " + MAX_CART_VALUE);
-        }
-
-        cart.addProduct(name, price, qty);
-        return true;
+    public UserInfo createUser(String name, String email) {
+        return createUser(name, email, "user");  // Default role
     }
 
     @Override
-    public boolean addProduct(int cartId, String name, double price) {
-        return addProduct(cartId, name, price, 1);  // Default quantity
+    public UserInfo createUser(String name, String email, String role) {
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Name cannot be empty");
+        }
+
+        int id = idCounter.getAndIncrement();
+        UserInfo user = new UserInfo(id, name, email);
+        users.put(id, user);
+        return user;
+    }
+
+    @Override
+    public void validateEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            throw new IllegalArgumentException("Invalid email format");
+        }
+    }
+
+    @Override
+    public List<UserInfo> getAllUsers() {
+        return new ArrayList<>(users.values());  // Collections work automatically!
+    }
+
+    @Override
+    public Map<String, UserInfo> getUsersByRole(String role) {
+        // Map interface automatically supported in V2
+        return users.values().stream()
+            .collect(Collectors.toMap(u -> u.getName(), u -> u));
     }
 
     // ... other methods
 }
 ```
 
-**Server Setup:**
+**Server Setup (V2 is default):**
 ```java
 TcpRestServer server = new NettyTcpRestServer(8001);
-server.setProtocolVersion(ProtocolVersion.V2);  // Required for overloading
-server.addSingletonResource(new ShoppingCartServiceImpl());
+// No protocol config needed - V2 is default!
+server.addSingletonResource(new UserServiceImpl());
 server.up();
 ```
 
 **Client Usage:**
 ```java
+// V2 is default - no configuration needed!
 TcpRestClientFactory factory = new TcpRestClientFactory(
-    ShoppingCartService.class, "localhost", 8001
-).withProtocolV2();
+    UserService.class, "localhost", 8001
+);
+UserService service = factory.getClient();
 
-ShoppingCartService cart = factory.getClient();
+// Method overloading works automatically
+UserInfo user1 = service.createUser("Alice", "alice@example.com");           // Default role
+UserInfo user2 = service.createUser("Bob", "bob@example.com", "admin");      // Custom role
 
-// Create cart and add products
-int cartId = cart.createCart("customer123");
-cart.addProduct(cartId, "laptop", 1200.0, 1);     // Full signature
-cart.addProduct(cartId, "mouse", 25.0);           // Default quantity=1
-
-// Calculate total
-double total = cart.getTotal(cartId);  // 1225.0
-
-// Apply discount
-double discounted = cart.applyDiscount(cartId, 10.0);  // 1102.5
+// Collections work automatically (no mapper needed!)
+List<UserInfo> allUsers = service.getAllUsers();
+Map<String, UserInfo> admins = service.getUsersByRole("admin");
 
 // Exception handling works automatically
 try {
-    cart.addProduct(cartId, "bad", -10.0, 1);
+    service.validateEmail("invalid");
 } catch (RuntimeException e) {
-    // Server exception is propagated to client
-    System.out.println(e.getMessage());  // "ValidationException: Price must be positive"
+    System.out.println(e.getMessage());  // "IllegalArgumentException: Invalid email format"
 }
+
+// Complex object handling (auto-serialization)
+UserInfo retrieved = service.getUser(user1.getId());
+System.out.println("User: " + retrieved.getName());  // All fields preserved
 ```
+
+**Why This is Best Practice:**
+
+✅ **Simple DTOs** - `UserInfo` is flat and focused
+✅ **Clear interface** - Methods have clear, simple parameters
+✅ **Zero configuration** - Just implement `Serializable` on DTOs
+✅ **Collections work** - List, Map, Set automatically supported
+✅ **Easy to test** - Simple objects, simple mocking
+✅ **Easy to debug** - Clear data flow, no complex object graphs
+
+❌ **Avoid:**
+- Deep inheritance hierarchies
+- Complex nested objects
+- Circular references
+- Large object graphs
 
 **See Full Example:** [`ProtocolV2IntegrationTest.java`](tcprest-singlethread/src/test/java/cn/huiwings/tcprest/test/integration/ProtocolV2IntegrationTest.java) for complete working code with tests.
 
-**Pro Tip:** In this example, if your `Cart` and `Product` classes implement `Serializable`, you don't need any custom mappers - TcpRest will handle serialization automatically, including proper handling of `transient` fields.
+### V2 Intelligent Mapper System (Zero-Configuration Support)
 
-### V2 Intelligent Mapper System (Automatic Serialization)
-
-**Protocol V2 features a 3-tier intelligent mapper system - most classes work automatically with zero configuration!**
+**Protocol V2 features a 4-tier intelligent mapper system - collections, DTOs, and most classes work automatically with zero configuration!**
 
 #### Priority 1: User-Defined Mappers (Highest)
 Custom mappers for fine-grained control (e.g., JSON serialization with Gson):
 
 ```java
-// Register custom Gson mapper
+// Register custom Gson mapper (for public APIs or custom formats)
 server.addMapper(User.class.getName(), new GsonUserMapper());
 
 Map<String, Mapper> mappers = new HashMap<>();
@@ -604,7 +648,39 @@ TcpRestClientFactory factory = new TcpRestClientFactory(
 );
 ```
 
-#### Priority 2: Auto-Serialization (Medium) ⭐ **Recommended**
+#### Priority 2: Collection Interfaces (High) 🆕 **Zero Config**
+Built-in support for `List`, `Map`, `Set`, `Queue`, `Deque`, `Collection` - **no mapper needed!**
+
+```java
+// Collection interfaces work automatically in method signatures
+public interface DataService {
+    List<String> getItems();              // ✅ Works automatically
+    Map<String, Integer> getScores();     // ✅ Works automatically
+    Set<String> getUniqueNames();         // ✅ Works automatically
+}
+
+// Client usage - no mapper needed
+DataService service = factory.getClient();
+List<String> items = service.getItems();        // ArrayList → List → ArrayList
+Map<String, Integer> scores = service.getScores();  // HashMap → Map → HashMap
+
+// All Serializable implementations supported
+List<String> myList = new ArrayList<>();     // ✅
+List<String> myList = new LinkedList<>();    // ✅
+Map<String, Integer> myMap = new HashMap<>();   // ✅
+Map<String, Integer> myMap = new TreeMap<>();   // ✅
+```
+
+**Supported interfaces:**
+- ✅ `java.util.List` - ArrayList, LinkedList, Vector, etc.
+- ✅ `java.util.Map` - HashMap, TreeMap, LinkedHashMap, etc.
+- ✅ `java.util.Set` - HashSet, TreeSet, LinkedHashSet, etc.
+- ✅ `java.util.Queue` - LinkedList, PriorityQueue, etc.
+- ✅ `java.util.Deque` - ArrayDeque, LinkedList, etc.
+
+**Type preservation:** Concrete types are preserved (ArrayList stays ArrayList, not just List).
+
+#### Priority 3: Auto-Serialization (Medium) ⭐ **Recommended**
 Any class implementing `Serializable` works automatically - **no mapper needed!**
 
 ```java
@@ -625,44 +701,284 @@ public class User implements Serializable {
 public interface UserService {
     User getUser(int id);
     User saveUser(User user);
-    List<User> getAllUsers();  // Collections work too
+    List<User> getAllUsers();  // Collections + Serializable = ✅✅
 }
 
-// Server setup - no mapper needed
+// Server setup - no mapper needed (V2 is default)
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.setProtocolVersion(ProtocolVersion.V2);  // V2 enables auto-serialization
 server.addSingletonResource(new UserServiceImpl());
 server.up();
 
-// Client setup - no mapper needed
+// Client setup - no mapper needed (V2 is default)
 TcpRestClientFactory factory = new TcpRestClientFactory(
     UserService.class, "localhost", 8001
-);  // V2 is default
+);
 UserService client = factory.getClient();
 
 User user = client.getUser(123);  // Just works! 🎉
+List<User> users = client.getAllUsers();  // Collections + DTOs = ✅
 ```
 
 **What's supported automatically:**
 - ✅ Any class implementing `Serializable` (DTOs, entities, domain objects)
-- ✅ Collections (`List`, `Map`, `Set`) - they're already Serializable
+- ✅ Collection interfaces (List, Map, Set) - NEW in v2.0!
 - ✅ Arrays of any type
 - ✅ `transient` fields (automatically excluded)
 - ✅ Nested Serializable objects (entire object graph)
-- ⚠️ Generic types (runtime type erasure applies, but works via Serializable)
+- ✅ Class inheritance (exact types preserved: Car → Car, not Vehicle)
 
-#### Priority 3: Built-in Conversion (Lowest)
+#### Priority 4: Built-in Conversion (Lowest)
 Primitives, wrappers, Strings, and arrays - always supported.
 
 #### When to Use Each Approach
 
 | Approach | Use Case | Configuration |
 |----------|----------|---------------|
-| **Auto-Serialization** (Priority 2) | Internal microservices, DTOs you control | Just implement `Serializable` - zero config! |
-| **Custom Mapper** (Priority 1) | Public APIs, human-readable format (JSON/XML) | Register mapper on client & server |
-| **Built-in** (Priority 3) | Primitives, strings, simple types | Always available |
+| **Collection Interfaces** (Priority 2) | List, Map, Set parameters | Zero config - works automatically! |
+| **Auto-Serialization** (Priority 3) | Internal microservices, DTOs you control | Just implement `Serializable` - zero config! |
+| **Custom Mapper** (Priority 1) | Public APIs, human-readable format (JSON/XML), specific generic types | Register mapper on client & server |
+| **Built-in** (Priority 4) | Primitives, strings, simple types | Always available |
 
-**Recommendation:** For internal services and DTOs, use auto-serialization (implement `Serializable`). For public APIs or cross-language scenarios, use custom mappers with JSON.
+**Best Practices:**
+
+✅ **Recommended approach for internal services:**
+1. Use collection interfaces (List, Map, Set) in method signatures
+2. Implement `Serializable` on your DTOs
+3. Keep DTOs simple and flat (avoid deep nesting)
+4. Zero configuration needed!
+
+❌ **When to use custom mappers:**
+- Public APIs requiring JSON/XML format
+- Cross-language compatibility
+- Specific generic type preservation (e.g., `List<User>` with exact type)
+- Human-readable wire format for debugging
+
+**Quick Example - Best Practice:**
+```java
+// ✅ Perfect: Collection interfaces + Simple DTOs
+public interface UserService {
+    List<UserInfo> getAllUsers();           // Collection interface
+    Map<String, UserInfo> getUsersByRole(String role);  // Collection interface
+}
+
+public class UserInfo implements Serializable {  // Simple DTO
+    private int id;
+    private String name;
+    private String email;
+    // Simple, flat structure
+}
+
+// Zero configuration - everything works automatically!
+```
+
+## Best Practices for TcpRest
+
+### 1. Design Philosophy: Keep It Simple
+
+**✅ Recommended: Simple, Interface-Based Design**
+
+```java
+// Good: Clear, simple interface with focused methods
+public interface UserService {
+    UserInfo getUser(int userId);
+    boolean updateUser(int userId, String name, String email);
+    List<UserInfo> getAllUsers();
+}
+
+// Good: Simple, flat DTO
+public class UserInfo implements Serializable {
+    private int id;
+    private String name;
+    private String email;
+    // Simple structure, easy to understand and test
+}
+```
+
+**❌ Avoid: Complex Object Hierarchies**
+
+```java
+// Bad: Deep inheritance
+public class Car extends Vehicle extends MovableObject extends PhysicalEntity { }
+
+// Bad: Complex nested objects
+public class Order {
+    private Customer customer;           // nested
+    private Address shippingAddress;     // nested
+    private Address billingAddress;      // nested
+    private List<OrderItem> items;       // nested collection
+    private Map<String, Discount> discounts;  // nested map
+    private Payment payment;             // nested
+}
+```
+
+### 2. DTO Design Guidelines
+
+**✅ Do:**
+- Keep DTOs flat and focused on data
+- Implement `Serializable` with `serialVersionUID`
+- Use `transient` for sensitive fields
+- Follow single responsibility principle
+
+**❌ Don't:**
+- Create deep inheritance hierarchies
+- Include business logic in DTOs
+- Use circular references
+- Nest objects more than 2 levels deep
+
+**Example:**
+
+```java
+// ✅ Good: Simple, focused DTO
+public class UserInfo implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    private int id;
+    private String name;
+    private String email;
+    private String city;  // Flatten nested Address.city
+
+    private transient String password;  // Excluded from serialization
+}
+
+// ❌ Bad: Complex nested structure
+public class User implements Serializable {
+    private int id;
+    private PersonalInfo personalInfo;  // Nested
+    private Address address;            // Nested
+    private Company company;            // Nested
+    private List<Skill> skills;         // Nested collection
+    // Too many nested levels!
+}
+```
+
+### 3. Service Interface Design
+
+**✅ Use collection interfaces in method signatures:**
+
+```java
+public interface DataService {
+    List<Item> getItems();           // ✅ Interface type
+    Map<String, Score> getScores();  // ✅ Interface type
+    Set<String> getNames();          // ✅ Interface type
+}
+```
+
+**✅ Keep methods focused and simple:**
+
+```java
+// Good: Simple, clear methods
+public interface UserService {
+    UserInfo getUser(int id);
+    boolean updateUser(int id, String name, String email);
+    List<UserInfo> searchUsers(String query);
+}
+```
+
+**❌ Avoid complex method signatures:**
+
+```java
+// Bad: Too many parameters
+public boolean updateCompleteUserProfile(
+    int id, String name, String email, String phone, String address,
+    String city, String country, String zipCode, List<String> interests
+);
+
+// Better: Use a simple DTO
+public boolean updateUserProfile(int id, UserProfile profile);
+```
+
+### 4. When to Use What
+
+| Scenario | Recommendation | Why |
+|----------|---------------|-----|
+| **Internal microservices** | Collection interfaces + Serializable DTOs | Zero config, fast, type-safe |
+| **Public APIs** | Custom JSON mappers (Gson/Jackson) | Human-readable, cross-language |
+| **Simple data transfer** | Flat DTOs with primitives | Easy to test and debug |
+| **Complex data** | Break into multiple simple methods | Better separation of concerns |
+| **High performance** | Binary serialization (Serializable) | Faster than JSON |
+| **Cross-language** | Custom JSON mappers | Universal format |
+
+### 5. Protocol Version Strategy
+
+**✅ For new projects:**
+- Use Protocol V2 (default) - no configuration needed
+- Enjoy method overloading and exception propagation
+
+**✅ For existing V1 projects:**
+- Server: Keep `ProtocolVersion.AUTO` (default)
+- Gradually migrate clients to V2
+- No breaking changes required
+
+**❌ Don't:**
+- Mix V1 and V2 protocols on the same client without awareness
+- Use V1 for new projects (V2 is better)
+
+### 6. Common Anti-Patterns to Avoid
+
+| Anti-Pattern | Why It's Bad | Better Alternative |
+|--------------|--------------|-------------------|
+| **God Objects** | Hard to maintain, test | Break into focused DTOs |
+| **Deep Nesting** | Serialization overhead | Flatten structure |
+| **No serialVersionUID** | Version conflicts | Always define it |
+| **Business Logic in DTOs** | Violates SRP | Keep DTOs as data containers |
+| **Ignoring transient** | Sends sensitive data | Mark passwords/secrets transient |
+| **Large collections** | Memory/performance issues | Pagination or streaming |
+
+### 7. Testing Best Practices
+
+```java
+// Good: Easy to test with simple objects
+@Test
+public void testUserService() {
+    UserInfo user = new UserInfo(1, "Alice", "alice@example.com");
+    boolean result = service.updateUser(user.getId(), "Alice Smith", user.getEmail());
+    assertTrue(result);
+}
+
+// Bad: Hard to test with complex nested objects
+@Test
+public void testComplexOrder() {
+    Order order = new Order(
+        new Customer(new PersonalInfo(...), new Address(...)),
+        new ShippingInfo(new Address(...), new Carrier(...)),
+        Arrays.asList(new OrderItem(new Product(...), new Pricing(...)))
+    );
+    // Too complex to set up!
+}
+```
+
+### 8. Performance Tips
+
+✅ **Enable compression for bandwidth-heavy scenarios:**
+```java
+server.enableCompression();
+factory.withCompression();
+```
+
+✅ **Use singleton resources when possible:**
+```java
+server.addSingletonResource(new MyServiceImpl());  // One instance for all requests
+```
+
+✅ **Implement Serializable for automatic binary serialization:**
+```java
+public class MyData implements Serializable { ... }  // Faster than custom JSON
+```
+
+✅ **Use Protocol V2 for optimized method lookup:**
+```java
+// V2 is default - no config needed!
+```
+
+### Summary: The TcpRest Way
+
+1. **Keep it simple** - Flat DTOs, clear interfaces
+2. **Use built-in features** - Collection interfaces, auto-serialization
+3. **Avoid complexity** - No deep nesting, no god objects
+4. **Think interface-first** - Design clear service contracts
+5. **Test easily** - Simple objects = simple tests
+
+**Remember:** TcpRest is designed for **high-performance internal microservices**. For this use case, simplicity and zero-configuration support give you the best developer experience and maintainability.
 
 ### Custom Mappers (Advanced Usage)
 
@@ -752,33 +1068,6 @@ try {
     server.down();  // Releases ports and resources
 }
 ```
-
-## Migration to Protocol v2
-
-Protocol v2 adds support for method overloading and exception handling. Migration is straightforward:
-
-**Phase 1: Update Server** (backward compatible)
-```java
-// Server accepts both v1 and v2 clients (default)
-TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.setProtocolVersion(ProtocolVersion.AUTO);  // or omit, AUTO is default
-```
-
-**Phase 2: Update Clients** (gradual)
-```java
-// Opt-in to v2 per client
-TcpRestClientFactory factory = new TcpRestClientFactory(
-    MyService.class, "localhost", 8001
-)
-    .withProtocolV2();  // Add this line
-```
-
-**Phase 3: V2-Only** (optional, after all clients upgraded)
-```java
-server.setProtocolVersion(ProtocolVersion.V2);  // Reject v1 clients
-```
-
-**Rollback:** Remove `.withProtocolV2()` to revert clients to v1.
 
 ## Documentation
 
@@ -940,10 +1229,13 @@ MyService client = factory.getClient();
 
 ### V2 Benefits
 
-- **Method Overloading**: Same method name, different parameters
-- **Exception Propagation**: Exceptions sent to client properly
-- **Better Performance**: Single-layer encoding (faster)
-- **Cleaner Format**: JSON-style arrays easy to read/debug
+- **Method Overloading**: Same method name, different parameters (with type signatures)
+- **Exception Propagation**: Exceptions sent to client properly with full stack trace
+- **Collection Interfaces**: List, Map, Set work automatically (zero config)
+- **Auto-Serialization**: Serializable objects work automatically (zero config)
+- **Better Performance**: Single-layer encoding (faster), optimized markers (~ for null)
+- **Cleaner Format**: JSON-style arrays `[p1,p2,p3]` easy to read/debug
+- **Smaller Protocol**: `~` instead of "NULL", empty string instead of "EMPTY"
 
 ### Version Compatibility Matrix
 
