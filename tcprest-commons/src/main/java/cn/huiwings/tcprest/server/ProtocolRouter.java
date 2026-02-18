@@ -2,12 +2,12 @@ package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.compression.CompressionUtil;
-import cn.huiwings.tcprest.converter.Converter;
-import cn.huiwings.tcprest.converter.v2.ProtocolV2Converter;
+import cn.huiwings.tcprest.codec.ProtocolCodec;
+import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
-import cn.huiwings.tcprest.extractor.Extractor;
-import cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor;
+import cn.huiwings.tcprest.parser.RequestParser;
+import cn.huiwings.tcprest.parser.v2.ProtocolV2Parser;
 import cn.huiwings.tcprest.invoker.Invoker;
 import cn.huiwings.tcprest.invoker.v2.ProtocolV2Invoker;
 import cn.huiwings.tcprest.logger.Logger;
@@ -46,15 +46,15 @@ public class ProtocolRouter {
     private final ProtocolVersion serverVersion;
 
     // V1 components (from AbstractTcpRestServer)
-    private final Extractor v1Extractor;
+    private final RequestParser v1Parser;
     private final Invoker v1Invoker;
     private final Map<String, Mapper> mappers;
     private final CompressionConfig compressionConfig;
 
     // V2 components
-    private final ProtocolV2Extractor v2Extractor;
+    private final RequestParser v2Parser;
     private final ProtocolV2Invoker v2Invoker;
-    private final ProtocolV2Converter v2Converter;
+    private final ProtocolCodec v2Codec;
 
     /**
      * Create protocol router with unified component initialization.
@@ -84,21 +84,21 @@ public class ProtocolRouter {
         this.logger = logger;
 
         // V1 components - use legacy constructor for backward compatibility
-        // (V1 extractor needs TcpRestServer for inner class handling, legacy resource lookup)
+        // (V1 parser needs TcpRestServer for inner class handling, legacy resource lookup)
         if (!(resourceRegister instanceof cn.huiwings.tcprest.server.TcpRestServer)) {
             throw new IllegalArgumentException(
                 "ResourceRegister must implement TcpRestServer for V1 protocol support"
             );
         }
-        this.v1Extractor = new cn.huiwings.tcprest.extractor.DefaultExtractor(
-            (cn.huiwings.tcprest.server.TcpRestServer) resourceRegister
+        this.v1Parser = new cn.huiwings.tcprest.parser.DefaultRequestParser(
+            ((cn.huiwings.tcprest.server.TcpRestServer) resourceRegister).getMappers()
         );
         this.v1Invoker = new cn.huiwings.tcprest.invoker.DefaultInvoker();
 
         // V2 components - modern initialization (no server dependency)
-        this.v2Extractor = new ProtocolV2Extractor(mappers);
+        this.v2Parser = new ProtocolV2Parser(mappers);
         this.v2Invoker = new ProtocolV2Invoker();
-        this.v2Converter = new ProtocolV2Converter(mappers);
+        this.v2Codec = new ProtocolV2Codec(mappers);
     }
 
     /**
@@ -108,8 +108,13 @@ public class ProtocolRouter {
      */
     public void setV2SecurityConfig(cn.huiwings.tcprest.security.SecurityConfig securityConfig) {
         if (securityConfig != null) {
-            this.v2Extractor.setSecurityConfig(securityConfig);
-            this.v2Converter.setSecurityConfig(securityConfig);
+            // Cast to implementation classes to access security config setters
+            if (v2Parser instanceof cn.huiwings.tcprest.parser.v2.ProtocolV2Parser) {
+                ((cn.huiwings.tcprest.parser.v2.ProtocolV2Parser) v2Parser).setSecurityConfig(securityConfig);
+            }
+            if (v2Codec instanceof cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) {
+                ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).setSecurityConfig(securityConfig);
+            }
         }
     }
 
@@ -182,7 +187,7 @@ public class ProtocolRouter {
     private String processV2Request(String request, ResourceRegister resourceRegister) {
         try {
             // Extract context
-            Context context = v2Extractor.extract(request);
+            Context context = v2Parser.parse(request);
 
             // Get or create resource instance using ResourceResolver
             Class<?> targetClass = context.getTargetClass();
@@ -193,22 +198,22 @@ public class ProtocolRouter {
             Object result = v2Invoker.invoke(context);
 
             // Encode success response
-            return v2Converter.encodeResponse(result, StatusCode.SUCCESS);
+            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeResponse(result, StatusCode.SUCCESS);
 
         } catch (BusinessException e) {
             // Business exception - expected error
             logger.warn("Business exception: " + e.getMessage());
-            return v2Converter.encodeException(e, StatusCode.BUSINESS_EXCEPTION);
+            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(e, StatusCode.BUSINESS_EXCEPTION);
 
         } catch (ProtocolException e) {
             // Protocol error - malformed request
             logger.error("Protocol error: " + e.getMessage());
-            return v2Converter.encodeException(e, StatusCode.PROTOCOL_ERROR);
+            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(e, StatusCode.PROTOCOL_ERROR);
 
         } catch (Exception e) {
             // Server error - unexpected exception
             logger.error("Server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
-            return v2Converter.encodeException(e, StatusCode.SERVER_ERROR);
+            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(e, StatusCode.SERVER_ERROR);
         }
     }
 
@@ -222,9 +227,9 @@ public class ProtocolRouter {
     private String processV1Request(String request, ResourceRegister resourceRegister) {
         try {
             // Extract calling class and method from request (new secure format)
-            Context context = v1Extractor.extract(request);
+            Context context = v1Parser.parse(request);
 
-            // V1 extractor sets targetInstance if using legacy constructor
+            // V1 parser sets targetInstance if using legacy constructor
             // If not set (new constructor), use ResourceResolver
             Class<?> targetClass = context.getTargetClass();
             if (context.getTargetInstance() == null) {
@@ -237,20 +242,20 @@ public class ProtocolRouter {
             logger.debug("***responseObject: " + responseObject);
 
             // Get returned object and encode using new secure format
-            Mapper responseMapper = context.getConverter().getMapper(mappers, responseObject.getClass());
+            Mapper responseMapper = context.getCodec().getMapper(mappers, responseObject.getClass());
             String resultString = responseMapper.objectToString(responseObject);
 
             // Encode result parameter
-            String resultEncoded = context.getConverter().encodeParam(resultString);
+            String resultEncoded = context.getCodec().encodeParam(resultString);
 
             // Build response: 0|{{base64(result)}}|CHK:value
             String message = "0|" + resultEncoded;
 
             // Add checksum if security is enabled
-            if (context.getConverter() instanceof cn.huiwings.tcprest.converter.DefaultConverter) {
-                cn.huiwings.tcprest.converter.DefaultConverter defaultConverter =
-                    (cn.huiwings.tcprest.converter.DefaultConverter) context.getConverter();
-                cn.huiwings.tcprest.security.SecurityConfig securityConfig = defaultConverter.getSecurityConfig();
+            if (context.getCodec() instanceof cn.huiwings.tcprest.codec.DefaultProtocolCodec) {
+                cn.huiwings.tcprest.codec.DefaultProtocolCodec defaultCodec =
+                    (cn.huiwings.tcprest.codec.DefaultProtocolCodec) context.getCodec();
+                cn.huiwings.tcprest.security.SecurityConfig securityConfig = defaultCodec.getSecurityConfig();
 
                 String checksum = cn.huiwings.tcprest.security.ProtocolSecurity.calculateChecksum(message, securityConfig);
                 if (!checksum.isEmpty()) {
@@ -278,7 +283,7 @@ public class ProtocolRouter {
      */
     private String handleError(Exception error, ProtocolVersion version) {
         if (version == ProtocolVersion.V2) {
-            return v2Converter.encodeException(error, StatusCode.PROTOCOL_ERROR);
+            return ((cn.huiwings.tcprest.codec.v2.ProtocolV2Codec) v2Codec).encodeException(error, StatusCode.PROTOCOL_ERROR);
         } else {
             return ""; // V1 returns empty on error
         }

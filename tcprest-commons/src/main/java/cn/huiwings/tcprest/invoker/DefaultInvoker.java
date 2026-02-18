@@ -12,6 +12,7 @@ import java.lang.reflect.Method;
  * @author Weinan Li
  * @date Jul 29 2012
  */
+@Deprecated
 public class DefaultInvoker implements Invoker {
     private Logger logger = LoggerFactory.getDefaultLogger();
 

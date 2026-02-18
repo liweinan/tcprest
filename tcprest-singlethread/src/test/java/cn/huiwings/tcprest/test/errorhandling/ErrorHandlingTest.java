@@ -2,8 +2,8 @@ package cn.huiwings.tcprest.test.errorhandling;
 
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.exception.ParseException;
-import cn.huiwings.tcprest.extractor.DefaultExtractor;
-import cn.huiwings.tcprest.extractor.Extractor;
+import cn.huiwings.tcprest.parser.DefaultRequestParser;
+import cn.huiwings.tcprest.parser.RequestParser;
 import cn.huiwings.tcprest.invoker.DefaultInvoker;
 import cn.huiwings.tcprest.invoker.Invoker;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
@@ -47,12 +47,12 @@ public class ErrorHandlingTest {
     @Test(expectedExceptions = NoSuchMethodException.class)
     public void testInvalidMethodNotFound() throws Exception {
         server.addResource(HelloWorldResource.class);
-        Extractor extractor = new DefaultExtractor(server);
+        RequestParser parser = new DefaultRequestParser(server);
 
         // Try to extract a method that doesn't exist - should throw NoSuchMethodException
         String meta = "cn.huiwings.tcprest.test.HelloWorldResource/nonExistentMethod";
         String request = "0|" + ProtocolSecurity.encodeComponent(meta) + "|" + ProtocolSecurity.encodeComponent("");
-        Context ctx = extractor.extract(request);
+        Context ctx = parser.parse(request);
         Invoker invoker = new DefaultInvoker();
         invoker.invoke(ctx);
     }
@@ -60,21 +60,21 @@ public class ErrorHandlingTest {
     @Test(expectedExceptions = ParseException.class)
     public void testMalformedRequest() throws Exception {
         server.addResource(HelloWorldResource.class);
-        Extractor extractor = new DefaultExtractor(server);
+        RequestParser parser = new DefaultRequestParser(server);
 
         // Send a malformed request - should throw ParseException
-        extractor.extract("this is not a valid request format");
+        parser.parse("this is not a valid request format");
     }
 
     @Test
     public void testServerHandlesValidRequestsAfterErrors() throws Exception {
         server.addResource(HelloWorldResource.class);
-        Extractor extractor = new DefaultExtractor(server);
+        RequestParser parser = new DefaultRequestParser(server);
         Invoker invoker = new DefaultInvoker();
 
         // First, cause an error
         try {
-            extractor.extract("invalid request");
+            parser.parse("invalid request");
         } catch (ParseException e) {
             // Expected
         }
@@ -82,7 +82,7 @@ public class ErrorHandlingTest {
         // Server should still handle valid requests properly
         String meta = "cn.huiwings.tcprest.test.HelloWorldResource/helloWorld";
         String request = "0|" + ProtocolSecurity.encodeComponent(meta) + "|" + ProtocolSecurity.encodeComponent("");
-        Context ctx = extractor.extract(request);
+        Context ctx = parser.parse(request);
         String result = (String) invoker.invoke(ctx);
         assertEquals(result, "Hello, world!");
     }

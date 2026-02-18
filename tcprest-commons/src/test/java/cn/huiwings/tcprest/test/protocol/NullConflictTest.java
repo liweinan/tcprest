@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.test.protocol;
 
-import cn.huiwings.tcprest.converter.v2.ProtocolV2Converter;
-import cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor;
+import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
+import cn.huiwings.tcprest.parser.v2.ProtocolV2Parser;
 import cn.huiwings.tcprest.server.Context;
 import org.testng.annotations.Test;
 
@@ -25,17 +25,17 @@ public class NullConflictTest {
 
     @Test
     public void testV2_nullValue() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
         Method method = TestService.class.getMethod("echo", String.class);
 
         // Encode: null parameter
         Object[] params = new Object[]{null};
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
         System.out.println("V2 null encoded: " + encoded);
 
         // Decode: should get null back
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
-        Context context = extractor.extract(encoded);
+        ProtocolV2Parser parser = new ProtocolV2Parser();
+        Context context = parser.parse(encoded);
 
         assertNotNull(context);
         assertEquals(context.getParams().length, 1);
@@ -44,12 +44,12 @@ public class NullConflictTest {
 
     @Test
     public void testV2_stringNULL() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
         Method method = TestService.class.getMethod("echo", String.class);
 
         // Encode: string "NULL" parameter
         Object[] params = new Object[]{"NULL"};
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
         System.out.println("V2 string 'NULL' encoded: " + encoded);
 
         // The encoding process is:
@@ -63,8 +63,8 @@ public class NullConflictTest {
         System.out.println("Looking for pattern: {{" + base64NULL + "}}");
 
         // Decode: should get string "NULL" back, not null
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
-        Context context = extractor.extract(encoded);
+        ProtocolV2Parser parser = new ProtocolV2Parser();
+        Context context = parser.parse(encoded);
 
         assertNotNull(context);
         assertEquals(context.getParams().length, 1);
@@ -74,18 +74,18 @@ public class NullConflictTest {
 
     @Test
     public void testV2_differentNullValues() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = TestService.class.getMethod("process", String.class, String.class, String.class);
 
         // Encode: mix of null and string "NULL"
         Object[] params = {null, "NULL", "test"};
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
         System.out.println("V2 mixed params encoded: " + encoded);
 
         // Decode
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         assertEquals(context.getParams().length, 3);
         assertNull(context.getParams()[0], "First param should be null");
@@ -97,17 +97,17 @@ public class NullConflictTest {
 
     @Test
     public void testV2_emptyString() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = TestService.class.getMethod("echo", String.class);
 
         // Encode: empty string (different from null)
         Object[] params = new Object[]{""};
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
 
         // Decode
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         assertNotNull(context.getParams()[0], "Empty string is not null");
         assertEquals(context.getParams()[0], "", "Empty string should be preserved");
@@ -115,8 +115,8 @@ public class NullConflictTest {
 
     @Test
     public void testV2_specialStrings() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = TestService.class.getMethod("echo", String.class);
 
@@ -131,8 +131,8 @@ public class NullConflictTest {
 
         for (String testStr : testStrings) {
             Object[] params = new Object[]{testStr};
-            String encoded = converter.encode(TestService.class, method, params, null);
-            Context context = extractor.extract(encoded);
+            String encoded = codec.encode(TestService.class, method, params, null);
+            Context context = parser.parse(encoded);
 
             assertNotNull(context.getParams()[0],
                     "String '" + testStr + "' should NOT be decoded as null");

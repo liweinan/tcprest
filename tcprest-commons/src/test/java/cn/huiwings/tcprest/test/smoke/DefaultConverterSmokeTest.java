@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.test.smoke;
 
-import cn.huiwings.tcprest.converter.Converter;
-import cn.huiwings.tcprest.converter.DefaultConverter;
+import cn.huiwings.tcprest.codec.ProtocolCodec;
+import cn.huiwings.tcprest.codec.DefaultProtocolCodec;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.mapper.MapperHelper;
 import cn.huiwings.tcprest.protocol.TcpRestProtocol;
@@ -20,8 +20,8 @@ public class DefaultConverterSmokeTest {
 
     @Test
     public void test() throws NoSuchMethodException, MapperNotFoundException {
-        Converter converter = new DefaultConverter();
-        String request = converter.encode(HelloWorldResource.class,
+        ProtocolCodec codec = new DefaultProtocolCodec();
+        String request = codec.encode(HelloWorldResource.class,
                 HelloWorldResource.class.getMethod("oneTwoThree", String.class, int.class, boolean.class),
                 new Object[]{"One", 2, true}, MapperHelper.DEFAULT_MAPPERS);
 
@@ -38,11 +38,11 @@ public class DefaultConverterSmokeTest {
 
         // Decode and verify parameters
         String paramsDecoded = ProtocolSecurity.decodeComponent(components[2]);
-        String expectedParams = converter.encodeParam("One")
+        String expectedParams = codec.encodeParam("One")
                 + TcpRestProtocol.PARAM_SEPARATOR
-                + converter.encodeParam("2")
+                + codec.encodeParam("2")
                 + TcpRestProtocol.PARAM_SEPARATOR
-                + converter.encodeParam("true");
+                + codec.encodeParam("true");
         assertEquals(expectedParams, paramsDecoded);
 
     }

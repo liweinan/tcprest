@@ -2,8 +2,8 @@ package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.compression.CompressionUtil;
-import cn.huiwings.tcprest.extractor.DefaultExtractor;
-import cn.huiwings.tcprest.extractor.Extractor;
+import cn.huiwings.tcprest.parser.DefaultRequestParser;
+import cn.huiwings.tcprest.parser.RequestParser;
 import cn.huiwings.tcprest.invoker.DefaultInvoker;
 import cn.huiwings.tcprest.invoker.Invoker;
 import cn.huiwings.tcprest.logger.Logger;
@@ -32,7 +32,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
 
     public final Map<String, Object> singletonResources = new HashMap<String, Object>();
 
-    public Extractor extractor = new DefaultExtractor(this);
+    public RequestParser parser = new DefaultRequestParser(this.getMappers());
 
     /**
      * V1 invoker field - no longer used by ProtocolRouter.

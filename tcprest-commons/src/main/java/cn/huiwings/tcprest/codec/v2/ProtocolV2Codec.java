@@ -1,6 +1,6 @@
-package cn.huiwings.tcprest.converter.v2;
+package cn.huiwings.tcprest.codec.v2;
 
-import cn.huiwings.tcprest.converter.Converter;
+import cn.huiwings.tcprest.codec.ProtocolCodec;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.protocol.NullObj;
@@ -15,17 +15,17 @@ import java.util.Base64;
 import java.util.Map;
 
 /**
- * Security-Enhanced Protocol v2 Converter.
+ * Security-Enhanced Protocol V2 Codec.
  *
- * <p>This converter adds method signatures to requests and status codes to responses,
- * enabling method overloading support and exception propagation.</p>
+ * <p>This codec implements the TcpRest Protocol V2 with method signature support,
+ * enabling method overloading and intelligent type mapping.</p>
  *
- * <p><b>Secure Request Format (2026-02-18):</b></p>
+ * <p><b>Secure Request Format:</b></p>
  * <pre>
- * V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|{{base64(PARAMS)}}|CHK:value
+ * V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value
  *
  * Example:
- * V2|0|Q2FsY3VsYXRvci9hZGQoSUkp|e3tNUT09fX06Ojp7e01nPT19fQ|CHK:a1b2c3d4
+ * V2|0|Q2FsY3VsYXRvci9hZGQoSUkp|[MQ==,Mg==]|CHK:a1b2c3d4
  * </pre>
  *
  * <p><b>Secure Response Format:</b></p>
@@ -38,54 +38,64 @@ import java.util.Map;
  * V2|0|2|{{base64_error_message}}|CHK:value    # Server error
  * </pre>
  *
+ * <p><b>Key Features:</b></p>
+ * <ul>
+ *   <li><b>Method Overloading:</b> Type signatures enable exact method matching</li>
+ *   <li><b>Intelligent Mapper:</b> User-defined → Auto-serialization → Built-in</li>
+ *   <li><b>Security:</b> Base64 encoding, checksum verification, class whitelist</li>
+ *   <li><b>Status Codes:</b> Exception propagation with status codes</li>
+ * </ul>
+ *
  * <p><b>Security Features:</b></p>
  * <ul>
  *   <li>All metadata (class/method/signature) Base64-encoded</li>
  *   <li>All parameters Base64-encoded</li>
- *   <li>Optional checksum verification (CRC32/HMAC)</li>
+ *   <li>Optional checksum verification (CRC32/HMAC-SHA256)</li>
  *   <li>Optional class whitelist validation</li>
+ *   <li>Class/method name validation (prevents injection)</li>
  * </ul>
  *
+ * @author Weinan Li
  * @since 1.1.0
  */
-public class ProtocolV2Converter implements Converter {
+public class ProtocolV2Codec implements ProtocolCodec {
 
     private static final String COMPRESSION_DISABLED = "0";
     private SecurityConfig securityConfig;
     private Map<String, Mapper> mappers;
 
     /**
-     * Create converter with default security (no checksum, no whitelist).
+     * Create codec with default security (no checksum, no whitelist).
      */
-    public ProtocolV2Converter() {
+    public ProtocolV2Codec() {
         this(null, null);
     }
 
     /**
-     * Create converter with mappers support.
+     * Create codec with mappers support.
      *
      * @param mappers mapper registry (optional)
      */
-    public ProtocolV2Converter(Map<String, Mapper> mappers) {
+    public ProtocolV2Codec(Map<String, Mapper> mappers) {
         this(null, mappers);
     }
 
     /**
-     * Create converter with custom security configuration.
+     * Create codec with custom security configuration.
      *
      * @param securityConfig security configuration
      */
-    public ProtocolV2Converter(SecurityConfig securityConfig) {
+    public ProtocolV2Codec(SecurityConfig securityConfig) {
         this(securityConfig, null);
     }
 
     /**
-     * Create converter with custom security configuration and mappers.
+     * Create codec with custom security configuration and mappers.
      *
      * @param securityConfig security configuration
      * @param mappers mapper registry (optional)
      */
-    public ProtocolV2Converter(SecurityConfig securityConfig, Map<String, Mapper> mappers) {
+    public ProtocolV2Codec(SecurityConfig securityConfig, Map<String, Mapper> mappers) {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
         this.mappers = mappers;
     }
@@ -109,22 +119,22 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode request with method signature support (simplified V2 format).
+     * Encode request with method signature support (V2 format).
      *
-     * <p><b>New simplified format:</b> V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value</p>
+     * <p><b>Format:</b> V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value</p>
      *
-     * <p>Parameters are encoded as a JSON-style array without outer Base64 layer:</p>
+     * <p>Parameters are encoded as a JSON-style array:</p>
      * <ul>
      *   <li>Each parameter is Base64-encoded individually</li>
      *   <li>Parameters are separated by commas</li>
      *   <li>The entire parameter list is wrapped in square brackets</li>
      * </ul>
      *
-     * <p><b>Mapper Support:</b> V2 supports intelligent type mapping with the following priority:</p>
+     * <p><b>Intelligent Mapper Support:</b></p>
      * <ol>
-     *   <li><b>User-defined Mapper</b>: If user provides custom mapper for a type, use it</li>
-     *   <li><b>Auto Serialization</b>: If object implements Serializable, use RawTypeMapper automatically</li>
-     *   <li><b>Built-in conversion</b>: For primitives, arrays, and toString() for others</li>
+     *   <li><b>User-defined Mapper:</b> Custom mapper for specific types</li>
+     *   <li><b>Auto Serialization:</b> Serializable objects use RawTypeMapper</li>
+     *   <li><b>Built-in conversion:</b> Primitives, arrays, toString() for others</li>
      * </ol>
      *
      * @param clazz the interface class
@@ -199,11 +209,11 @@ public class ProtocolV2Converter implements Converter {
      *
      * <p><b>Encoding Priority:</b></p>
      * <ol>
-     *   <li><b>NULL marker</b>: null → "NULL"</li>
-     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
-     *   <li><b>Auto Serialization</b>: For Serializable objects, use RawTypeMapper</li>
-     *   <li><b>Arrays</b>: Use Arrays.toString() format</li>
-     *   <li><b>Primitives/Strings</b>: Use toString() then Base64</li>
+     *   <li><b>NULL marker:</b> null → "~"</li>
+     *   <li><b>User-defined Mapper:</b> Use custom mapper if provided</li>
+     *   <li><b>Auto Serialization:</b> For Serializable objects, use RawTypeMapper</li>
+     *   <li><b>Arrays:</b> Use Arrays.toString() format</li>
+     *   <li><b>Primitives/Strings:</b> Use toString() then Base64</li>
      * </ol>
      *
      * @param param the parameter value
@@ -303,9 +313,9 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Decode response with status code handling (secure format).
+     * Decode response with status code handling (V2 format).
      *
-     * <p>New secure format: V2|0|STATUS|{{base64(BODY)}}|CHK:value</p>
+     * <p>Format: V2|0|STATUS|{{base64(BODY)}}|CHK:value</p>
      *
      * @param response the response string
      * @param expectedType the expected return type
@@ -366,10 +376,10 @@ public class ProtocolV2Converter implements Converter {
      *
      * <p><b>Decoding Priority:</b></p>
      * <ol>
-     *   <li><b>null/NullObj</b>: return null or NullObj</li>
-     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
-     *   <li><b>Auto Deserialization</b>: For Serializable types, use RawTypeMapper</li>
-     *   <li><b>Built-in conversion</b>: For primitives, arrays, and other types</li>
+     *   <li><b>null/NullObj:</b> return null or NullObj</li>
+     *   <li><b>User-defined Mapper:</b> Use custom mapper if provided</li>
+     *   <li><b>Auto Deserialization:</b> For Serializable types, use RawTypeMapper</li>
+     *   <li><b>Built-in conversion:</b> For primitives, arrays, and other types</li>
      * </ol>
      *
      * @param body the response body
@@ -570,9 +580,9 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode response with status code (simplified V2 format).
+     * Encode response with status code (V2 format).
      *
-     * <p><b>Simplified format:</b> V2|0|STATUS|{{base64(BODY)}}|CHK:value</p>
+     * <p><b>Format:</b> V2|0|STATUS|{{base64(BODY)}}|CHK:value</p>
      *
      * @param result the result object
      * @param status the status code
@@ -597,22 +607,16 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode body to string with {{base64}} wrapper.
-     *
-     * @param obj the object to encode
-     * @return encoded body string in format {{base64}}
-     */
-    /**
      * Encode body to string with intelligent type mapping.
      *
      * <p><b>Encoding Priority:</b></p>
      * <ol>
-     *   <li><b>null</b>: return "null"</li>
-     *   <li><b>NullObj</b>: return "NullObj"</li>
-     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
-     *   <li><b>Auto Serialization</b>: For Serializable objects, use RawTypeMapper</li>
-     *   <li><b>Arrays</b>: Use Arrays.toString() format</li>
-     *   <li><b>Others</b>: Use toString() then Base64</li>
+     *   <li><b>null:</b> return "null"</li>
+     *   <li><b>NullObj:</b> return "NullObj"</li>
+     *   <li><b>User-defined Mapper:</b> Use custom mapper if provided</li>
+     *   <li><b>Auto Serialization:</b> For Serializable objects, use RawTypeMapper</li>
+     *   <li><b>Arrays:</b> Use Arrays.toString() format</li>
+     *   <li><b>Others:</b> Use toString() then Base64</li>
      * </ol>
      *
      * @param obj the object to encode
@@ -663,9 +667,9 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Encode exception response (secure format).
+     * Encode exception response (V2 format).
      *
-     * <p>New secure format: V2|0|STATUS|{{base64(exception)}}|CHK:value</p>
+     * <p>Format: V2|0|STATUS|{{base64(exception)}}|CHK:value</p>
      *
      * @param exception the exception
      * @param status the status code (BUSINESS_EXCEPTION or SERVER_ERROR)
@@ -695,8 +699,8 @@ public class ProtocolV2Converter implements Converter {
     /**
      * Decode parameters from protocol v2 format.
      *
-     * <p>Note: This method is provided for Converter interface compatibility.
-     * Protocol V2 uses its own parameter parsing in ProtocolV2Extractor.</p>
+     * <p>Note: This method is provided for ProtocolCodec interface compatibility.
+     * Protocol V2 uses its own parameter parsing in ProtocolV2Parser.</p>
      *
      * @param targetMethod target method
      * @param paramToken parameter token
@@ -706,18 +710,18 @@ public class ProtocolV2Converter implements Converter {
      */
     @Override
     public Object[] decode(Method targetMethod, String paramToken, Map<String, Mapper> mappers) throws MapperNotFoundException {
-        // Protocol V2 handles parameter decoding in ProtocolV2Extractor
+        // Protocol V2 handles parameter decoding in ProtocolV2Parser
         // This method is provided for interface compatibility
         throw new UnsupportedOperationException(
-            "Protocol V2 uses ProtocolV2Extractor for parameter decoding. " +
+            "Protocol V2 uses ProtocolV2Parser for parameter decoding. " +
             "Use decode(String response, Class expectedType) for response decoding instead."
         );
     }
 
     /**
-     * Encode a single parameter (simplified V2 format).
+     * Encode a single parameter (V2 format).
      *
-     * <p><b>New format:</b> base64_value (or special markers: ~, empty)</p>
+     * <p><b>Format:</b> base64_value (or special markers: ~, empty)</p>
      *
      * @param message the parameter value
      * @return encoded parameter (Base64 or special marker)
@@ -734,9 +738,9 @@ public class ProtocolV2Converter implements Converter {
     }
 
     /**
-     * Decode a single parameter (simplified V2 format).
+     * Decode a single parameter (V2 format).
      *
-     * <p><b>New format:</b> base64_value (or special markers: ~, empty)</p>
+     * <p><b>Format:</b> base64_value (or special markers: ~, empty)</p>
      *
      * @param message the encoded parameter (Base64 or special marker)
      * @return decoded parameter value
@@ -764,7 +768,7 @@ public class ProtocolV2Converter implements Converter {
     /**
      * Get mapper by class.
      *
-     * <p><b>V2 Mapper Support:</b> Protocol V2 now supports intelligent type mapping:</p>
+     * <p><b>V2 Mapper Support:</b> Protocol V2 supports intelligent type mapping:</p>
      * <ol>
      *   <li>User-defined mappers (if provided)</li>
      *   <li>Auto serialization for Serializable objects (RawTypeMapper)</li>
@@ -786,7 +790,7 @@ public class ProtocolV2Converter implements Converter {
     /**
      * Get mapper by class name.
      *
-     * <p><b>V2 Mapper Support:</b> Protocol V2 now supports intelligent type mapping.</p>
+     * <p><b>V2 Mapper Support:</b> Protocol V2 supports intelligent type mapping.</p>
      *
      * @param mappers mapper registry
      * @param targetClazzName target class name

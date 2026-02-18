@@ -1,7 +1,7 @@
-package cn.huiwings.tcprest.extractor;
+package cn.huiwings.tcprest.parser;
 
-import cn.huiwings.tcprest.converter.Converter;
-import cn.huiwings.tcprest.converter.DefaultConverter;
+import cn.huiwings.tcprest.codec.ProtocolCodec;
+import cn.huiwings.tcprest.codec.DefaultProtocolCodec;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.exception.ParseException;
 import cn.huiwings.tcprest.logger.Logger;
@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Security-Enhanced Default Extractor for V1 protocol.
+ * Security-Enhanced DefaultRequestParser for V1 protocol.
  *
  * <p><b>New Protocol Format (2026-02-18):</b></p>
  * <pre>
@@ -33,44 +33,44 @@ import java.util.List;
  *
  * @author Weinan Li
  * @date Jul 30 2012
- * @deprecated Use Protocol V2 ({@link cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor}) instead.
+ * @deprecated Use Protocol V2 ({@link cn.huiwings.tcprest.parser.v2.ProtocolV2Parser}) instead.
  *             V1 is maintained for backward compatibility only. V2 provides method overloading,
  *             better exception handling, and intelligent mapper support with auto-serialization.
  */
 @Deprecated
-public class DefaultExtractor implements Extractor {
+public class DefaultRequestParser implements RequestParser {
 
     private Logger logger = LoggerFactory.getDefaultLogger();
     private TcpRestServer tcpRestServer; // Deprecated: only for backward compatibility
     private java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers;
-    private final Converter converter;
+    private final ProtocolCodec codec;
     private SecurityConfig securityConfig;
 
     /**
-     * Create extractor with mappers support (recommended).
+     * Create parser with mappers support (recommended).
      *
      * @param mappers mapper registry
      */
-    public DefaultExtractor(java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
+    public DefaultRequestParser(java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
         this.mappers = mappers;
         this.tcpRestServer = null;
         this.securityConfig = new SecurityConfig(); // Default: no security
-        this.converter = new DefaultConverter(securityConfig);
+        this.codec = new DefaultProtocolCodec(securityConfig);
     }
 
     /**
-     * Create extractor with TcpRestServer reference (legacy).
+     * Create parser with TcpRestServer reference (legacy).
      *
      * @param server the TcpRestServer instance
-     * @deprecated Use {@link #DefaultExtractor(java.util.Map)} instead.
+     * @deprecated Use {@link #DefaultRequestParser(java.util.Map)} instead.
      *             This constructor is maintained for backward compatibility only.
      */
     @Deprecated
-    public DefaultExtractor(TcpRestServer server) {
+    public DefaultRequestParser(TcpRestServer server) {
         this.tcpRestServer = server;
         this.mappers = null; // Will use tcpRestServer.getMappers() in legacy mode
         this.securityConfig = new SecurityConfig(); // Default: no security
-        this.converter = new DefaultConverter(securityConfig);
+        this.codec = new DefaultProtocolCodec(securityConfig);
     }
 
     /**
@@ -80,13 +80,13 @@ public class DefaultExtractor implements Extractor {
      */
     public void setSecurityConfig(SecurityConfig securityConfig) {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
-        if (converter instanceof DefaultConverter) {
-            ((DefaultConverter) converter).setSecurityConfig(this.securityConfig);
+        if (codec instanceof DefaultProtocolCodec) {
+            ((DefaultProtocolCodec) codec).setSecurityConfig(this.securityConfig);
         }
     }
 
     /**
-     * Extracts request into Context.
+     * Parse request into Context.
      *
      * <p>Format: {@code 0|META|PARAMS|CHK:value}</p>
      *
@@ -97,15 +97,15 @@ public class DefaultExtractor implements Extractor {
      * @throws ParseException if request format invalid
      * @throws MapperNotFoundException if mapper not found
      */
-    public Context extract(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException {
+    public Context parse(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException {
         if (request == null) {
-            throw new ParseException("***DefaultExtractor: cannot parse null request");
+            throw new ParseException("***DefaultRequestParser: cannot parse null request");
         }
 
         // Remove line breaks
         request = request.replaceAll("(\\r|\\n)", "").trim();
 
-        logger.debug("***DefaultExtractor - parsing request: " + request);
+        logger.debug("***DefaultRequestParser - parsing request: " + request);
 
         // Step 1: Split checksum if present
         String[] parts = ProtocolSecurity.splitChecksum(request);
@@ -119,32 +119,32 @@ public class DefaultExtractor implements Extractor {
                     "Checksum verification failed - message may have been tampered with"
                 );
             }
-            logger.debug("***DefaultExtractor - checksum verified");
+            logger.debug("***DefaultRequestParser - checksum verified");
         }
 
         // Step 3: Split components by |
         String[] components = messageWithoutChecksum.split("\\" + TcpRestProtocol.COMPONENT_SEPARATOR, -1);
 
         if (components.length < 3) {
-            throw new ParseException("***DefaultExtractor: invalid protocol format, expected: 0|META|PARAMS, got: " + request);
+            throw new ParseException("***DefaultRequestParser: invalid protocol format, expected: 0|META|PARAMS, got: " + request);
         }
 
         String compressionFlag = components[0];
         String metaBase64 = components[1];
         String paramsBase64 = components[2];
 
-        logger.debug("***DefaultExtractor - compression: " + compressionFlag);
-        logger.debug("***DefaultExtractor - metaBase64: " + metaBase64);
-        logger.debug("***DefaultExtractor - paramsBase64: " + paramsBase64);
+        logger.debug("***DefaultRequestParser - compression: " + compressionFlag);
+        logger.debug("***DefaultRequestParser - metaBase64: " + metaBase64);
+        logger.debug("***DefaultRequestParser - paramsBase64: " + paramsBase64);
 
         // Step 4: Decode metadata (ClassName/methodName)
         String meta = ProtocolSecurity.decodeComponent(metaBase64);
-        logger.debug("***DefaultExtractor - decoded meta: " + meta);
+        logger.debug("***DefaultRequestParser - decoded meta: " + meta);
 
         // Step 5: Parse ClassName and methodName from meta
         int slashIndex = meta.indexOf('/');
         if (slashIndex < 1) {
-            throw new ParseException("***DefaultExtractor: invalid metadata format, expected ClassName/methodName, got: " + meta);
+            throw new ParseException("***DefaultRequestParser: invalid metadata format, expected ClassName/methodName, got: " + meta);
         }
 
         String clazzName = meta.substring(0, slashIndex);
@@ -161,8 +161,8 @@ public class DefaultExtractor implements Extractor {
             }
         }
 
-        logger.debug("***DefaultExtractor - className: " + clazzName);
-        logger.debug("***DefaultExtractor - methodName: " + methodName);
+        logger.debug("***DefaultRequestParser - className: " + clazzName);
+        logger.debug("***DefaultRequestParser - methodName: " + methodName);
 
         // Step 6: Validate class name (security check)
         if (!ProtocolSecurity.isValidClassName(clazzName)) {
@@ -210,7 +210,7 @@ public class DefaultExtractor implements Extractor {
                     // Check if it's an interface implemented by this class
                     for (Class ifc : clazz.getInterfaces()) {
                         if (ifc.getCanonicalName().equals(clazzName)) {
-                            logger.log("***DefaultExtractor - found implemented class: " + clazz.getCanonicalName());
+                            logger.log("***DefaultRequestParser - found implemented class: " + clazz.getCanonicalName());
                             clazzName = clazz.getCanonicalName();
                             break;
                         }
@@ -227,7 +227,7 @@ public class DefaultExtractor implements Extractor {
             }
 
             if (ctx.getTargetClass() == null) {
-                throw new ClassNotFoundException("***DefaultExtractor - Can't find resource for: " + clazzName);
+                throw new ClassNotFoundException("***DefaultRequestParser - Can't find resource for: " + clazzName);
             }
 
             targetClass = ctx.getTargetClass();
@@ -251,16 +251,16 @@ public class DefaultExtractor implements Extractor {
         }
 
         if (ctx.getTargetMethod() == null) {
-            throw new NoSuchMethodException("***DefaultExtractor - Can't find method: " + methodName);
+            throw new NoSuchMethodException("***DefaultRequestParser - Can't find method: " + methodName);
         }
 
         // Step 11: Decode and parse parameters
         java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappersToUse =
             (tcpRestServer != null) ? tcpRestServer.getMappers() : mappers;
-        Object params[] = converter.decode(ctx.getTargetMethod(), paramsBase64, mappersToUse);
+        Object params[] = codec.decode(ctx.getTargetMethod(), paramsBase64, mappersToUse);
 
         ctx.setParams(params);
-        ctx.setConverter(converter);
+        ctx.setCodec(codec);
         return ctx;
     }
 }

@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.test.smoke;
 
-import cn.huiwings.tcprest.converter.Converter;
-import cn.huiwings.tcprest.converter.DefaultConverter;
+import cn.huiwings.tcprest.codec.ProtocolCodec;
+import cn.huiwings.tcprest.codec.DefaultProtocolCodec;
 import cn.huiwings.tcprest.protocol.TcpRestProtocol;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
@@ -54,7 +54,7 @@ public class SimpleTcpServerSmokeTest {
     @Test
     public void testSimpleClient() throws IOException {
         tcpRestServer.addResource(HelloWorldResource.class);
-        Converter converter = new DefaultConverter();
+        ProtocolCodec codec = new DefaultProtocolCodec();
 
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
@@ -76,14 +76,14 @@ public class SimpleTcpServerSmokeTest {
         String[] components = parts[0].split("\\|", -1);
         String resultEncoded = components[1]; // This is {{base64(result)}}
 
-        Assert.assertEquals("Hello, world!", converter.decodeParam(resultEncoded));
+        Assert.assertEquals("Hello, world!", codec.decodeParam(resultEncoded));
 
     }
 
     @Test
     public void testArgs() throws IOException {
         tcpRestServer.addResource(HelloWorldResource.class);
-        Converter converter = new DefaultConverter();
+        ProtocolCodec codec = new DefaultProtocolCodec();
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -93,7 +93,7 @@ public class SimpleTcpServerSmokeTest {
         String metaBase64 = ProtocolSecurity.encodeComponent(meta);
 
         // Encode parameter: "Jack!" -> {{base64}} -> base64 again
-        String param = converter.encodeParam("Jack!");
+        String param = codec.encodeParam("Jack!");
         String paramsBase64 = ProtocolSecurity.encodeComponent(param);
         String request = "0|" + metaBase64 + "|" + paramsBase64;
 
@@ -107,14 +107,14 @@ public class SimpleTcpServerSmokeTest {
         String[] components = parts[0].split("\\|", -1);
         String resultEncoded = components[1]; // This is {{base64(result)}}
 
-        Assert.assertEquals("Hello, Jack!", converter.decodeParam(resultEncoded));
+        Assert.assertEquals("Hello, Jack!", codec.decodeParam(resultEncoded));
 
     }
 
     @Test
     public void testMultipleArgs() throws IOException {
         tcpRestServer.addResource(HelloWorldResource.class);
-        Converter converter = new DefaultConverter();
+        ProtocolCodec codec = new DefaultProtocolCodec();
         PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -124,11 +124,11 @@ public class SimpleTcpServerSmokeTest {
         String metaBase64 = ProtocolSecurity.encodeComponent(meta);
 
         // Encode multiple parameters: {{p1}}:::{{p2}}:::{{p3}} -> base64
-        String params = converter.encodeParam("One")
+        String params = codec.encodeParam("One")
                 + TcpRestProtocol.PARAM_SEPARATOR
-                + converter.encodeParam("2")
+                + codec.encodeParam("2")
                 + TcpRestProtocol.PARAM_SEPARATOR
-                + converter.encodeParam("true");
+                + codec.encodeParam("true");
         String paramsBase64 = ProtocolSecurity.encodeComponent(params);
         String request = "0|" + metaBase64 + "|" + paramsBase64;
 
@@ -142,7 +142,7 @@ public class SimpleTcpServerSmokeTest {
         String[] components = parts[0].split("\\|", -1);
         String resultEncoded = components[1]; // This is {{base64(result)}}
 
-        Assert.assertEquals("One,2,true", converter.decodeParam(resultEncoded));
+        Assert.assertEquals("One,2,true", codec.decodeParam(resultEncoded));
 
     }
 

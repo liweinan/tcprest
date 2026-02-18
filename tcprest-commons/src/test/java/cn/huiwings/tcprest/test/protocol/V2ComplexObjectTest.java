@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.test.protocol;
 
-import cn.huiwings.tcprest.converter.v2.ProtocolV2Converter;
-import cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor;
+import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
+import cn.huiwings.tcprest.parser.v2.ProtocolV2Parser;
 import cn.huiwings.tcprest.server.Context;
 import org.testng.annotations.Test;
 
@@ -242,8 +242,8 @@ public class V2ComplexObjectTest {
 
     @Test
     public void testNestedObject_TwoLevels() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = ComplexObjectService.class.getMethod("processNestedPerson", Person.class);
 
@@ -253,12 +253,12 @@ public class V2ComplexObjectTest {
         Person person = new Person("Alice", 30, address);
 
         Object[] params = new Object[]{person};
-        String encoded = converter.encode(ComplexObjectService.class, method, params, null);
+        String encoded = codec.encode(ComplexObjectService.class, method, params, null);
 
         System.out.println("Nested object encoded: " + encoded);
 
         // Decode and verify all nested levels are preserved
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
         Person decoded = (Person) context.getParams()[0];
 
         assertNotNull(decoded);
@@ -273,8 +273,8 @@ public class V2ComplexObjectTest {
 
     @Test
     public void testInheritance_Car() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = ComplexObjectService.class.getMethod("processVehicle", Vehicle.class);
 
@@ -282,12 +282,12 @@ public class V2ComplexObjectTest {
         Car car = new Car("Toyota", 2023, "Camry", 4);
 
         Object[] params = new Object[]{car};
-        String encoded = converter.encode(ComplexObjectService.class, method, params, null);
+        String encoded = codec.encode(ComplexObjectService.class, method, params, null);
 
         System.out.println("Car (subclass) encoded: " + encoded);
 
         // Decode: Should preserve Car type (not just Vehicle)
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
         Object decoded = context.getParams()[0];
 
         assertNotNull(decoded);
@@ -303,8 +303,8 @@ public class V2ComplexObjectTest {
 
     @Test
     public void testInheritance_Truck() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = ComplexObjectService.class.getMethod("processVehicle", Vehicle.class);
 
@@ -312,12 +312,12 @@ public class V2ComplexObjectTest {
         Truck truck = new Truck("Volvo", 2022, 15.5);
 
         Object[] params = new Object[]{truck};
-        String encoded = converter.encode(ComplexObjectService.class, method, params, null);
+        String encoded = codec.encode(ComplexObjectService.class, method, params, null);
 
         System.out.println("Truck (subclass) encoded: " + encoded);
 
         // Decode: Should preserve Truck type
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
         Object decoded = context.getParams()[0];
 
         assertNotNull(decoded);
@@ -332,8 +332,8 @@ public class V2ComplexObjectTest {
 
     @Test
     public void testComplexGraph_ListOfInheritedObjects() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = ComplexObjectService.class.getMethod("processVehicleList", List.class);
 
@@ -344,12 +344,12 @@ public class V2ComplexObjectTest {
         vehicles.add(new Car("BMW", 2023, "X5", 4));
 
         Object[] params = new Object[]{vehicles};
-        String encoded = converter.encode(ComplexObjectService.class, method, params, null);
+        String encoded = codec.encode(ComplexObjectService.class, method, params, null);
 
         System.out.println("List of mixed Vehicle subclasses encoded: " + encoded);
 
         // Decode: Should preserve all types
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         @SuppressWarnings("unchecked")
         List<Vehicle> decoded = (List<Vehicle>) context.getParams()[0];
@@ -377,8 +377,8 @@ public class V2ComplexObjectTest {
 
     @Test
     public void testComplexGraph_MapOfNestedObjects() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = ComplexObjectService.class.getMethod("processPersonMap", Map.class);
 
@@ -390,12 +390,12 @@ public class V2ComplexObjectTest {
             new Address("456 Oak", new City("Shanghai", "China"))));
 
         Object[] params = new Object[]{personMap};
-        String encoded = converter.encode(ComplexObjectService.class, method, params, null);
+        String encoded = codec.encode(ComplexObjectService.class, method, params, null);
 
         System.out.println("Map of nested Person objects encoded: " + encoded);
 
         // Decode: Should preserve map structure and nested objects
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         @SuppressWarnings("unchecked")
         Map<String, Person> decoded = (Map<String, Person>) context.getParams()[0];
@@ -418,8 +418,8 @@ public class V2ComplexObjectTest {
 
     @Test
     public void testNestedObject_WithNull() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = ComplexObjectService.class.getMethod("processNestedPerson", Person.class);
 
@@ -427,10 +427,10 @@ public class V2ComplexObjectTest {
         Person person = new Person("Charlie", 35, null);
 
         Object[] params = new Object[]{person};
-        String encoded = converter.encode(ComplexObjectService.class, method, params, null);
+        String encoded = codec.encode(ComplexObjectService.class, method, params, null);
 
         // Decode: Should handle null nested object gracefully
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
         Person decoded = (Person) context.getParams()[0];
 
         assertNotNull(decoded);
@@ -441,8 +441,8 @@ public class V2ComplexObjectTest {
 
     @Test
     public void testInheritance_BaseClass() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = ComplexObjectService.class.getMethod("processVehicle", Vehicle.class);
 
@@ -450,10 +450,10 @@ public class V2ComplexObjectTest {
         Vehicle vehicle = new Vehicle("Generic", 2020);
 
         Object[] params = new Object[]{vehicle};
-        String encoded = converter.encode(ComplexObjectService.class, method, params, null);
+        String encoded = codec.encode(ComplexObjectService.class, method, params, null);
 
         // Decode: Should preserve base class type
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
         Object decoded = context.getParams()[0];
 
         assertNotNull(decoded);

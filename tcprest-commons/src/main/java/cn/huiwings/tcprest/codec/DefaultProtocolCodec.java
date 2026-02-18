@@ -1,4 +1,4 @@
-package cn.huiwings.tcprest.converter;
+package cn.huiwings.tcprest.codec;
 
 import cn.huiwings.tcprest.commons.Base64;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
@@ -42,14 +42,14 @@ import java.util.Map;
  *             better exception handling, and intelligent mapper support with auto-serialization.
  */
 @Deprecated
-public class DefaultConverter implements Converter {
+public class DefaultProtocolCodec implements ProtocolCodec {
     private Logger logger = LoggerFactory.getDefaultLogger();
     private SecurityConfig securityConfig;
 
     /**
      * Creates a converter with default security (no checksum, no whitelist).
      */
-    public DefaultConverter() {
+    public DefaultProtocolCodec() {
         this.securityConfig = new SecurityConfig();
     }
 
@@ -58,7 +58,7 @@ public class DefaultConverter implements Converter {
      *
      * @param securityConfig security configuration
      */
-    public DefaultConverter(SecurityConfig securityConfig) {
+    public DefaultProtocolCodec(SecurityConfig securityConfig) {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
     }
 
@@ -102,7 +102,7 @@ public class DefaultConverter implements Converter {
         String methodName = method.getName();
         String meta = className + "/" + methodName;
 
-        logger.debug("***DefaultConverter - encoding meta: " + meta);
+        logger.debug("***DefaultProtocolCodec - encoding meta: " + meta);
 
         // Step 2: Build parameters
         StringBuilder paramTokenBuffer = new StringBuilder();
@@ -111,7 +111,7 @@ public class DefaultConverter implements Converter {
                 if (param == null) {
                     param = new NullObj();
                 }
-                logger.log("***DefaultConverter - encode for class: " + param.getClass());
+                logger.log("***DefaultProtocolCodec - encode for class: " + param.getClass());
 
                 Mapper mapper = getMapper(mappers, param.getClass());
                 String paramStr = mapper.objectToString(param);
@@ -125,7 +125,7 @@ public class DefaultConverter implements Converter {
         }
 
         String paramsEncoded = paramTokenBuffer.toString();
-        logger.debug("***DefaultConverter - encoded params: " + paramsEncoded);
+        logger.debug("***DefaultProtocolCodec - encoded params: " + paramsEncoded);
 
         // Step 3: Encode metadata and params using Base64
         String metaBase64 = ProtocolSecurity.encodeComponent(meta);
@@ -142,7 +142,7 @@ public class DefaultConverter implements Converter {
             message += TcpRestProtocol.COMPONENT_SEPARATOR + checksum;
         }
 
-        logger.debug("***DefaultConverter - final message: " + message);
+        logger.debug("***DefaultProtocolCodec - final message: " + message);
         return message;
     }
 
@@ -247,7 +247,7 @@ public class DefaultConverter implements Converter {
             }
 
             if (mapper == null)
-                throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + targetClazz.getCanonicalName());
+                throw new MapperNotFoundException("***DefaultProtocolCodec - cannot find mapper for: " + targetClazz.getCanonicalName());
         }
 
         logger.debug("found mapper: " + mapper.getClass().getCanonicalName() + " for: " + targetClazz.getCanonicalName());
@@ -272,6 +272,6 @@ public class DefaultConverter implements Converter {
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
-        throw new MapperNotFoundException("***DefaultConverter - cannot find mapper for: " + targetClazzName);
+        throw new MapperNotFoundException("***DefaultProtocolCodec - cannot find mapper for: " + targetClazzName);
     }
 }

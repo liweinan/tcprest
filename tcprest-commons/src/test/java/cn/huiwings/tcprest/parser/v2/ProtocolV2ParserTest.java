@@ -1,4 +1,4 @@
-package cn.huiwings.tcprest.extractor.v2;
+package cn.huiwings.tcprest.parser.v2;
 
 import cn.huiwings.tcprest.exception.ParseException;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
@@ -11,15 +11,15 @@ import java.util.Base64;
 import static org.testng.Assert.*;
 
 /**
- * Tests for ProtocolV2Extractor.
+ * Tests for ProtocolV2Parser.
  */
-public class ProtocolV2ExtractorTest {
+public class ProtocolV2ParserTest {
 
-    private ProtocolV2Extractor extractor;
+    private ProtocolV2Parser parser;
 
     @BeforeClass
     public void setup() {
-        extractor = new ProtocolV2Extractor();
+        parser = new ProtocolV2Parser();
     }
 
     // ========== Test Basic Extraction ==========
@@ -28,7 +28,7 @@ public class ProtocolV2ExtractorTest {
     public void testExtract_primitiveInt() throws Exception {
         String request = buildRequest("add", "(II)", base64("1"), base64("2"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetClass().getName(), TestService.class.getName());
         assertEquals(context.getTargetMethod().getName(), "add");
@@ -44,7 +44,7 @@ public class ProtocolV2ExtractorTest {
     public void testExtract_primitiveDouble() throws Exception {
         String request = buildRequest("add", "(DD)", base64("1.5"), base64("2.5"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getName(), "add");
         assertEquals(context.getTargetMethod().getParameterTypes()[0], double.class);
@@ -57,7 +57,7 @@ public class ProtocolV2ExtractorTest {
     public void testExtract_string() throws Exception {
         String request = buildRequest("echo", "(Ljava/lang/String;)", base64("hello"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getName(), "echo");
         assertEquals(context.getTargetMethod().getParameterTypes()[0], String.class);
@@ -70,7 +70,7 @@ public class ProtocolV2ExtractorTest {
                 "(Ljava/lang/String;IZ)",
                 base64("test"), base64("42"), base64("true"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getName(), "process");
         assertEquals(context.getTargetMethod().getParameterTypes()[0], String.class);
@@ -85,7 +85,7 @@ public class ProtocolV2ExtractorTest {
     public void testExtract_noParameters() throws Exception {
         String request = buildRequest("noParams", "()", new String[0]);
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getName(), "noParams");
         assertEquals(context.getParams().length, 0);
@@ -95,7 +95,7 @@ public class ProtocolV2ExtractorTest {
     public void testExtract_nullParameter() throws Exception {
         String request = buildRequest("echo", "(Ljava/lang/String;)", "~");  // ~ marker for null
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getName(), "echo");
         assertNull(context.getParams()[0]);
@@ -107,7 +107,7 @@ public class ProtocolV2ExtractorTest {
     public void testExtract_overloadedInt() throws Exception {
         String request = buildRequest("add", "(II)", base64("1"), base64("2"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getParameterTypes()[0], int.class);
         assertEquals(context.getTargetMethod().getParameterTypes()[1], int.class);
@@ -117,7 +117,7 @@ public class ProtocolV2ExtractorTest {
     public void testExtract_overloadedDouble() throws Exception {
         String request = buildRequest("add", "(DD)", base64("1.5"), base64("2.5"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getParameterTypes()[0], double.class);
         assertEquals(context.getTargetMethod().getParameterTypes()[1], double.class);
@@ -129,7 +129,7 @@ public class ProtocolV2ExtractorTest {
                 "(Ljava/lang/String;Ljava/lang/String;)",
                 base64("hello"), base64("world"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getParameterTypes()[0], String.class);
         assertEquals(context.getTargetMethod().getParameterTypes()[1], String.class);
@@ -141,7 +141,7 @@ public class ProtocolV2ExtractorTest {
                 "(Ljava/lang/String;I)",
                 base64("test"), base64("42"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getParameterTypes()[0], String.class);
         assertEquals(context.getTargetMethod().getParameterTypes()[1], int.class);
@@ -153,7 +153,7 @@ public class ProtocolV2ExtractorTest {
                 "(ILjava/lang/String;)",
                 base64("42"), base64("test"));
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getTargetMethod().getParameterTypes()[0], int.class);
         assertEquals(context.getTargetMethod().getParameterTypes()[1], String.class);
@@ -174,7 +174,7 @@ public class ProtocolV2ExtractorTest {
                 base64("true"),     // boolean
                 base64("A"));       // char
 
-        Context context = extractor.extract(request);
+        Context context = parser.parse(request);
 
         assertEquals(context.getParams()[0], (byte) 127);
         assertEquals(context.getParams()[1], (short) 32767);
@@ -190,27 +190,27 @@ public class ProtocolV2ExtractorTest {
 
     @Test(expectedExceptions = ParseException.class)
     public void testExtract_nullRequest() throws Exception {
-        extractor.extract(null);
+        parser.parse(null);
     }
 
     @Test(expectedExceptions = ParseException.class)
     public void testExtract_emptyRequest() throws Exception {
-        extractor.extract("");
+        parser.parse("");
     }
 
     @Test(expectedExceptions = ParseException.class)
     public void testExtract_notV2Request() throws Exception {
-        extractor.extract("SomeClass/method()()");
+        parser.parse("SomeClass/method()()");
     }
 
     @Test(expectedExceptions = ParseException.class)
     public void testExtract_invalidFormat() throws Exception {
-        extractor.extract("V2|0");
+        parser.parse("V2|0");
     }
 
     @Test(expectedExceptions = ParseException.class)
     public void testExtract_missingClassMethodSeparator() throws Exception {
-        extractor.extract("V2|0|TestServiceadd(II)()");
+        parser.parse("V2|0|TestServiceadd(II)()");
     }
 
     @Test(expectedExceptions = ParseException.class)
@@ -219,7 +219,7 @@ public class ProtocolV2ExtractorTest {
         String meta = "TestService/add";  // Missing (SIGNATURE)
         String metaBase64 = ProtocolSecurity.encodeComponent(meta);
         String request = "V2|0|" + metaBase64 + "|";
-        extractor.extract(request);
+        parser.parse(request);
     }
 
     @Test(expectedExceptions = ClassNotFoundException.class)
@@ -230,26 +230,26 @@ public class ProtocolV2ExtractorTest {
         String metaWrapped = "{{" + metaBase64 + "}}";
         String paramsArray = "[" + base64("test") + "]";
         String request = "V2|0|" + metaWrapped + "|" + paramsArray;
-        extractor.extract(request);
+        parser.parse(request);
     }
 
     @Test(expectedExceptions = NoSuchMethodException.class)
     public void testExtract_methodNotFound() throws Exception {
         String request = buildRequest("nonExistent", "(II)", base64("1"), base64("2"));
-        extractor.extract(request);
+        parser.parse(request);
     }
 
     @Test(expectedExceptions = NoSuchMethodException.class)
     public void testExtract_wrongSignature() throws Exception {
         String request = buildRequest("add", "(FFF)", base64("1.0"), base64("2.0"), base64("3.0"));
-        extractor.extract(request);
+        parser.parse(request);
     }
 
     @Test(expectedExceptions = ParseException.class)
     public void testExtract_parameterCountMismatch() throws Exception {
         // Signature says 2 params, but only 1 provided
         String request = buildRequest("add", "(II)", base64("1"));
-        extractor.extract(request);
+        parser.parse(request);
     }
 
     @Test(expectedExceptions = ParseException.class)
@@ -259,29 +259,29 @@ public class ProtocolV2ExtractorTest {
         String metaBase64 = ProtocolSecurity.encodeComponent(meta);
         String paramsBase64 = ProtocolSecurity.encodeComponent("INVALID_PARAM");  // Missing {{}} wrapper
         String request = "V2|0|" + metaBase64 + "|" + paramsBase64;
-        extractor.extract(request);
+        parser.parse(request);
     }
 
     // ========== Test Static Methods ==========
 
     @Test
     public void testIsV2Request_valid() {
-        assertTrue(ProtocolV2Extractor.isV2Request("V2|0|TestService/method()()"));
+        assertTrue(ProtocolV2Parser.isV2Request("V2|0|TestService/method()()"));
     }
 
     @Test
     public void testIsV2Request_invalid() {
-        assertFalse(ProtocolV2Extractor.isV2Request("TestService/method()()"));
+        assertFalse(ProtocolV2Parser.isV2Request("TestService/method()()"));
     }
 
     @Test
     public void testIsV2Request_null() {
-        assertFalse(ProtocolV2Extractor.isV2Request(null));
+        assertFalse(ProtocolV2Parser.isV2Request(null));
     }
 
     @Test
     public void testIsV2Request_empty() {
-        assertFalse(ProtocolV2Extractor.isV2Request(""));
+        assertFalse(ProtocolV2Parser.isV2Request(""));
     }
 
     // ========== Helper Methods ==========

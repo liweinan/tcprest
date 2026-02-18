@@ -3,9 +3,9 @@ package cn.huiwings.tcprest.client;
 import cn.huiwings.tcprest.annotations.TimeoutAnnotationHandler;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.compression.CompressionUtil;
-import cn.huiwings.tcprest.converter.Converter;
-import cn.huiwings.tcprest.converter.DefaultConverter;
-import cn.huiwings.tcprest.converter.v2.ProtocolV2Converter;
+import cn.huiwings.tcprest.codec.ProtocolCodec;
+import cn.huiwings.tcprest.codec.DefaultProtocolCodec;
+import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.logger.LoggerFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
@@ -35,8 +35,8 @@ public class TcpRestClientProxy implements InvocationHandler {
     private Logger logger = LoggerFactory.getDefaultLogger();
     private TcpRestClient tcpRestClient;
     private Map<String, Mapper> mappers;
-    private Converter converter;
-    private ProtocolV2Converter v2Converter;
+    private ProtocolCodec codec;
+    private ProtocolCodec v2Codec;
     private CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
     private ProtocolConfig protocolConfig = new ProtocolConfig(); // Default: V2
     private SecurityConfig securityConfig = new SecurityConfig(); // Default: no security
@@ -65,9 +65,9 @@ public class TcpRestClientProxy implements InvocationHandler {
         }
 
         // Initialize converters with security config and mappers
-        this.converter = new DefaultConverter(this.securityConfig);
+        this.codec = new DefaultProtocolCodec(this.securityConfig);
         // Use merged mappers (includes both DEFAULT_MAPPERS and extraMappers)
-        this.v2Converter = new ProtocolV2Converter(this.securityConfig, this.mappers);
+        this.v2Codec = new ProtocolV2Codec(this.securityConfig, this.mappers);
 
         tcpRestClient = new DefaultTcpRestClient(sslParam, deletgatedClassName, host, port);
     }
@@ -104,12 +104,12 @@ public class TcpRestClientProxy implements InvocationHandler {
     public void setSecurityConfig(SecurityConfig securityConfig) {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
 
-        // Update converters
-        if (converter instanceof DefaultConverter) {
-            ((DefaultConverter) converter).setSecurityConfig(this.securityConfig);
+        // Update codecs
+        if (codec instanceof DefaultProtocolCodec) {
+            ((DefaultProtocolCodec) codec).setSecurityConfig(this.securityConfig);
         }
-        if (v2Converter != null) {
-            v2Converter.setSecurityConfig(this.securityConfig);
+        if (v2Codec != null && v2Codec instanceof ProtocolV2Codec) {
+            ((ProtocolV2Codec) v2Codec).setSecurityConfig(this.securityConfig);
         }
     }
 
@@ -143,8 +143,8 @@ public class TcpRestClientProxy implements InvocationHandler {
      */
     private Object invokeV1(Method method, Object[] params) throws Throwable {
         // Encode request using secure protocol
-        // converter.encode() now generates: 0|{{base64(meta)}}|{{base64(params)}}|CHK:value
-        String request = converter.encode(method.getDeclaringClass(), method, params, mappers);
+        // codec.encode() now generates: 0|{{base64(meta)}}|{{base64(params)}}|CHK:value
+        String request = codec.encode(method.getDeclaringClass(), method, params, mappers);
 
         logger.debug("***TcpRestClientProxy - encoded request: " + request);
 
@@ -184,9 +184,9 @@ public class TcpRestClientProxy implements InvocationHandler {
         String statusOrCompression = components[0];
         String resultEncoded = components[1]; // This is {{base64(result)}}
 
-        // Step 4: Decode result using converter.decodeParam()
+        // Step 4: Decode result using codec.decodeParam()
         // The result is in {{base64}} format, which is what encodeParam() produces
-        String decodedResult = converter.decodeParam(resultEncoded);
+        String decodedResult = codec.decodeParam(resultEncoded);
 
         logger.debug("***TcpRestClientProxy - decoded result: " + decodedResult);
 
@@ -196,7 +196,7 @@ public class TcpRestClientProxy implements InvocationHandler {
             mapperKey = NullObj.class.getCanonicalName();
         }
 
-        Mapper mapper = converter.getMapper(mappers, mapperKey);
+        Mapper mapper = codec.getMapper(mappers, mapperKey);
 
         if (mapper == null) {
             throw new IllegalAccessException("***TcpRestClientProxy - mapper cannot be found for response object: " + decodedResult);
@@ -209,14 +209,14 @@ public class TcpRestClientProxy implements InvocationHandler {
      * Decode result with fallback to legacy format.
      */
     private Object decodeResult(String response, Method method) throws Exception {
-        String respStr = converter.decodeParam(response);
+        String respStr = codec.decodeParam(response);
 
         String mapperKey = method.getReturnType().getCanonicalName();
         if (respStr.equals(TcpRestProtocol.NULL)) {
             mapperKey = NullObj.class.getCanonicalName();
         }
 
-        Mapper mapper = converter.getMapper(mappers, mapperKey);
+        Mapper mapper = codec.getMapper(mappers, mapperKey);
         return mapper.stringToObject(respStr);
     }
 
@@ -226,13 +226,14 @@ public class TcpRestClientProxy implements InvocationHandler {
     private Object invokeV2(Method method, Object[] params) throws Throwable {
         // Encode request with v2 format (includes method signature and mappers)
         // V2 now supports intelligent type mapping: custom mappers > auto serialization > built-in
-        String request = v2Converter.encode(method.getDeclaringClass(), method, params, mappers);
+        String request = v2Codec.encode(method.getDeclaringClass(), method, params, mappers);
 
         String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
         logger.debug("V2 response: " + response);
 
         // Decode response (handles status codes and exceptions)
-        return v2Converter.decode(response, method.getReturnType());
+        // Cast to ProtocolV2Codec to access V2-specific decode method
+        return ((ProtocolV2Codec) v2Codec).decode(response, method.getReturnType());
     }
 
     public CompressionConfig getCompressionConfig() {

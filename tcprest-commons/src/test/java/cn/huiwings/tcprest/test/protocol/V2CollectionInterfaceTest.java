@@ -1,7 +1,7 @@
 package cn.huiwings.tcprest.test.protocol;
 
-import cn.huiwings.tcprest.converter.v2.ProtocolV2Converter;
-import cn.huiwings.tcprest.extractor.v2.ProtocolV2Extractor;
+import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
+import cn.huiwings.tcprest.parser.v2.ProtocolV2Parser;
 import cn.huiwings.tcprest.server.Context;
 import org.testng.annotations.Test;
 
@@ -77,8 +77,8 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testList_ArrayList() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processList", List.class);
 
@@ -89,12 +89,12 @@ public class V2CollectionInterfaceTest {
         input.add("cherry");
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         System.out.println("List encoded: " + encoded);
 
         // Decode: Should deserialize back to ArrayList (or compatible List implementation)
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         assertNotNull(context.getParams()[0], "List parameter should not be null");
         assertTrue(context.getParams()[0] instanceof List, "Should be a List");
@@ -109,8 +109,8 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testList_LinkedList() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processList", List.class);
 
@@ -120,10 +120,10 @@ public class V2CollectionInterfaceTest {
         input.add("y");
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         // Decode: Should deserialize back to LinkedList
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         @SuppressWarnings("unchecked")
         List<String> decoded = (List<String>) context.getParams()[0];
@@ -133,8 +133,8 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testMap_HashMap() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processMap", Map.class);
 
@@ -144,12 +144,12 @@ public class V2CollectionInterfaceTest {
         input.put("key2", 200);
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         System.out.println("Map encoded: " + encoded);
 
         // Decode: Should deserialize back to HashMap
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         assertNotNull(context.getParams()[0], "Map parameter should not be null");
         assertTrue(context.getParams()[0] instanceof Map, "Should be a Map");
@@ -163,8 +163,8 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testSet_HashSet() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processSet", Set.class);
 
@@ -175,12 +175,12 @@ public class V2CollectionInterfaceTest {
         input.add("gamma");
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         System.out.println("Set encoded: " + encoded);
 
         // Decode: Should deserialize back to HashSet
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         assertNotNull(context.getParams()[0], "Set parameter should not be null");
         assertTrue(context.getParams()[0] instanceof Set, "Should be a Set");
@@ -195,8 +195,8 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testList_withMixedTypes() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processList", List.class);
 
@@ -209,10 +209,10 @@ public class V2CollectionInterfaceTest {
         input.add(true);
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         // Decode: Should preserve all types
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         @SuppressWarnings("unchecked")
         List<Object> decoded = (List<Object>) context.getParams()[0];
@@ -224,8 +224,8 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testList_empty() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processList", List.class);
 
@@ -233,10 +233,10 @@ public class V2CollectionInterfaceTest {
         List<String> input = new ArrayList<>();
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         // Decode: Should be empty list (not null)
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         @SuppressWarnings("unchecked")
         List<String> decoded = (List<String>) context.getParams()[0];
@@ -246,28 +246,28 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testList_null() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processList", List.class);
 
         // Encode: null list
         Object[] params = new Object[]{null};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         // Verify ~ marker is used
         assertTrue(encoded.contains("[~]"), "Should contain ~ marker for null: " + encoded);
 
         // Decode: Should be null
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         assertNull(context.getParams()[0], "List parameter should be null");
     }
 
     @Test
     public void testMap_TreeMap() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processMap", Map.class);
 
@@ -278,10 +278,10 @@ public class V2CollectionInterfaceTest {
         input.put("m", 2);
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         // Decode: Should preserve TreeMap type and ordering
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         @SuppressWarnings("unchecked")
         Map<String, Integer> decoded = (Map<String, Integer>) context.getParams()[0];
@@ -291,8 +291,8 @@ public class V2CollectionInterfaceTest {
 
     @Test
     public void testSet_TreeSet() throws Exception {
-        ProtocolV2Converter converter = new ProtocolV2Converter();
-        ProtocolV2Extractor extractor = new ProtocolV2Extractor();
+        ProtocolV2Codec codec = new ProtocolV2Codec();
+        ProtocolV2Parser parser = new ProtocolV2Parser();
 
         Method method = CollectionService.class.getMethod("processSet", Set.class);
 
@@ -303,10 +303,10 @@ public class V2CollectionInterfaceTest {
         input.add("mango");
 
         Object[] params = new Object[]{input};
-        String encoded = converter.encode(CollectionService.class, method, params, null);
+        String encoded = codec.encode(CollectionService.class, method, params, null);
 
         // Decode: Should preserve TreeSet type
-        Context context = extractor.extract(encoded);
+        Context context = parser.parse(encoded);
 
         @SuppressWarnings("unchecked")
         Set<String> decoded = (Set<String>) context.getParams()[0];

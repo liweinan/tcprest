@@ -1,6 +1,6 @@
 package cn.huiwings.tcprest.compression;
 
-import cn.huiwings.tcprest.converter.Converter;
+import cn.huiwings.tcprest.codec.ProtocolCodec;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.logger.LoggerFactory;
@@ -11,7 +11,7 @@ import java.lang.reflect.Method;
 import java.util.Map;
 
 /**
- * Decorator for Converter that adds optional GZIP compression support.
+ * Decorator for ProtocolCodec that adds optional GZIP compression support.
  * Uses JDK built-in compression (zero external dependencies).
  *
  * This wrapper applies compression to the final encoded message,
@@ -19,15 +19,15 @@ import java.util.Map;
  *
  * @author Weinan Li
  */
-public class CompressingConverter implements Converter {
+public class CompressingProtocolCodec implements ProtocolCodec {
 
-    private final Converter delegate;
+    private final ProtocolCodec delegate;
     private final CompressionConfig config;
     private final Logger logger = LoggerFactory.getDefaultLogger();
 
-    public CompressingConverter(Converter delegate, CompressionConfig config) {
+    public CompressingProtocolCodec(ProtocolCodec delegate, CompressionConfig config) {
         if (delegate == null) {
-            throw new IllegalArgumentException("Delegate converter cannot be null");
+            throw new IllegalArgumentException("Delegate codec cannot be null");
         }
         if (config == null) {
             throw new IllegalArgumentException("Compression config cannot be null");

@@ -1,4 +1,4 @@
-package cn.huiwings.tcprest.converter.v2;
+package cn.huiwings.tcprest.codec.v2;
 
 import cn.huiwings.tcprest.protocol.NullObj;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
@@ -12,15 +12,15 @@ import java.util.Base64;
 import static org.testng.Assert.*;
 
 /**
- * Tests for ProtocolV2Converter.
+ * Tests for ProtocolV2Codec.
  */
-public class ProtocolV2ConverterTest {
+public class ProtocolV2CodecTest {
 
-    private ProtocolV2Converter converter;
+    private ProtocolV2Codec codec;
 
     @BeforeClass
     public void setup() {
-        converter = new ProtocolV2Converter();
+        codec = new ProtocolV2Codec();
     }
 
     // ========== Test Encoding Requests ==========
@@ -30,7 +30,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("add", int.class, int.class);
         Object[] params = {1, 2};
 
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
 
         // Verify secure format: V2|0|{{base64(meta)}}|{{base64(params)}}
         String fullClassName = TestService.class.getName();
@@ -42,7 +42,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("add", double.class, double.class);
         Object[] params = {1.5, 2.5};
 
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/add(DD)");
@@ -53,7 +53,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("echo", String.class);
         Object[] params = {"hello"};
 
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/echo(Ljava/lang/String;)");
@@ -64,7 +64,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("process", String.class, int.class, boolean.class);
         Object[] params = {"test", 42, true};
 
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/process(Ljava/lang/String;IZ)");
@@ -75,7 +75,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("noParams");
         Object[] params = {};
 
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
 
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/noParams()");
@@ -86,7 +86,7 @@ public class ProtocolV2ConverterTest {
         Method method = TestService.class.getMethod("echo", String.class);
         Object[] params = {null};
 
-        String encoded = converter.encode(TestService.class, method, params, null);
+        String encoded = codec.encode(TestService.class, method, params, null);
 
         // Verify secure format
         String fullClassName = TestService.class.getName();
@@ -108,7 +108,7 @@ public class ProtocolV2ConverterTest {
         String base64 = Base64.getEncoder().encodeToString("42".getBytes());
         String response = "V2|0|0|{{" + base64 + "}}";
 
-        Object result = converter.decode(response, int.class);
+        Object result = codec.decode(response, int.class);
 
         assertEquals(result, 42);
     }
@@ -118,7 +118,7 @@ public class ProtocolV2ConverterTest {
         String base64 = Base64.getEncoder().encodeToString("3.14".getBytes());
         String response = "V2|0|0|{{" + base64 + "}}";
 
-        Object result = converter.decode(response, double.class);
+        Object result = codec.decode(response, double.class);
 
         assertEquals(result, 3.14);
     }
@@ -128,7 +128,7 @@ public class ProtocolV2ConverterTest {
         String base64 = Base64.getEncoder().encodeToString("hello".getBytes());
         String response = "V2|0|0|{{" + base64 + "}}";
 
-        Object result = converter.decode(response, String.class);
+        Object result = codec.decode(response, String.class);
 
         assertEquals(result, "hello");
     }
@@ -138,7 +138,7 @@ public class ProtocolV2ConverterTest {
         String base64 = Base64.getEncoder().encodeToString("true".getBytes());
         String response = "V2|0|0|{{" + base64 + "}}";
 
-        Object result = converter.decode(response, boolean.class);
+        Object result = codec.decode(response, boolean.class);
 
         assertEquals(result, true);
     }
@@ -147,7 +147,7 @@ public class ProtocolV2ConverterTest {
     public void testDecode_successNull() throws Exception {
         String response = "V2|0|0|null";
 
-        Object result = converter.decode(response, String.class);
+        Object result = codec.decode(response, String.class);
 
         assertNull(result);
     }
@@ -156,7 +156,7 @@ public class ProtocolV2ConverterTest {
     public void testDecode_successNullObj() throws Exception {
         String response = "V2|0|0|NullObj";
 
-        Object result = converter.decode(response, Object.class);
+        Object result = codec.decode(response, Object.class);
 
         assertTrue(result instanceof NullObj);
     }
@@ -167,7 +167,7 @@ public class ProtocolV2ConverterTest {
         String base64 = Base64.getEncoder().encodeToString(errorMsg.getBytes());
         String response = "V2|0|1|{{" + base64 + "}}";
 
-        converter.decode(response, String.class);
+        codec.decode(response, String.class);
     }
 
     @Test(expectedExceptions = RuntimeException.class)
@@ -176,33 +176,33 @@ public class ProtocolV2ConverterTest {
         String base64 = Base64.getEncoder().encodeToString(errorMsg.getBytes());
         String response = "V2|0|2|{{" + base64 + "}}";
 
-        converter.decode(response, String.class);
+        codec.decode(response, String.class);
     }
 
     @Test(expectedExceptions = RuntimeException.class)
     public void testDecode_protocolError() throws Exception {
         String response = "V2|0|3|Malformed request";
 
-        converter.decode(response, String.class);
+        codec.decode(response, String.class);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testDecode_invalidFormat() throws Exception {
         String response = "V2|0|0"; // Missing body
 
-        converter.decode(response, String.class);
+        codec.decode(response, String.class);
     }
 
     @Test
     public void testDecode_emptyResponse() throws Exception {
-        Object result = converter.decode("", String.class);
+        Object result = codec.decode("", String.class);
 
         assertNull(result);
     }
 
     @Test
     public void testDecode_nullResponse() throws Exception {
-        Object result = converter.decode(null, String.class);
+        Object result = codec.decode(null, String.class);
 
         assertNull(result);
     }
@@ -211,7 +211,7 @@ public class ProtocolV2ConverterTest {
 
     @Test
     public void testEncodeResponse_success() {
-        String response = converter.encodeResponse(42, StatusCode.SUCCESS);
+        String response = codec.encodeResponse(42, StatusCode.SUCCESS);
 
         assertTrue(response.startsWith("V2|0|0|"));
         assertTrue(response.contains("{{"));
@@ -220,7 +220,7 @@ public class ProtocolV2ConverterTest {
 
     @Test
     public void testEncodeResponse_successString() {
-        String response = converter.encodeResponse("hello", StatusCode.SUCCESS);
+        String response = codec.encodeResponse("hello", StatusCode.SUCCESS);
 
         assertTrue(response.startsWith("V2|0|0|"));
         String base64 = Base64.getEncoder().encodeToString("hello".getBytes());
@@ -229,7 +229,7 @@ public class ProtocolV2ConverterTest {
 
     @Test
     public void testEncodeResponse_successNull() {
-        String response = converter.encodeResponse(null, StatusCode.SUCCESS);
+        String response = codec.encodeResponse(null, StatusCode.SUCCESS);
 
         assertTrue(response.startsWith("V2|0|0|"));
         assertTrue(response.contains("null"));
@@ -237,7 +237,7 @@ public class ProtocolV2ConverterTest {
 
     @Test
     public void testEncodeResponse_successNullObj() {
-        String response = converter.encodeResponse(new NullObj(), StatusCode.SUCCESS);
+        String response = codec.encodeResponse(new NullObj(), StatusCode.SUCCESS);
 
         assertTrue(response.startsWith("V2|0|0|"));
         assertTrue(response.contains("NullObj"));
@@ -252,7 +252,7 @@ public class ProtocolV2ConverterTest {
     public void testEncodeException_businessException() {
         Exception ex = new IllegalArgumentException("Invalid input");
 
-        String response = converter.encodeException(ex, StatusCode.BUSINESS_EXCEPTION);
+        String response = codec.encodeException(ex, StatusCode.BUSINESS_EXCEPTION);
 
         assertTrue(response.startsWith("V2|0|1|"));
         assertTrue(response.contains("{{"));
@@ -270,7 +270,7 @@ public class ProtocolV2ConverterTest {
     public void testEncodeException_serverError() {
         Exception ex = new NullPointerException("Object is null");
 
-        String response = converter.encodeException(ex, StatusCode.SERVER_ERROR);
+        String response = codec.encodeException(ex, StatusCode.SERVER_ERROR);
 
         assertTrue(response.startsWith("V2|0|2|"));
 
@@ -287,7 +287,7 @@ public class ProtocolV2ConverterTest {
     public void testEncodeException_noMessage() {
         Exception ex = new RuntimeException();
 
-        String response = converter.encodeException(ex, StatusCode.SERVER_ERROR);
+        String response = codec.encodeException(ex, StatusCode.SERVER_ERROR);
 
         assertTrue(response.startsWith("V2|0|2|"));
     }
@@ -300,14 +300,14 @@ public class ProtocolV2ConverterTest {
     @Test
     public void testDecode_allPrimitiveTypes() throws Exception {
         // Test all primitive types
-        assertEquals(converter.decode("V2|0|0|{{" + base64("127") + "}}", byte.class), (byte) 127);
-        assertEquals(converter.decode("V2|0|0|{{" + base64("32767") + "}}", short.class), (short) 32767);
-        assertEquals(converter.decode("V2|0|0|{{" + base64("42") + "}}", int.class), 42);
-        assertEquals(converter.decode("V2|0|0|{{" + base64("123456789") + "}}", long.class), 123456789L);
-        assertEquals((Float) converter.decode("V2|0|0|{{" + base64("3.14") + "}}", float.class), 3.14f, 0.001);
-        assertEquals(converter.decode("V2|0|0|{{" + base64("3.14159") + "}}", double.class), 3.14159);
-        assertEquals(converter.decode("V2|0|0|{{" + base64("true") + "}}", boolean.class), true);
-        assertEquals(converter.decode("V2|0|0|{{" + base64("A") + "}}", char.class), 'A');
+        assertEquals(codec.decode("V2|0|0|{{" + base64("127") + "}}", byte.class), (byte) 127);
+        assertEquals(codec.decode("V2|0|0|{{" + base64("32767") + "}}", short.class), (short) 32767);
+        assertEquals(codec.decode("V2|0|0|{{" + base64("42") + "}}", int.class), 42);
+        assertEquals(codec.decode("V2|0|0|{{" + base64("123456789") + "}}", long.class), 123456789L);
+        assertEquals((Float) codec.decode("V2|0|0|{{" + base64("3.14") + "}}", float.class), 3.14f, 0.001);
+        assertEquals(codec.decode("V2|0|0|{{" + base64("3.14159") + "}}", double.class), 3.14159);
+        assertEquals(codec.decode("V2|0|0|{{" + base64("true") + "}}", boolean.class), true);
+        assertEquals(codec.decode("V2|0|0|{{" + base64("A") + "}}", char.class), 'A');
     }
 
     private String base64(String value) {

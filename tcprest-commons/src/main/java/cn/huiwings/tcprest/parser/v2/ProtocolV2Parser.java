@@ -1,8 +1,8 @@
-package cn.huiwings.tcprest.extractor.v2;
+package cn.huiwings.tcprest.parser.v2;
 
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.exception.ParseException;
-import cn.huiwings.tcprest.extractor.Extractor;
+import cn.huiwings.tcprest.parser.RequestParser;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.TypeSignatureUtil;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
@@ -13,12 +13,12 @@ import java.lang.reflect.Method;
 import java.util.Base64;
 
 /**
- * Security-Enhanced Protocol v2 Extractor (Simplified Format).
+ * Security-Enhanced Protocol V2 Request Parser.
  *
- * <p>This extractor parses the simplified v2 request format that includes
- * method signatures, enabling precise method selection for overloaded methods.</p>
+ * <p>This parser extracts method invocation context from V2 protocol requests,
+ * including method signatures for precise overloading support.</p>
  *
- * <p><b>Simplified Request Format (2026-02-19):</b></p>
+ * <p><b>V2 Request Format:</b></p>
  * <pre>
  * V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value
  *
@@ -27,63 +27,72 @@ import java.util.Base64;
  * V2|0|{{U2VydmljZS9wcm9jZXNzKExqYXZhL2xhbmcvU3RyaW5nO1op}}|[aGVsbG8=,dHJ1ZQ==]|CHK:def567
  * </pre>
  *
- * <p><b>Key Improvements:</b></p>
+ * <p><b>Key Improvements over V1:</b></p>
  * <ul>
- *   <li>JSON-style array format for parameters: [p1,p2,p3]</li>
- *   <li>Single-layer Base64 encoding (no double encoding)</li>
- *   <li>Cleaner, more readable protocol</li>
- *   <li>Easier to parse and debug</li>
+ *   <li><b>Method Overloading:</b> Type signatures enable exact method matching</li>
+ *   <li><b>JSON-style Arrays:</b> Cleaner parameter format [p1,p2,p3]</li>
+ *   <li><b>Single-layer Base64:</b> No double encoding, easier to debug</li>
+ *   <li><b>Intelligent Mappers:</b> Auto-serialization, collection support</li>
  * </ul>
  *
  * <p><b>Security Features:</b></p>
  * <ul>
  *   <li>Metadata Base64-encoded (prevents injection)</li>
- *   <li>Optional checksum verification (CRC32/HMAC)</li>
- *   <li>Class name validation</li>
- *   <li>Method name validation</li>
+ *   <li>Optional checksum verification (CRC32/HMAC-SHA256)</li>
+ *   <li>Class name validation (regex-based)</li>
+ *   <li>Method name validation (regex-based)</li>
  *   <li>Optional class whitelist</li>
  * </ul>
  *
+ * <p><b>Intelligent Type Mapping:</b></p>
+ * <ol>
+ *   <li><b>User-defined Mapper:</b> Custom serialization for specific types</li>
+ *   <li><b>Collection Interfaces:</b> List, Map, Set → auto-deserialize implementations</li>
+ *   <li><b>Serializable Types:</b> Automatic RawTypeMapper</li>
+ *   <li><b>Built-in Types:</b> Primitives, arrays, String</li>
+ * </ol>
+ *
+ * @author Weinan Li
  * @since 1.1.0
- * @version 2.0 (2026-02-19) - Simplified format with JSON-style arrays
+ * @version 2.0 (2026-02-19) - JSON-style array format
  */
-public class ProtocolV2Extractor implements Extractor {
+public class ProtocolV2Parser implements RequestParser {
 
     private SecurityConfig securityConfig;
     private java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers;
 
     /**
-     * Create extractor with default security (no checksum, no whitelist).
+     * Create parser with default security (no checksum, no whitelist).
      */
-    public ProtocolV2Extractor() {
+    public ProtocolV2Parser() {
         this(null, null);
     }
 
     /**
-     * Create extractor with mappers support.
+     * Create parser with mappers support.
      *
      * @param mappers mapper registry (optional)
      */
-    public ProtocolV2Extractor(java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
+    public ProtocolV2Parser(java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
         this(null, mappers);
     }
 
     /**
-     * Create extractor with custom security configuration.
+     * Create parser with custom security configuration.
      *
      * @param securityConfig security configuration
      */
-    public ProtocolV2Extractor(SecurityConfig securityConfig) {
+    public ProtocolV2Parser(SecurityConfig securityConfig) {
         this(securityConfig, null);
     }
 
     /**
-     * Create extractor with custom security configuration and mappers.
+     * Create parser with custom security configuration and mappers.
      *
      * @param securityConfig security configuration
      * @param mappers mapper registry (optional)
      */
-    public ProtocolV2Extractor(SecurityConfig securityConfig, java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
+    public ProtocolV2Parser(SecurityConfig securityConfig, java.util.Map<String, cn.huiwings.tcprest.mapper.Mapper> mappers) {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
         this.mappers = mappers;
     }
@@ -107,9 +116,9 @@ public class ProtocolV2Extractor implements Extractor {
     }
 
     /**
-     * Extract context from v2 request (simplified format).
+     * Parse context from V2 request.
      *
-     * <p><b>Simplified format:</b> V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value</p>
+     * <p><b>Format:</b> V2|0|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2,param3]|CHK:value</p>
      *
      * <p>Parses the request to extract:</p>
      * <ul>
@@ -130,7 +139,7 @@ public class ProtocolV2Extractor implements Extractor {
      * @throws MapperNotFoundException not thrown in V2 (retained for interface compatibility)
      */
     @Override
-    public Context extract(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException {
+    public Context parse(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException {
         try {
             if (request == null || request.isEmpty()) {
                 throw new ParseException("Request cannot be null or empty");
@@ -148,7 +157,7 @@ public class ProtocolV2Extractor implements Extractor {
             // Step 2: Verify checksum if present
             if (!checksum.isEmpty()) {
                 if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
-                    throw new ParseException(
+                    throw new cn.huiwings.tcprest.exception.SecurityException(
                         "Checksum verification failed - message may have been tampered with"
                     );
                 }
@@ -196,21 +205,21 @@ public class ProtocolV2Extractor implements Extractor {
 
             // Validate class name
             if (!ProtocolSecurity.isValidClassName(className)) {
-                throw new ParseException(
+                throw new cn.huiwings.tcprest.exception.SecurityException(
                     "Invalid class name format (possible injection attempt): " + className
                 );
             }
 
             // Check class whitelist if enabled
             if (!securityConfig.isClassAllowed(className)) {
-                throw new ParseException(
+                throw new cn.huiwings.tcprest.exception.SecurityException(
                     "Class not in whitelist: " + className
                 );
             }
 
             // Validate method name
             if (!ProtocolSecurity.isValidMethodName(methodName)) {
-                throw new ParseException(
+                throw new cn.huiwings.tcprest.exception.SecurityException(
                     "Invalid method name format (possible injection attempt): " + methodName
                 );
             }
@@ -246,16 +255,19 @@ public class ProtocolV2Extractor implements Extractor {
         } catch (ParseException e) {
             // Re-throw ParseException as-is
             throw e;
+        } catch (cn.huiwings.tcprest.exception.SecurityException e) {
+            // Wrap SecurityException as ParseException
+            throw new ParseException("Security validation failed: " + e.getMessage());
         } catch (Exception e) {
             // Wrap all other exceptions as ParseException
-            throw new ParseException("Failed to extract v2 request: " + e.getMessage());
+            throw new ParseException("Failed to parse v2 request: " + e.getMessage());
         }
     }
 
     /**
      * Parse parameter array into object array.
      *
-     * <p><b>New format:</b> [base64_1,base64_2,base64_3]</p>
+     * <p><b>Format:</b> [base64_1,base64_2,base64_3]</p>
      *
      * @param paramsArray the parameters array string (e.g., "[p1,p2,p3]")
      * @param paramTypes the expected parameter types
@@ -321,12 +333,12 @@ public class ProtocolV2Extractor implements Extractor {
      *
      * <p><b>Decoding Priority:</b></p>
      * <ol>
-     *   <li><b>Null marker</b>: "~" → null (tilde, not in Base64 charset)</li>
-     *   <li><b>Empty string</b>: "" → "" (consecutive commas in array)</li>
-     *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
-     *   <li><b>Common collection interfaces</b>: List, Map, Set, etc. → auto-deserialization via RawTypeMapper</li>
-     *   <li><b>Auto Deserialization</b>: For Serializable types, use RawTypeMapper</li>
-     *   <li><b>Built-in conversion</b>: For primitives, arrays, and other types</li>
+     *   <li><b>Null marker:</b> "~" → null (tilde, not in Base64 charset)</li>
+     *   <li><b>Empty string:</b> "" → "" (consecutive commas in array)</li>
+     *   <li><b>User-defined Mapper:</b> Use custom mapper if provided</li>
+     *   <li><b>Common collection interfaces:</b> List, Map, Set, etc. → auto-deserialization via RawTypeMapper</li>
+     *   <li><b>Auto Deserialization:</b> For Serializable types, use RawTypeMapper</li>
+     *   <li><b>Built-in conversion:</b> For primitives, arrays, and other types</li>
      * </ol>
      *
      * @param paramStr the parameter string (base64-encoded or special marker)
@@ -378,10 +390,10 @@ public class ProtocolV2Extractor implements Extractor {
                 return rawMapper.stringToObject(paramStr);
             }
 
-            // Priority 3: Decode from Base64
+            // Priority 4: Decode from Base64
             String decoded = new String(Base64.getDecoder().decode(paramStr));
 
-            // Priority 4: Convert to expected type
+            // Priority 5: Convert to expected type
             return convertToType(decoded, paramType);
         } catch (Exception e) {
             if (e instanceof ParseException) {
@@ -536,10 +548,10 @@ public class ProtocolV2Extractor implements Extractor {
     }
 
     /**
-     * Check if a request is a v2 request.
+     * Check if a request is a V2 request.
      *
      * @param request the request string
-     * @return true if v2 request
+     * @return true if V2 request
      */
     public static boolean isV2Request(String request) {
         return request != null && request.startsWith(ProtocolV2Constants.PREFIX);
