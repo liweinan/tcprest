@@ -212,7 +212,7 @@ public class ProtocolV2Converter implements Converter {
      */
     private String encodeParam(Object param, Map<String, Mapper> mappers) {
         if (param == null) {
-            return "NULL"; // Special marker for null
+            return "~"; // Tilde marker for null (not in Base64 charset)
         }
 
         String paramStr;
@@ -223,8 +223,11 @@ public class ProtocolV2Converter implements Converter {
             Mapper mapper = mappers.get(mapperKey);
             if (mapper != null) {
                 paramStr = mapper.objectToString(param);
-                if (paramStr == null || paramStr.isEmpty()) {
-                    return "EMPTY";
+                if (paramStr == null) {
+                    return "~";
+                }
+                if (paramStr.isEmpty()) {
+                    return ""; // Empty string
                 }
                 return Base64.getEncoder().encodeToString(paramStr.getBytes());
             }
@@ -248,9 +251,9 @@ public class ProtocolV2Converter implements Converter {
             paramStr = param.toString();
         }
 
-        // Handle empty string specially
+        // Handle empty string
         if (paramStr.isEmpty()) {
-            return "EMPTY";
+            return ""; // Empty string
         }
 
         return Base64.getEncoder().encodeToString(paramStr.getBytes());
@@ -714,7 +717,7 @@ public class ProtocolV2Converter implements Converter {
     /**
      * Encode a single parameter (simplified V2 format).
      *
-     * <p><b>New format:</b> base64_value (or special markers: NULL, EMPTY)</p>
+     * <p><b>New format:</b> base64_value (or special markers: ~, empty)</p>
      *
      * @param message the parameter value
      * @return encoded parameter (Base64 or special marker)
@@ -722,10 +725,10 @@ public class ProtocolV2Converter implements Converter {
     @Override
     public String encodeParam(String message) {
         if (message == null) {
-            return "NULL";
+            return "~";
         }
         if (message.isEmpty()) {
-            return "EMPTY";
+            return "";
         }
         return Base64.getEncoder().encodeToString(message.getBytes());
     }
@@ -733,24 +736,24 @@ public class ProtocolV2Converter implements Converter {
     /**
      * Decode a single parameter (simplified V2 format).
      *
-     * <p><b>New format:</b> base64_value (or special markers: NULL, EMPTY)</p>
+     * <p><b>New format:</b> base64_value (or special markers: ~, empty)</p>
      *
      * @param message the encoded parameter (Base64 or special marker)
      * @return decoded parameter value
      */
     @Override
     public String decodeParam(String message) {
-        if (message == null || message.isEmpty()) {
-            return "";
-        }
-
-        // Handle NULL marker
-        if ("NULL".equals(message)) {
+        if (message == null) {
             return null;
         }
 
-        // Handle EMPTY marker
-        if ("EMPTY".equals(message)) {
+        // Handle ~ marker (null value)
+        if ("~".equals(message)) {
+            return null;
+        }
+
+        // Handle empty string
+        if (message.isEmpty()) {
             return "";
         }
 

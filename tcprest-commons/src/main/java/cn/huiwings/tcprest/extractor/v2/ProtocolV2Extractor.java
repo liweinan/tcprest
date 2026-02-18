@@ -277,10 +277,13 @@ public class ProtocolV2Extractor implements Extractor {
             // Extract content between [ and ]
             String arrayContent = paramsArray.substring(1, paramsArray.length() - 1).trim();
 
-            // Handle empty array
+            // Handle empty array content
             if (arrayContent.isEmpty()) {
                 if (paramTypes.length == 0) {
                     return new Object[0];
+                } else if (paramTypes.length == 1) {
+                    // Single empty string parameter: [] represents one empty string
+                    return new Object[]{""};
                 } else {
                     throw new ParseException(
                         "Parameter count mismatch: expected " + paramTypes.length + ", got 0"
@@ -318,8 +321,8 @@ public class ProtocolV2Extractor implements Extractor {
      *
      * <p><b>Decoding Priority:</b></p>
      * <ol>
-     *   <li><b>NULL marker</b>: "NULL" → null</li>
-     *   <li><b>EMPTY marker</b>: "EMPTY" → ""</li>
+     *   <li><b>Null marker</b>: "~" → null (tilde, not in Base64 charset)</li>
+     *   <li><b>Empty string</b>: "" → "" (consecutive commas in array)</li>
      *   <li><b>User-defined Mapper</b>: Use custom mapper if provided</li>
      *   <li><b>Auto Deserialization</b>: For Serializable types, use RawTypeMapper</li>
      *   <li><b>Built-in conversion</b>: For primitives, arrays, and other types</li>
@@ -332,18 +335,18 @@ public class ProtocolV2Extractor implements Extractor {
      */
     private Object parseParameter(String paramStr, Class<?> paramType) throws ParseException {
         try {
-            if (paramStr == null || paramStr.isEmpty()) {
-                throw new ParseException("Parameter cannot be null or empty");
+            if (paramStr == null) {
+                throw new ParseException("Parameter cannot be null");
             }
 
-            // Handle NULL marker
-            if ("NULL".equals(paramStr)) {
-                return null;
-            }
-
-            // Handle EMPTY marker (empty string)
-            if ("EMPTY".equals(paramStr)) {
+            // Handle empty string (consecutive commas: [a,,b])
+            if (paramStr.isEmpty()) {
                 return "";
+            }
+
+            // Handle ~ marker for null
+            if ("~".equals(paramStr)) {
+                return null;
             }
 
             // Priority 1: User-defined Mapper

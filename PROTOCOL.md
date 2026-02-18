@@ -81,7 +81,7 @@ V2|[COMPRESSION]|{{base64(ClassName/methodName(TYPE_SIGNATURE))}}|[param1,param2
 - `[param1,param2,...]`: JSON-style parameter array
   - Each parameter is individually Base64-encoded
   - Parameters separated by commas
-  - Special markers: `NULL` for null, `EMPTY` for empty string
+  - Special markers: `~` for null (tilde, not in Base64 charset), empty string for empty string
 
 **Example:**
 ```
@@ -185,27 +185,67 @@ Method signatures uniquely identify overloaded methods using JVM internal type d
 Parameters are Base64-encoded individually and placed in a JSON-style array `[param1,param2,...]`.
 
 **Encoding Rules:**
-- `null` → `NULL` marker (special marker, not Base64-encoded)
-- Empty string `""` → `EMPTY` marker (to distinguish from absent parameter)
+- `null` → `~` marker (tilde, not in Base64 charset, not Base64-encoded)
+- Empty string `""` → empty string (consecutive commas: `[a,,c]` or empty array `[]` for single param)
 - Primitives → `toString()` then Base64
 - Arrays → `Arrays.toString()` format then Base64 (e.g., `[1, 2, 3]`)
 - Objects → `toString()` then Base64
+
+#### Null Marker Design Rationale
+
+**Why tilde (`~`) for null?**
+
+Protocol V2 initially used `"NULL"` as the null marker, but this was optimized to `~` (single tilde character) for efficiency:
+
+1. **Size Reduction**: 75% smaller (1 byte vs 4 bytes)
+   - `"NULL"` = 4 characters
+   - `"~"` = 1 character
+   - Significant savings when null values are common
+
+2. **No Base64 Charset Conflict**: Tilde is NOT in the Base64 character set
+   - Base64 uses: `A-Z`, `a-z`, `0-9`, `+`, `/`, `=`
+   - Tilde (`~`) is safe as an unencoded marker
+   - No ambiguity with Base64-encoded parameters
+
+3. **Distinguishable from Empty String**:
+   - `null` → `~` (tilde marker)
+   - `""` → `` (empty string, consecutive commas)
+   - Clear semantic difference
+
+**Why empty string for empty string?**
+
+Empty strings are represented by omitting content between commas:
+- Single empty param: `[]` (empty array content)
+- Empty in array: `[a,,c]` (consecutive commas)
+- No encoding overhead (0 bytes instead of 5 bytes for `"EMPTY"`)
+
+**Examples:**
+```
+[~]        → one null parameter
+[]         → one empty string parameter
+[~,~]      → two null parameters
+[,]        → two empty string parameters
+[a,,c]     → ["a", "", "c"]
+[~,,c]     → [null, "", "c"]
+```
 
 **Examples:**
 
 | Java Value | Encoded in Array | Decoded |
 |------------|------------------|---------|
 | `5` | `NQ==` | `"5"` |
-| `null` | `NULL` | `null` |
-| `""` | `EMPTY` | `""` |
+| `null` | `~` | `null` |
+| `""` | `` (empty) | `""` |
 | `"hello"` | `aGVsbG8=` | `"hello"` |
 | `new int[]{1, 2, 3}` | `WzEsIDIsIDNd` | `"[1, 2, 3]"` |
 
 **Full Request Example:**
 ```
-V2|0|{{Y24uZXhhbXBsZS5UZXN0L21ldGhvZChMamF2YS9sYW5nL1N0cmluZztJTGphdmEvbGFuZy9TdHJpbmc7KQ==}}|[aGVsbG8=,NULL,d29ybGQ=]
+V2|0|{{Y24uZXhhbXBsZS5UZXN0L21ldGhvZChMamF2YS9sYW5nL1N0cmluZztJTGphdmEvbGFuZy9TdHJpbmc7KQ==}}|[aGVsbG8=,~,d29ybGQ=]
 ```
 Calls: `Test.method(String, int, String)` with params `("hello", null, "world")`
+
+**Note:** The `~` marker represents `null`, replacing the verbose `NULL` marker for better efficiency.
 
 ### V2 Intelligent Mapper Support
 

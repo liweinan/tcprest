@@ -92,10 +92,10 @@ public class ProtocolV2ConverterTest {
         String fullClassName = TestService.class.getName();
         assertSecureV2Request(encoded, fullClassName + "/echo(Ljava/lang/String;)");
 
-        // Verify NULL parameter is encoded in array format
+        // Verify ~ marker for null parameter in array format
         String[] parts = ProtocolSecurity.splitChecksum(encoded)[0].split("\\|", 4);
         String paramsArray = parts[3];
-        assertTrue(paramsArray.equals("[NULL]"), "Should contain NULL marker in array: " + paramsArray);
+        assertTrue(paramsArray.equals("[~]"), "Should contain ~ marker for null in array: " + paramsArray);
     }
 
     // Compression is handled separately (not in this converter)
