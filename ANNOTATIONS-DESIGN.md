@@ -89,6 +89,35 @@ import java.lang.annotation.*;
  * UserService userService;
  * </pre>
  *
+ * <p><b>With Security (HMAC):</b></p>
+ * <pre>
+ * &#64;TcpRestClient(
+ *     host = "${tcprest.host}",
+ *     port = 8001,
+ *     checksumAlgorithm = "HMAC_SHA256",
+ *     hmacSecret = "${tcprest.security.secret}"
+ * )
+ * public interface SecureService {
+ *     SensitiveData getData(String id);
+ * }
+ * </pre>
+ *
+ * <p><b>With SSL/TLS:</b></p>
+ * <pre>
+ * &#64;TcpRestClient(
+ *     host = "api.example.com",
+ *     port = 8443,
+ *     ssl = true,
+ *     sslKeyStore = "classpath:client.jks",
+ *     sslPassword = "${ssl.password}",
+ *     sslTrustStore = "classpath:truststore.jks",
+ *     sslTrustStorePassword = "${ssl.truststore.password}"
+ * )
+ * public interface SslService {
+ *     Response secureCall(Request req);
+ * }
+ * </pre>
+ *
  * @since 2.1.0
  */
 @Target(ElementType.TYPE)
@@ -129,7 +158,7 @@ public @interface TcpRestClient {
     boolean ssl() default false;
 
     /**
-     * Path to SSL keystore (for mutual TLS).
+     * Path to SSL keystore (for client certificate in mutual TLS).
      * Supports property placeholders: ${tcprest.ssl.keystore}
      */
     String sslKeyStore() default "";
@@ -139,6 +168,35 @@ public @interface TcpRestClient {
      * Supports property placeholders: ${tcprest.ssl.password}
      */
     String sslPassword() default "";
+
+    /**
+     * Path to SSL truststore (for server certificate verification).
+     * Supports property placeholders: ${tcprest.ssl.truststore}
+     */
+    String sslTrustStore() default "";
+
+    /**
+     * SSL truststore password.
+     * Supports property placeholders: ${tcprest.ssl.truststore.password}
+     */
+    String sslTrustStorePassword() default "";
+
+    /**
+     * Checksum algorithm for message integrity (NONE, CRC32, HMAC_SHA256).
+     * <ul>
+     *   <li>NONE: No checksum (default)</li>
+     *   <li>CRC32: Fast integrity check (development)</li>
+     *   <li>HMAC_SHA256: Cryptographic authentication (production)</li>
+     * </ul>
+     */
+    String checksumAlgorithm() default "NONE";
+
+    /**
+     * HMAC secret key (required when checksumAlgorithm = HMAC_SHA256).
+     * Must be at least 32 characters for security.
+     * Supports property placeholders: ${tcprest.security.hmac.secret}
+     */
+    String hmacSecret() default "";
 
     /**
      * Optional qualifier name for multiple clients of same interface.
@@ -186,6 +244,40 @@ import java.lang.annotation.*;
  * }
  * </pre>
  *
+ * <p><b>With Security (HMAC + Class Whitelist):</b></p>
+ * <pre>
+ * &#64;TcpRestServer(
+ *     port = 8001,
+ *     serverType = ServerType.NETTY,
+ *     checksumAlgorithm = "HMAC_SHA256",
+ *     hmacSecret = "${tcprest.server.security.secret}",
+ *     enableClassWhitelist = true,
+ *     allowedClasses = {"com.example.api.*"}
+ * )
+ * public class SecureServerConfig { }
+ * </pre>
+ *
+ * <p><b>With SSL/TLS (Production):</b></p>
+ * <pre>
+ * &#64;TcpRestServer(
+ *     port = 8443,
+ *     serverType = ServerType.NETTY,
+ *     ssl = true,
+ *     sslKeyStore = "classpath:server.jks",
+ *     sslPassword = "${ssl.password}",
+ *     requireClientAuth = true,
+ *     sslTrustStore = "classpath:truststore.jks",
+ *     sslTrustStorePassword = "${ssl.truststore.password}",
+ *     compression = true,
+ *     checksumAlgorithm = "HMAC_SHA256",
+ *     hmacSecret = "${tcprest.server.security.secret}"
+ * )
+ * public class ProductionServerConfig { }
+ * </pre>
+ *
+ * <p><b>Note:</b> SSL is only supported with SINGLE_THREAD and NETTY server types.
+ * NIO does not support SSL due to technical limitations.</p>
+ *
  * @since 2.1.0
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
@@ -226,11 +318,17 @@ public @interface TcpRestServer {
 
     /**
      * Enable SSL/TLS.
+     * <p><b>Compatibility:</b></p>
+     * <ul>
+     *   <li>SINGLE_THREAD: ✅ Supported</li>
+     *   <li>NIO: ❌ Not supported (technical limitation)</li>
+     *   <li>NETTY: ✅ Supported</li>
+     * </ul>
      */
     boolean ssl() default false;
 
     /**
-     * Path to SSL keystore.
+     * Path to SSL keystore (server certificate).
      * Supports property placeholders: ${tcprest.server.ssl.keystore}
      */
     String sslKeyStore() default "";
@@ -242,16 +340,72 @@ public @interface TcpRestServer {
     String sslPassword() default "";
 
     /**
+     * Path to SSL truststore (for client certificate verification in mutual TLS).
+     * Supports property placeholders: ${tcprest.server.ssl.truststore}
+     */
+    String sslTrustStore() default "";
+
+    /**
+     * SSL truststore password.
+     * Supports property placeholders: ${tcprest.server.ssl.truststore.password}
+     */
+    String sslTrustStorePassword() default "";
+
+    /**
      * Require client authentication (mutual TLS).
      */
     boolean requireClientAuth() default false;
 
     /**
+     * Checksum algorithm for message integrity (NONE, CRC32, HMAC_SHA256).
+     * <ul>
+     *   <li>NONE: No checksum (default)</li>
+     *   <li>CRC32: Fast integrity check (development)</li>
+     *   <li>HMAC_SHA256: Cryptographic authentication (production)</li>
+     * </ul>
+     */
+    String checksumAlgorithm() default "NONE";
+
+    /**
+     * HMAC secret key (required when checksumAlgorithm = HMAC_SHA256).
+     * Must match client-side secret. Minimum 32 characters recommended.
+     * Supports property placeholders: ${tcprest.server.security.hmac.secret}
+     */
+    String hmacSecret() default "";
+
+    /**
+     * Enable class whitelist for security.
+     * When enabled, only classes in allowedClasses can be invoked.
+     */
+    boolean enableClassWhitelist() default false;
+
+    /**
+     * Allowed class patterns (supports wildcards).
+     * Examples: "com.example.api.*", "com.example.UserService"
+     * Supports property placeholders: ${tcprest.server.security.whitelist}
+     */
+    String[] allowedClasses() default {};
+
+    /**
      * Server type enumeration.
      */
     enum ServerType {
+        /**
+         * Single-threaded blocking I/O server.
+         * <p><b>Features:</b> SSL ✅, Low concurrency, Development/Testing</p>
+         */
         SINGLE_THREAD,
+
+        /**
+         * NIO non-blocking I/O server.
+         * <p><b>Features:</b> SSL ❌, Medium concurrency, No external dependencies</p>
+         */
         NIO,
+
+        /**
+         * Netty high-performance server.
+         * <p><b>Features:</b> SSL ✅, High concurrency, Production recommended</p>
+         */
         NETTY
     }
 }
@@ -616,6 +770,213 @@ tcprest.host=localhost
 tcprest.port=8001
 ```
 
+## Server Implementation Compatibility
+
+### Feature Support Matrix
+
+Different server implementations have varying feature support. Choose the right server type based on your requirements:
+
+| Feature | SINGLE_THREAD | NIO | NETTY |
+|---------|---------------|-----|-------|
+| **SSL/TLS** | ✅ Supported | ❌ Not supported | ✅ Supported |
+| **Compression** | ✅ Supported | ✅ Supported | ✅ Supported |
+| **Security (HMAC/CRC32)** | ✅ Supported | ✅ Supported | ✅ Supported |
+| **Class Whitelist** | ✅ Supported | ✅ Supported | ✅ Supported |
+| **Protocol V2** | ✅ Supported | ✅ Supported | ✅ Supported |
+| **Max Throughput** | ~500 req/s | ~5,000 req/s | ~20,000 req/s |
+| **Concurrency Model** | Single thread | Selector + pool | Event loop |
+| **External Dependencies** | None | None | Netty 4.x |
+| **Best For** | Dev/Testing | Medium load | Production |
+
+### SSL/TLS Technical Limitation (NIO)
+
+**Why NIO doesn't support SSL:**
+
+Java NIO's `SocketChannel` doesn't support SSL/TLS out of the box. Implementing SSL with NIO requires:
+- Using `SSLEngine` for manual encryption/decryption
+- Complex buffer management for encrypted/decrypted data
+- Handshake state machine implementation
+- Proper handling of SSL buffer overflows/underflows
+
+This adds ~500+ lines of complex code and is error-prone.
+
+**Solution:** For SSL with NIO performance, use `NETTY` server type which has battle-tested SSL support.
+
+### Compatibility Validation
+
+The annotation processor should validate configuration at startup:
+
+```java
+// Example: Invalid configuration
+@TcpRestServer(
+    serverType = ServerType.NIO,
+    ssl = true  // ❌ ERROR: NIO doesn't support SSL!
+)
+public class InvalidConfig { }
+```
+
+**Expected behavior:**
+```
+Exception in thread "main" cn.huiwings.tcprest.exception.ConfigurationException:
+  SSL is not supported with NIO server. Please use SINGLE_THREAD or NETTY instead.
+
+  Suggested fix:
+    @TcpRestServer(serverType = ServerType.NETTY, ssl = true)
+```
+
+### Configuration Examples by Use Case
+
+#### Development (Low Concurrency, No SSL)
+```java
+@TcpRestServer(
+    port = 8001,
+    serverType = ServerType.SINGLE_THREAD,  // Simple, easy debugging
+    protocol = "V2"
+)
+```
+
+#### Production (High Concurrency, No SSL)
+```java
+@TcpRestServer(
+    port = 8001,
+    serverType = ServerType.NIO,  // ✅ Good choice (no SSL needed)
+    protocol = "AUTO",
+    compression = true,
+    checksumAlgorithm = "HMAC_SHA256",
+    hmacSecret = "${tcprest.security.secret}"
+)
+```
+
+#### Production (High Concurrency, SSL Required)
+```java
+@TcpRestServer(
+    port = 8443,
+    serverType = ServerType.NETTY,  // ✅ Only choice for SSL + performance
+    protocol = "AUTO",
+    ssl = true,
+    sslKeyStore = "classpath:server.jks",
+    sslPassword = "${ssl.password}",
+    compression = true,
+    checksumAlgorithm = "HMAC_SHA256",
+    hmacSecret = "${tcprest.security.secret}",
+    enableClassWhitelist = true,
+    allowedClasses = {"com.example.api.*"}
+)
+```
+
+#### Internal Microservices (Medium Concurrency)
+```java
+@TcpRestServer(
+    port = 8001,
+    serverType = ServerType.NIO,  // ✅ No deps, good performance
+    bindAddress = "127.0.0.1",  // Localhost only
+    protocol = "V2",
+    checksumAlgorithm = "CRC32"  // Fast integrity check
+)
+```
+
+#### Public API (High Security)
+```java
+@TcpRestServer(
+    port = 8443,
+    serverType = ServerType.NETTY,
+    ssl = true,
+    sslKeyStore = "classpath:server.jks",
+    sslPassword = "${ssl.password}",
+    requireClientAuth = true,  // Mutual TLS
+    sslTrustStore = "classpath:truststore.jks",
+    sslTrustStorePassword = "${ssl.truststore.password}",
+    checksumAlgorithm = "HMAC_SHA256",
+    hmacSecret = "${tcprest.security.secret}",
+    enableClassWhitelist = true,
+    allowedClasses = {
+        "com.example.api.PublicUserService",
+        "com.example.api.PublicOrderService"
+    }
+)
+```
+
+### Security Configuration Examples
+
+#### Client with HMAC Authentication
+```java
+@TcpRestClient(
+    host = "${tcprest.host}",
+    port = 8001,
+    protocol = "V2",
+    checksumAlgorithm = "HMAC_SHA256",
+    hmacSecret = "${tcprest.security.secret}",  // Must match server
+    timeout = 5
+)
+public interface SecureUserService {
+    User getUser(int id);
+}
+```
+
+#### Client with Mutual TLS + HMAC (Maximum Security)
+```java
+@TcpRestClient(
+    host = "${tcprest.host}",
+    port = 8443,
+    protocol = "V2",
+    ssl = true,
+    sslKeyStore = "classpath:client.jks",
+    sslPassword = "${ssl.password}",
+    sslTrustStore = "classpath:truststore.jks",
+    sslTrustStorePassword = "${ssl.truststore.password}",
+    checksumAlgorithm = "HMAC_SHA256",
+    hmacSecret = "${tcprest.security.secret}",
+    timeout = 10
+)
+public interface HighSecurityService {
+    SensitiveData processSensitiveData(Request request);
+}
+```
+
+#### Server with CRC32 (Development)
+```java
+@TcpRestServer(
+    port = 8001,
+    serverType = ServerType.SINGLE_THREAD,
+    checksumAlgorithm = "CRC32",  // Fast, good for dev
+    resources = {UserServiceImpl.class}
+)
+```
+
+### Migration from Programmatic Configuration
+
+**Before:**
+```java
+// Programmatic
+SecurityConfig securityConfig = new SecurityConfig()
+    .enableHMAC("secret-key-min-32-chars");
+
+SSLParam sslParam = new SSLParam();
+sslParam.setKeyStorePath("classpath:server.jks");
+sslParam.setKeyStoreKeyPass("password");
+
+NettyTcpRestServer server = new NettyTcpRestServer(8443, sslParam);
+server.setSecurityConfig(securityConfig);
+server.addSingletonResource(new UserServiceImpl());
+server.up();
+```
+
+**After:**
+```java
+// Declarative
+@TcpRestServer(
+    port = 8443,
+    serverType = ServerType.NETTY,
+    ssl = true,
+    sslKeyStore = "classpath:server.jks",
+    sslPassword = "password",
+    checksumAlgorithm = "HMAC_SHA256",
+    hmacSecret = "secret-key-min-32-chars",
+    resources = {UserServiceImpl.class}
+)
+public class ServerConfig { }
+```
+
 ## Testing Strategy
 
 ### CDI Module Tests (using Weld SE)
@@ -757,8 +1118,13 @@ public class MyApp {
 1. ✅ Module structure - Separate cdi/spring modules OK?
 2. ✅ Annotation attributes - Sufficient configuration options?
 3. ✅ Property placeholders - ${...} syntax OK for both CDI/Spring?
-4. ⚠️ Server auto-start - Should server start automatically or require explicit trigger?
-5. ⚠️ Multiple clients - How to handle multiple @TcpRestClient for same interface (different servers)?
+4. ✅ Security parameters - HMAC secret, checksum algorithm, class whitelist included
+5. ✅ SSL parameters - Keystore, truststore, passwords for both client and server
+6. ✅ Server compatibility - Feature matrix and validation documented
+7. ⚠️ Server auto-start - Should server start automatically or require explicit trigger?
+8. ⚠️ Multiple clients - How to handle multiple @TcpRestClient for same interface (different servers)?
+9. ⚠️ NIO + SSL validation - Should annotation processor fail fast at startup or runtime?
+10. ⚠️ HMAC secret validation - Should we validate minimum length (32 chars) at startup?
 
 ---
 
