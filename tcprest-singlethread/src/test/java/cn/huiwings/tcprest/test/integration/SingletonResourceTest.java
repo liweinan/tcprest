@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.test.integration;
 
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
@@ -28,7 +27,6 @@ public class SingletonResourceTest {
     public void setup() throws Exception {
         port = portRange.next();
         server = new SingleThreadTcpRestServer(port);
-        server.setProtocolVersion(ProtocolVersion.V2);
 
         // Test addSingletonResource - single shared instance
         server.addSingletonResource(new CounterServiceImpl());
@@ -53,7 +51,6 @@ public class SingletonResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // First call increments to 1
@@ -77,7 +74,6 @@ public class SingletonResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // Get current count (should be non-zero if other tests ran)
@@ -97,7 +93,6 @@ public class SingletonResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // Increment a few times
@@ -117,7 +112,6 @@ public class SingletonResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // Reset to known state

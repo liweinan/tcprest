@@ -3,7 +3,6 @@ package cn.huiwings.tcprest.codec.v2;
 import cn.huiwings.tcprest.codec.ProtocolCodec;
 import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.mapper.Mapper;
-import cn.huiwings.tcprest.protocol.NullObj;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
 import cn.huiwings.tcprest.protocol.v2.TypeSignatureUtil;
@@ -376,7 +375,7 @@ public class ProtocolV2Codec implements ProtocolCodec {
      *
      * <p><b>Decoding Priority:</b></p>
      * <ol>
-     *   <li><b>null/NullObj:</b> return null or NullObj</li>
+     *   <li><b>null:</b> return null</li>
      *   <li><b>User-defined Mapper:</b> Use custom mapper if provided</li>
      *   <li><b>Auto Deserialization:</b> For Serializable types, use RawTypeMapper</li>
      *   <li><b>Built-in conversion:</b> For primitives, arrays, and other types</li>
@@ -391,9 +390,9 @@ public class ProtocolV2Codec implements ProtocolCodec {
             return null;
         }
 
-        // Handle NullObj marker
-        if (body.contains("NullObj")) {
-            return new NullObj();
+        // Handle "null" string marker (V2 protocol uses string "null")
+        if ("null".equals(body) || body.contains("null")) {
+            return null;
         }
 
         // Extract Base64 content from {{...}}
@@ -612,7 +611,6 @@ public class ProtocolV2Codec implements ProtocolCodec {
      * <p><b>Encoding Priority:</b></p>
      * <ol>
      *   <li><b>null:</b> return "null"</li>
-     *   <li><b>NullObj:</b> return "NullObj"</li>
      *   <li><b>User-defined Mapper:</b> Use custom mapper if provided</li>
      *   <li><b>Auto Serialization:</b> For Serializable objects, use RawTypeMapper</li>
      *   <li><b>Arrays:</b> Use Arrays.toString() format</li>
@@ -625,10 +623,6 @@ public class ProtocolV2Codec implements ProtocolCodec {
     private String encodeBodyToString(Object obj) {
         if (obj == null) {
             return "null";
-        }
-
-        if (obj instanceof NullObj) {
-            return "NullObj";
         }
 
         String value;

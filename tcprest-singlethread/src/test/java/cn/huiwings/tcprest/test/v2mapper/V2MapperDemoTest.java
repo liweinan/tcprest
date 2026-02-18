@@ -2,7 +2,6 @@ package cn.huiwings.tcprest.test.v2mapper;
 
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
@@ -42,7 +41,6 @@ public class V2MapperDemoTest {
     public void testAutoSerialization() throws Exception {
         int port = portRange.next();
         TcpRestServer server = new SingleThreadTcpRestServer(port);
-        server.setProtocolVersion(ProtocolVersion.V2);
         server.addResource(UserServiceImpl.class);
         server.up();
         Thread.sleep(500);
@@ -85,7 +83,6 @@ public class V2MapperDemoTest {
     public void testCustomMapperWithGson() throws Exception {
         int port = portRange.next();
         TcpRestServer server = new SingleThreadTcpRestServer(port);
-        server.setProtocolVersion(ProtocolVersion.V2);
 
         // Server side: Register custom Gson mapper
         server.addMapper(User.class.getName(), new GsonUserMapper());
@@ -131,7 +128,6 @@ public class V2MapperDemoTest {
     public void testMixedTypes() throws Exception {
         int port = portRange.next();
         TcpRestServer server = new SingleThreadTcpRestServer(port);
-        server.setProtocolVersion(ProtocolVersion.V2);
         server.addResource(UserServiceImpl.class);
         server.up();
         Thread.sleep(500);

@@ -1,6 +1,5 @@
 package cn.huiwings.tcprest.codec.v2;
 
-import cn.huiwings.tcprest.protocol.NullObj;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
 import org.testng.annotations.BeforeClass;
@@ -152,15 +151,6 @@ public class ProtocolV2CodecTest {
         assertNull(result);
     }
 
-    @Test
-    public void testDecode_successNullObj() throws Exception {
-        String response = "V2|0|0|NullObj";
-
-        Object result = codec.decode(response, Object.class);
-
-        assertTrue(result instanceof NullObj);
-    }
-
     @Test(expectedExceptions = RuntimeException.class)
     public void testDecode_businessException() throws Exception {
         String errorMsg = "ValidationException: Invalid input";
@@ -233,14 +223,6 @@ public class ProtocolV2CodecTest {
 
         assertTrue(response.startsWith("V2|0|0|"));
         assertTrue(response.contains("null"));
-    }
-
-    @Test
-    public void testEncodeResponse_successNullObj() {
-        String response = codec.encodeResponse(new NullObj(), StatusCode.SUCCESS);
-
-        assertTrue(response.startsWith("V2|0|0|"));
-        assertTrue(response.contains("NullObj"));
     }
 
     // Compression is handled separately (not in this converter)

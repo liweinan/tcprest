@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.test.bindaddress;
 
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.ssl.SSLParam;
@@ -92,7 +91,6 @@ public class BindAddressTest {
     public void testProtocolV2_withBindAddress() throws Exception {
         int port = portRange.next();
         server = new SingleThreadTcpRestServer(port, "127.0.0.1");
-        server.setProtocolVersion(ProtocolVersion.V2);
         server.addResource(TestService.Impl.class);
         server.up();
         Thread.sleep(200);
@@ -101,7 +99,6 @@ public class BindAddressTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             TestService.class, "127.0.0.1", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         TestService client = (TestService) factory.getClient();
 
         // Test overloaded methods work with bind address

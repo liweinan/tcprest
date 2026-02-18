@@ -4,7 +4,6 @@ import cn.huiwings.tcprest.client.DefaultTcpRestClient;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.RemoteInvocationException;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
@@ -40,7 +39,6 @@ public class ProtocolV2IntegrationTest {
 
         // Start server in V2 mode with implementation classes
         server = new SingleThreadTcpRestServer(port);
-        server.setProtocolVersion(ProtocolVersion.V2);
 
         // Register resource classes (can use addResource with implementation classes)
         server.addResource(OverloadedCalculatorImpl.class);
@@ -54,13 +52,11 @@ public class ProtocolV2IntegrationTest {
         TcpRestClientFactory calculatorFactory = new TcpRestClientFactory(
             OverloadedCalculator.class, "localhost", port
         );
-        calculatorFactory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         calculatorClient = (OverloadedCalculator) calculatorFactory.getClient();
 
         TcpRestClientFactory exceptionFactory = new TcpRestClientFactory(
             ExceptionTestService.class, "localhost", port
         );
-        exceptionFactory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         exceptionClient = (ExceptionTestService) exceptionFactory.getClient();
     }
 

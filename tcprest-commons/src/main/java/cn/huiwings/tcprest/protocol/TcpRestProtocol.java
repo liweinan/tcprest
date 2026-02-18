@@ -38,27 +38,10 @@ public class TcpRestProtocol {
     /** Main component separator in protocol */
     public static final String COMPONENT_SEPARATOR = "|";
 
-    /**
-     * Parameter separator (used within encoded param block in V1 protocol).
-     * @deprecated V1 protocol specific. V2 uses comma separator. Use {@link cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants#PARAM_SEPARATOR} for V2.
-     */
-    @Deprecated
-    public static final String PARAM_SEPARATOR = ":::";
-
-    /**
-     * Null object marker (V1 protocol).
-     * @deprecated V1 protocol specific. V2 uses "NULL" marker in parameter arrays.
-     */
-    @Deprecated
-    public static final String NULL = "TCPREST.NULL";
-
     /** V2 protocol version prefix */
     public static final String V2_PREFIX = "V2";
 
     /** Checksum prefix */
     public static final String CHECKSUM_PREFIX = "CHK:";
 
-    /** Legacy separator name for backward compatibility */
-    @Deprecated
-    public static final String PATH_SEPERATOR = PARAM_SEPARATOR;
 }

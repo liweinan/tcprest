@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.test.integration;
 
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
@@ -29,7 +28,6 @@ public class PerRequestResourceTest {
     public void setup() throws Exception {
         port = portRange.next();
         server = new SingleThreadTcpRestServer(port);
-        server.setProtocolVersion(ProtocolVersion.V2);
 
         // Test addResource - new instance per request
         server.addResource(CounterServiceImpl.class);
@@ -54,7 +52,6 @@ public class PerRequestResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // Each call gets a new instance, so count always starts at 0
@@ -77,7 +74,6 @@ public class PerRequestResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // Each call gets a new instance, so count is always 0
@@ -98,7 +94,6 @@ public class PerRequestResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // Test overloaded increment methods (each gets new instance)
@@ -120,7 +115,6 @@ public class PerRequestResourceTest {
         TcpRestClientFactory factory = new TcpRestClientFactory(
             CounterService.class, "localhost", port
         );
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
         CounterService client = (CounterService) factory.getClient();
 
         // Reset on a new instance (no-op but should not fail)

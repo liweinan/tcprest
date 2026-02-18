@@ -3,7 +3,6 @@ package cn.huiwings.tcprest.test.smoke;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.RawTypeMapper;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.NettyTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.Color;
@@ -61,7 +60,6 @@ public class MapperSmokeTest {
     public void extendMapperTest() {
         // Test custom mapper with V2 protocol
         // V2 supports intelligent mapper system: custom mappers have highest priority
-        tcpRestServer.setProtocolVersion(ProtocolVersion.V2);
         tcpRestServer.addResource(HelloWorldResource.class);
         tcpRestServer.addMapper(Color.class.getCanonicalName(),
                 new ColorMapper());
@@ -73,7 +71,6 @@ public class MapperSmokeTest {
                 HelloWorld.class, "localhost",
                 tcpRestServer.getServerPort(), colorMapper);
         // V2 is default, but set explicitly for clarity
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
 
         HelloWorld client = (HelloWorld) factory.getInstance();
         Color color = new Color("Red");
@@ -87,12 +84,10 @@ public class MapperSmokeTest {
         // We don't register a Color mapper, so V2 will automatically use
         // auto-serialization (RawTypeMapper) because Color implements Serializable.
         // This is V2's Priority 2: Auto-Serialization for Serializable objects
-        tcpRestServer.setProtocolVersion(ProtocolVersion.V2);
         tcpRestServer.addSingletonResource(new AutoSerializationService());
 
         TcpRestClientFactory factory = new TcpRestClientFactory(AutoSerializationAPI.class,
                 "localhost", tcpRestServer.getServerPort());
-        factory.getProtocolConfig().setVersion(ProtocolVersion.V2);
 
         AutoSerializationAPI client = (AutoSerializationAPI) factory.getInstance();
 

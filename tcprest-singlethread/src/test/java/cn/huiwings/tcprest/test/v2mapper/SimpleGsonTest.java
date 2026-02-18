@@ -2,7 +2,6 @@ package cn.huiwings.tcprest.test.v2mapper;
 
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.mapper.Mapper;
-import cn.huiwings.tcprest.protocol.ProtocolVersion;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
@@ -25,7 +24,6 @@ public class SimpleGsonTest {
     public void testGsonMapper() throws Exception {
         int port = portRange.next();
         TcpRestServer server = new SingleThreadTcpRestServer(port);
-        server.setProtocolVersion(ProtocolVersion.V2);
 
         // Server side: Register Gson mapper
         server.addMapper(Person.class.getName(), new GsonPersonMapper());

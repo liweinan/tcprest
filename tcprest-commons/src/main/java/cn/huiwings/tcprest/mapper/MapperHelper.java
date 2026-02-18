@@ -1,7 +1,5 @@
 package cn.huiwings.tcprest.mapper;
 
-import cn.huiwings.tcprest.protocol.NullObj;
-
 import java.util.*;
 
 /**
@@ -37,8 +35,6 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put(List.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(Queue.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(Map.class.getCanonicalName(), new RawTypeMapper());
-
-        DEFAULT_MAPPERS.put(NullObj.class.getCanonicalName(), new NullMapper());
 
         // Exception mapper transfers exception messages (not full stack traces for security)
         DEFAULT_MAPPERS.put(Exception.class.getCanonicalName(), new ExceptionMapper());

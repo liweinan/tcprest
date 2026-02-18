@@ -112,7 +112,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
     public void up(boolean setDaemon) {
         bossGroup = new NioEventLoopGroup(1); // Accepts incoming connections
         workerGroup = new NioEventLoopGroup(); // Handles I/O operations
-        initializeProtocolRouter();
+        initializeProtocolComponents();
 
         try {
             final SslContext sslContext = createSslContext();
