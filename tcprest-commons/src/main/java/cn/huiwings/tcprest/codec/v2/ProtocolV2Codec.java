@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.codec.v2;
 
 import cn.huiwings.tcprest.codec.ProtocolCodec;
-import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
@@ -141,10 +140,9 @@ public class ProtocolV2Codec implements ProtocolCodec {
      * @param params the method parameters
      * @param mappers mapper registry (optional - for custom type mapping)
      * @return encoded request string
-     * @throws MapperNotFoundException if mapper is required but not found
      */
     @Override
-    public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException {
+    public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) {
         // Step 1: Build metadata (ClassName/methodName(TYPE_SIGNATURE))
         String className = clazz.getName();
         String methodName = method.getName();
@@ -390,7 +388,7 @@ public class ProtocolV2Codec implements ProtocolCodec {
                 throw decodeException(bodyEncoded, false);
 
             case PROTOCOL_ERROR:
-                throw new RuntimeException("Protocol error: " + bodyEncoded);
+                throw decodeException(bodyEncoded, false);
 
             default:
                 throw new IllegalStateException("Unknown status code: " + status);
@@ -475,9 +473,14 @@ public class ProtocolV2Codec implements ProtocolCodec {
     /**
      * Decode exception from response body.
      *
-     * @param body the exception body
+     * <p>Attempts to recreate the original exception type thrown by the server.
+     * If the exception class exists on the client classpath and has a constructor
+     * accepting a String message, it will be instantiated. Otherwise, falls back
+     * to RuntimeException with the original exception info in the message.</p>
+     *
+     * @param body the exception body (format: "ClassName: message")
      * @param isBusinessException true if business exception
-     * @return decoded exception
+     * @return decoded exception (original type if possible, RuntimeException otherwise)
      */
     private Exception decodeException(String body, boolean isBusinessException) {
         if (body == null || body.isEmpty()) {
@@ -498,8 +501,110 @@ public class ProtocolV2Codec implements ProtocolCodec {
             decoded = body;
         }
 
-        // Create exception with message
-        return new RuntimeException(decoded);
+        // Try to recreate original exception type
+        return recreateException(decoded, isBusinessException);
+    }
+
+    /**
+     * Attempt to recreate the original exception from the encoded string.
+     *
+     * <p><b>Strategy:</b></p>
+     * <ol>
+     *   <li>Parse exception class name and message</li>
+     *   <li>Try to load exception class via Class.forName()</li>
+     *   <li>Try to instantiate with reflection (String constructor or default)</li>
+     *   <li>If fails, use appropriate fallback:
+     *     <ul>
+     *       <li>Business exception → {@link cn.huiwings.tcprest.exception.RemoteBusinessException}</li>
+     *       <li>Server error → {@link cn.huiwings.tcprest.exception.RemoteServerException}</li>
+     *     </ul>
+     *   </li>
+     * </ol>
+     *
+     * <p>Format: "fully.qualified.ClassName: message"</p>
+     *
+     * @param exceptionString encoded exception string
+     * @param isBusinessException true if business exception
+     * @return original exception type if possible, semantic fallback otherwise
+     */
+    private Exception recreateException(String exceptionString, boolean isBusinessException) {
+        // Step 1: Parse exception class name and message
+        int colonIndex = exceptionString.indexOf(": ");
+        if (colonIndex == -1) {
+            // No colon separator - use entire string as message
+            return createFallbackException("Unknown", exceptionString, isBusinessException);
+        }
+
+        String className = exceptionString.substring(0, colonIndex);
+        String message = exceptionString.substring(colonIndex + 2);
+
+        // Step 2: Try to load and instantiate the exception class
+        try {
+            Class<?> exceptionClass = Class.forName(className);
+
+            // Verify it's actually an Exception
+            if (!Exception.class.isAssignableFrom(exceptionClass)) {
+                // Not an exception class - use fallback
+                return createFallbackException(className, message, isBusinessException);
+            }
+
+            // Try to find constructor with String parameter
+            try {
+                java.lang.reflect.Constructor<?> constructor =
+                    exceptionClass.getConstructor(String.class);
+                return (Exception) constructor.newInstance(message);
+            } catch (NoSuchMethodException e) {
+                // No String constructor, try default constructor
+                try {
+                    return (Exception) exceptionClass.newInstance();
+                } catch (Exception ex) {
+                    // Can't instantiate - fall through to fallback
+                }
+            }
+        } catch (ClassNotFoundException e) {
+            // Exception class not available on client side - this is expected
+            // Use semantic fallback based on exception category
+        } catch (Exception e) {
+            // Any other error during instantiation - use fallback
+        }
+
+        // Step 3: Fallback - use appropriate remote exception wrapper
+        return createFallbackException(className, message, isBusinessException);
+    }
+
+    /**
+     * Create fallback exception when original type cannot be reconstructed.
+     *
+     * <p>Uses semantic exception types to preserve error category information:</p>
+     * <ul>
+     *   <li><b>Business exceptions:</b> Wrapped in {@link cn.huiwings.tcprest.exception.RemoteBusinessException}
+     *     <br>Example: Server threw OrderValidationException (client doesn't have it)
+     *     <br>→ RemoteBusinessException("com.example.OrderValidationException", "Order amount exceeds limit")
+     *     <br>Client can handle it as a business error and retry with corrected input
+     *   </li>
+     *   <li><b>Server errors:</b> Wrapped in {@link cn.huiwings.tcprest.exception.RemoteServerException}
+     *     <br>Example: Server threw CustomDatabaseException (client doesn't have it)
+     *     <br>→ RemoteServerException("com.example.CustomDatabaseException", "Connection pool exhausted")
+     *     <br>Client knows it's a server-side problem, logs/alerts but doesn't retry
+     *   </li>
+     * </ul>
+     *
+     * @param className original exception class name
+     * @param message exception message
+     * @param isBusinessException whether this is a business exception
+     * @return RemoteBusinessException or RemoteServerException
+     */
+    private Exception createFallbackException(String className, String message, boolean isBusinessException) {
+        if (isBusinessException) {
+            // Server threw a BusinessException subclass, but client doesn't have it
+            // Wrap in RemoteBusinessException so client can still handle it as business error
+            return new cn.huiwings.tcprest.exception.RemoteBusinessException(className, message);
+        } else {
+            // Server threw an unexpected exception (NullPointerException, CustomException, etc.)
+            // but client doesn't have the class
+            // Wrap in RemoteServerException so client knows it's a server-side error
+            return new cn.huiwings.tcprest.exception.RemoteServerException(className, message);
+        }
     }
 
     /**
@@ -716,8 +821,9 @@ public class ProtocolV2Codec implements ProtocolCodec {
      * @return encoded exception response
      */
     public String encodeException(Throwable exception, StatusCode status) {
-        // Step 1: Encode exception details
-        String exceptionStr = exception.getClass().getSimpleName() + ": " +
+        // Step 1: Encode exception details with full class name for client-side reconstruction
+        // Format: "FullyQualifiedClassName: message"
+        String exceptionStr = exception.getClass().getName() + ": " +
                              (exception.getMessage() != null ? exception.getMessage() : "");
         String base64 = Base64.getEncoder().encodeToString(exceptionStr.getBytes());
         String bodyString = ProtocolV2Constants.PARAM_WRAPPER_START + base64 + ProtocolV2Constants.PARAM_WRAPPER_END;
@@ -746,10 +852,9 @@ public class ProtocolV2Codec implements ProtocolCodec {
      * @param paramToken parameter token
      * @param mappers mapper registry (not used in Protocol V2)
      * @return decoded parameters
-     * @throws MapperNotFoundException not thrown in V2
      */
     @Override
-    public Object[] decode(Method targetMethod, String paramToken, Map<String, Mapper> mappers) throws MapperNotFoundException {
+    public Object[] decode(Method targetMethod, String paramToken, Map<String, Mapper> mappers) {
         // Protocol V2 handles parameter decoding in ProtocolV2Parser
         // This method is provided for interface compatibility
         throw new UnsupportedOperationException(
@@ -820,7 +925,7 @@ public class ProtocolV2Codec implements ProtocolCodec {
      * @return mapper if found, null otherwise
      */
     @Override
-    public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) throws MapperNotFoundException {
+    public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) {
         if (mappers == null || targetClazz == null) {
             return null;
         }
@@ -838,7 +943,7 @@ public class ProtocolV2Codec implements ProtocolCodec {
      * @return mapper if found, null otherwise
      */
     @Override
-    public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) throws MapperNotFoundException {
+    public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) {
         if (mappers == null || targetClazzName == null) {
             return null;
         }

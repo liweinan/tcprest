@@ -6,8 +6,7 @@ import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
 import cn.huiwings.tcprest.invoker.v2.ProtocolV2Invoker;
-import cn.huiwings.tcprest.logger.Logger;
-import cn.huiwings.tcprest.logger.LoggerFactory;
+import java.util.logging.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
 import cn.huiwings.tcprest.parser.RequestParser;
@@ -34,7 +33,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
 
     protected final Map<String, Mapper> mappers = new HashMap<>(MapperHelper.DEFAULT_MAPPERS);
 
-    protected Logger logger = LoggerFactory.getDefaultLogger();
+    protected Logger logger = Logger.getLogger(AbstractTcpRestServer.class.getName());
 
     protected String status = TcpRestServerStatus.PASSIVE;
 
@@ -63,7 +62,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
         // singleton resource is added.
         synchronized (resourceClasses) {
             if (resourceClasses.containsKey(resourceClass.getCanonicalName())) {
-                logger.warn("Resource already exists for: " + resourceClass.getCanonicalName());
+                logger.warning("Resource already exists for: " + resourceClass.getCanonicalName());
             }
             deleteResource(resourceClass);
             resourceClasses.put(resourceClass.getCanonicalName(), resourceClass);
@@ -97,10 +96,6 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
         return new HashMap<String, Object>(singletonResources);
     }
 
-    public void setLogger(Logger logger) {
-        this.logger = logger;
-    }
-
     /**
      * Initialize Protocol V2 components with current configuration.
      * <p>Should be called by subclasses in their {@code up()} method to initialize
@@ -119,6 +114,13 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
             parser = new ProtocolV2Parser(mappers);
             invoker = new ProtocolV2Invoker();
             codec = new ProtocolV2Codec(mappers);
+
+            // Apply security config if it was set before initialization
+            if (securityConfig != null) {
+                ((ProtocolV2Parser) parser).setSecurityConfig(securityConfig);
+                ((ProtocolV2Codec) codec).setSecurityConfig(securityConfig);
+            }
+
             logger.info("Protocol V2 components initialized");
         }
     }
@@ -141,12 +143,12 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
      * @throws Exception if request processing fails critically
      */
     protected String processRequest(String request) throws Exception {
-        logger.debug("request: " + request);
+        logger.fine("request: " + request);
 
         // Components should be initialized in up() method via initializeProtocolComponents()
         // If not initialized (edge case), initialize now
         if (parser == null) {
-            logger.warn("Protocol components not initialized - initializing now. " +
+            logger.warning("Protocol components not initialized - initializing now. " +
                        "Consider calling initializeProtocolComponents() in up() method.");
             initializeProtocolComponents();
         }
@@ -182,17 +184,22 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
 
         } catch (BusinessException e) {
             // Business exception - expected error from business logic
-            logger.warn("Business exception: " + e.getMessage());
+            logger.warning("Business exception: " + e.getMessage());
             return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.BUSINESS_EXCEPTION);
+
+        } catch (cn.huiwings.tcprest.exception.SecurityException e) {
+            // Security violation - checksum failure, whitelist block, etc.
+            logger.severe("Security violation: " + e.getMessage());
+            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.PROTOCOL_ERROR);
 
         } catch (ProtocolException e) {
             // Protocol error - malformed request or parsing failure
-            logger.error("Protocol error: " + e.getMessage());
+            logger.severe("Protocol error: " + e.getMessage());
             return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.PROTOCOL_ERROR);
 
         } catch (Exception e) {
             // Server error - unexpected exception during processing
-            logger.error("Server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            logger.severe("Server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.SERVER_ERROR);
         }
     }

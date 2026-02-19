@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.logger.Logger;
-import cn.huiwings.tcprest.logger.LoggerFactory;
+import java.util.logging.Logger;
 
 import java.util.Map;
 
@@ -52,7 +51,7 @@ import java.util.Map;
  */
 public final class ResourceResolver {
 
-    private static final Logger DEFAULT_LOGGER = LoggerFactory.getDefaultLogger();
+    private static final Logger DEFAULT_LOGGER = Logger.getLogger(ResourceResolver.class.getName());
 
     private ResourceResolver() {
         // Utility class, prevent instantiation
@@ -143,7 +142,7 @@ public final class ResourceResolver {
             // Check if this class implements the interface
             for (Class<?> ifc : clazz.getInterfaces()) {
                 if (ifc.getName().equals(interfaceName)) {
-                    log.debug("Found resource class implementing interface: " + interfaceName +
+                    log.fine("Found resource class implementing interface: " + interfaceName +
                             " -> " + clazz.getName());
                     return clazz;
                 }
@@ -161,7 +160,7 @@ public final class ResourceResolver {
             // Check if this singleton implements the interface
             for (Class<?> ifc : clazz.getInterfaces()) {
                 if (ifc.getName().equals(interfaceName)) {
-                    log.debug("Found singleton implementing interface: " + interfaceName +
+                    log.fine("Found singleton implementing interface: " + interfaceName +
                             " -> " + clazz.getName());
                     return clazz;
                 }

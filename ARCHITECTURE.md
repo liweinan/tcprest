@@ -562,10 +562,300 @@ Compressed:   "1|" + base64(gzip(data))
 
 **Package:** `cn.huiwings.tcprest.exception`
 
-Custom exceptions for framework errors:
-- `ParseException`: Protocol parsing errors
-- `MapperNotFoundException`: No mapper found for type
-- `TcpRestException`: Base exception class
+TcpRest provides a clean, semantic exception hierarchy for different error scenarios:
+
+#### Core Exception Types (5 exceptions)
+
+**Protocol Layer Exceptions:**
+- `SecurityException` (unchecked): Security violations (checksum failure, whitelist rejection)
+- `ProtocolException` (unchecked): Protocol format/parsing errors, malformed requests
+
+**Transport Layer Exceptions:**
+- `TimeoutException` (unchecked): Client-side timeout exceeded
+
+**Application Layer Exceptions:**
+- `BusinessException` (unchecked): Base class for expected business logic errors
+- `RemoteException` (unchecked, abstract): Base class for remote exception fallbacks
+  - `RemoteBusinessException`: Fallback when client lacks server's BusinessException subclass
+  - `RemoteServerException`: Fallback when client lacks server's exception class
+
+**Design Philosophy:**
+- ✅ All exceptions are **unchecked** (RuntimeException) - no forced exception handling
+- ✅ Clear semantic categories (protocol, business, server)
+- ✅ Intelligent fallback mechanism preserves error semantics
+
+#### Exception Reconstruction Mechanism
+
+When a server throws an exception, TcpRest employs a sophisticated reconstruction strategy:
+
+**Step 1: Encode Exception (Server)**
+```java
+// ProtocolV2Codec.encodeException()
+String exceptionString = exception.getClass().getName() + ": " + exception.getMessage();
+// Example: "java.lang.NullPointerException: User not found"
+
+// Encode with status code
+return "V2|0|2|{{base64(exceptionString)}}";  // Status code 2 = SERVER_ERROR
+```
+
+**Step 2: Decode and Reconstruct (Client)**
+```java
+// ProtocolV2Codec.recreateException()
+
+// Parse: "java.lang.NullPointerException: User not found"
+String className = "java.lang.NullPointerException";
+String message = "User not found";
+
+// Try to load exception class
+Class<?> exceptionClass = Class.forName(className);
+
+// Try to instantiate with reflection
+Constructor<?> constructor = exceptionClass.getConstructor(String.class);
+return (Exception) constructor.newInstance(message);  // Success!
+```
+
+**Step 3: Fallback (if reconstruction fails)**
+```java
+// Client doesn't have the exception class
+
+if (isBusinessException) {
+    // Server threw BusinessException subclass → RemoteBusinessException
+    return new RemoteBusinessException(className, message);
+} else {
+    // Server threw other exception → RemoteServerException
+    return new RemoteServerException(className, message);
+}
+```
+
+#### Exception Categories and Status Codes
+
+| Exception Category | Status Code | Server-Side Example | Client Receives |
+|--------------------|-------------|---------------------|-----------------|
+| **Success** | 0 (SUCCESS) | Method returns normally | Return value |
+| **Business Exception** | 1 (BUSINESS_EXCEPTION) | `throw new ValidationException(...)` | ValidationException or RemoteBusinessException |
+| **Server Error** | 2 (SERVER_ERROR) | `throw new NullPointerException(...)` | NullPointerException or RemoteServerException |
+| **Protocol Error** | 3 (PROTOCOL_ERROR) | Parsing/security failure | ProtocolException or SecurityException |
+
+#### RemoteException Hierarchy
+
+**Purpose:** When client cannot reconstruct original exception type, use semantic wrappers.
+
+**RemoteBusinessException:**
+```java
+public class RemoteBusinessException extends RemoteException {
+    // Wrapper for server business exceptions not available on client
+
+    public String getRemoteExceptionType();  // e.g., "com.example.OrderValidationException"
+    public boolean isBusinessException();     // Always returns true
+    public boolean isServerError();           // Always returns false
+}
+```
+
+**Example scenario:**
+```java
+// Server has custom business exception
+public class OrderValidationException extends BusinessException {
+    public OrderValidationException(String msg) { super(msg); }
+}
+
+// Server throws
+throw new OrderValidationException("Order amount exceeds limit");
+
+// Client receives (doesn't have OrderValidationException.class)
+try {
+    orderService.placeOrder(order);
+} catch (RemoteBusinessException e) {
+    // Can still identify error type and handle appropriately
+    System.out.println(e.getRemoteExceptionType());
+    // Output: "com.example.OrderValidationException"
+
+    System.out.println(e.getMessage());
+    // Output: "OrderValidationException: Order amount exceeds limit"
+
+    // Client knows it's a business error - can retry
+}
+```
+
+**RemoteServerException:**
+```java
+public class RemoteServerException extends RemoteException {
+    // Wrapper for server exceptions (non-business) not available on client
+
+    public String getRemoteExceptionType();  // e.g., "com.example.DatabasePoolException"
+    public boolean isBusinessException();     // Always returns false
+    public boolean isServerError();           // Always returns true
+}
+```
+
+**Example scenario:**
+```java
+// Server has custom server exception
+public class DatabasePoolException extends RuntimeException {
+    public DatabasePoolException(String msg) { super(msg); }
+}
+
+// Server throws
+throw new DatabasePoolException("Connection pool exhausted");
+
+// Client receives (doesn't have DatabasePoolException.class)
+try {
+    userService.getUser(123);
+} catch (RemoteServerException e) {
+    // Can identify as server-side error
+    System.out.println(e.getRemoteExceptionType());
+    // Output: "com.example.DatabasePoolException"
+
+    // Client knows it's a server error - should alert ops, not retry
+    logger.error("Server failure: " + e.getRemoteExceptionType(), e);
+}
+```
+
+#### Exception Propagation Flow
+
+```
+Server Side                          Wire Format                    Client Side
+-----------                          -----------                    -----------
+
+1. Method Execution
+   throw new NPE("error")
+                  ↓
+2. ProtocolV2Invoker.invoke()
+   catches exception
+                  ↓
+3. Determine Status Code
+   NPE → SERVER_ERROR (2)
+   BusinessException → BUSINESS_EXCEPTION (1)
+                  ↓
+4. ProtocolV2Codec.encodeException()
+   "NullPointerException: error"
+                  ↓
+            V2|0|2|{{base64}}    →    Network    →    V2|0|2|{{base64}}
+                                                                ↓
+                                                    5. ProtocolV2Codec.decode()
+                                                       detects status code 2
+                                                                ↓
+                                                    6. recreateException()
+                                                       tries Class.forName("NullPointerException")
+                                                                ↓
+                                                    7. Success: new NullPointerException("error")
+                                                       OR
+                                                       Failure: new RemoteServerException(...)
+                                                                ↓
+                                                    8. Client catches
+                                                       catch (NullPointerException e) { ... }
+```
+
+#### Testing Exception Propagation
+
+**Test Coverage:**
+```java
+// ExceptionPropagationTest.java
+@Test
+public void testNullPointerExceptionPropagation() {
+    // Standard exception - client has class
+    assertThrows(NullPointerException.class, () -> client.throwNullPointer());
+}
+
+@Test
+public void testBusinessExceptionPropagation() {
+    // BusinessException - client has class
+    assertThrows(BusinessException.class, () -> client.throwBusiness());
+}
+
+// ExceptionReconstructionE2ETest.java
+@Test
+public void testCustomBusinessExceptionReconstruction() {
+    // Custom business exception - both sides have class
+    assertThrows(OrderValidationException.class, () -> client.validateOrder());
+}
+
+@Test
+public void testMissingBusinessExceptionFallback() {
+    // Server has OrderValidationException, client doesn't
+    // (Tested in unit tests - E2E shares classloader)
+    // Expected: RemoteBusinessException
+}
+
+@Test
+public void testMissingServerExceptionFallback() {
+    // Server has CustomDatabaseException, client doesn't
+    // Expected: RemoteServerException
+}
+```
+
+**Note:** In single-JVM test environments, client and server share the same ClassLoader, so all exception classes are visible to both sides. To test fallback scenarios (RemoteBusinessException/RemoteServerException), use unit tests that simulate missing classes.
+
+#### Best Practices
+
+**✅ Use BusinessException for expected errors:**
+```java
+// Server-side
+public class OrderService {
+    public void validateOrder(Order order) {
+        if (order.getAmount() > limit) {
+            throw new OrderValidationException("Amount exceeds limit");  // Extends BusinessException
+        }
+    }
+}
+
+// Client-side
+try {
+    orderService.placeOrder(order);
+} catch (BusinessException e) {
+    // Expected error - user can fix
+} catch (RemoteBusinessException e) {
+    // Server has custom business exception we don't have - still handle as business error
+}
+```
+
+**✅ Distinguish business errors from server errors:**
+```java
+try {
+    orderService.process(order);
+} catch (RemoteBusinessException e) {
+    // Business logic error - retry after user correction
+    showUserMessage("Please fix: " + e.getMessage());
+} catch (RemoteServerException e) {
+    // Server internal error - alert ops team
+    logger.error("Server error: " + e.getRemoteExceptionType());
+    showUserMessage("Service temporarily unavailable");
+}
+```
+
+**✅ Use standard Java exceptions when possible:**
+```java
+// Standard exceptions are always available on both sides
+throw new IllegalArgumentException("Invalid input");  // Always reconstructs correctly
+throw new NullPointerException("Object is null");      // Always reconstructs correctly
+```
+
+**❌ Don't catch generic Exception:**
+```java
+// Bad: Catches everything, loses semantic information
+try {
+    service.call();
+} catch (Exception e) {
+    // Can't distinguish business errors from server errors
+}
+
+// Good: Catch specific types
+try {
+    service.call();
+} catch (BusinessException | RemoteBusinessException e) {
+    // Business error
+} catch (RemoteServerException e) {
+    // Server error
+}
+```
+
+#### Deleted Legacy Exceptions
+
+The following exceptions have been removed in favor of a cleaner architecture:
+
+- ❌ `ServerSideException` - Empty class, unused
+- ❌ `ParseException` - Merged into unchecked `ProtocolException`
+- ❌ `RemoteInvocationException` - Replaced by `RemoteBusinessException` and `RemoteServerException`
+- ❌ `MapperNotFoundException` - Removed (mappers are now optional with auto-serialization)
 
 ## Extension Points
 
@@ -1105,6 +1395,16 @@ public class PersonService {
 - Ensure correct host and port in client factory
 
 ## Recent Enhancements (2026)
+
+**Exception System Refactoring (2026-02-19):**
+- ✅ Unified exception hierarchy: 5 core exceptions (was 8)
+- ✅ Deleted redundant exceptions: ServerSideException, ParseException, RemoteInvocationException, MapperNotFoundException
+- ✅ All exceptions now unchecked (RuntimeException) for cleaner API
+- ✅ Intelligent exception reconstruction with semantic fallback
+- ✅ New: RemoteBusinessException and RemoteServerException for missing classes
+- ✅ ParseException merged into ProtocolException (unchecked)
+- ✅ Comprehensive E2E tests: ExceptionPropagationTest, ExceptionReconstructionE2ETest
+- ✅ Clear semantic categories: protocol, business, server errors
 
 **V2-Only Refactoring (2026-02-19):**
 - ✅ V1 protocol completely removed (1000+ lines of code reduced)

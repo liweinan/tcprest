@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
-import cn.huiwings.tcprest.logger.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.security.SecurityConfig;
 
@@ -36,8 +35,6 @@ public interface TcpRestServer {
     Map<String, Class> getResourceClasses();
 
     Map<String, Object> getSingletonResources();
-
-    public void setLogger(Logger logger);
 
     /**
      * Get a cloned copy of mappers

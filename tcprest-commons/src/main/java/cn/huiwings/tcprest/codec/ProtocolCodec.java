@@ -1,6 +1,5 @@
 package cn.huiwings.tcprest.codec;
 
-import cn.huiwings.tcprest.exception.MapperNotFoundException;
 import cn.huiwings.tcprest.mapper.Mapper;
 
 import java.lang.reflect.Method;
@@ -89,9 +88,8 @@ public interface ProtocolCodec {
      * @param params the method parameters (may be null or empty for no-arg methods)
      * @param mappers optional custom mappers for parameter serialization (may be null)
      * @return protocol request string ready for transmission
-     * @throws MapperNotFoundException if a required mapper is not found for parameter types
      */
-    String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) throws MapperNotFoundException;
+    String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers);
 
     /**
      * Decode response body into method return value(s).
@@ -117,9 +115,8 @@ public interface ProtocolCodec {
      * @param paramToken the encoded response body string
      * @param mappers optional custom mappers for deserialization (may be null)
      * @return decoded parameters as object array
-     * @throws MapperNotFoundException if a required mapper is not found
      */
-    Object[] decode(Method targetMethod, String paramToken, Map<String, Mapper> mappers) throws MapperNotFoundException;
+    Object[] decode(Method targetMethod, String paramToken, Map<String, Mapper> mappers);
 
     /**
      * Encode a single parameter value into protocol format.
@@ -172,10 +169,9 @@ public interface ProtocolCodec {
      *
      * @param mappers the mapper registry (may be null)
      * @param targetClazz the class needing serialization/deserialization
-     * @return the corresponding mapper
-     * @throws MapperNotFoundException if no mapper is registered for the target class
+     * @return the corresponding mapper (null if not found)
      */
-    Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) throws MapperNotFoundException;
+    Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz);
 
     /**
      * Retrieve a mapper for the specified target class name.
@@ -186,8 +182,7 @@ public interface ProtocolCodec {
      *
      * @param mappers the mapper registry (may be null)
      * @param targetClazzName the fully qualified class name needing serialization/deserialization
-     * @return the corresponding mapper
-     * @throws MapperNotFoundException if no mapper is registered for the target class
+     * @return the corresponding mapper (null if not found)
      */
-    Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) throws MapperNotFoundException;
+    Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName);
 }

@@ -3,8 +3,7 @@ package cn.huiwings.tcprest.client;
 import cn.huiwings.tcprest.annotations.TimeoutAnnotationHandler;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
-import cn.huiwings.tcprest.logger.Logger;
-import cn.huiwings.tcprest.logger.LoggerFactory;
+import java.util.logging.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
 import cn.huiwings.tcprest.security.SecurityConfig;
@@ -33,7 +32,7 @@ import java.util.Map;
  */
 public class TcpRestClientProxy implements InvocationHandler {
 
-    private Logger logger = LoggerFactory.getDefaultLogger();
+    private Logger logger = Logger.getLogger(TcpRestClientProxy.class.getName());
     private TcpRestClient tcpRestClient;
     private Map<String, Mapper> mappers;
     private ProtocolV2Codec codec;
@@ -170,18 +169,30 @@ public class TcpRestClientProxy implements InvocationHandler {
             throw new IllegalAccessException("Method cannot be invoked: " + method.getName());
         }
 
-        // Encode request with v2 format (includes method signature and mappers)
-        // V2 supports intelligent type mapping: custom mappers > auto serialization > built-in
-        String request = codec.encode(method.getDeclaringClass(), method, params, mappers);
+        try {
+            // Encode request with v2 format (includes method signature and mappers)
+            // V2 supports intelligent type mapping: custom mappers > auto serialization > built-in
+            String request = codec.encode(method.getDeclaringClass(), method, params, mappers);
 
-        logger.debug("V2 request: " + request);
+            logger.fine("V2 request: " + request);
 
-        // Send request
-        String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
-        logger.debug("V2 response: " + response);
+            // Send request
+            String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
+            logger.fine("V2 response: " + response);
 
-        // Decode response (handles status codes and exceptions)
-        return codec.decode(response, method.getReturnType());
+            // Decode response (handles status codes and exceptions)
+            return codec.decode(response, method.getReturnType());
+
+        } catch (Exception e) {
+            // Check if it's a SocketTimeoutException and wrap it as unchecked TimeoutException
+            // to avoid dynamic proxy wrapping it as UndeclaredThrowableException
+            if (e instanceof java.net.SocketTimeoutException) {
+                throw new cn.huiwings.tcprest.exception.TimeoutException(
+                    "Request timeout after " + TimeoutAnnotationHandler.getTimeout(method) + " seconds", e);
+            }
+            // Re-throw other exceptions as-is
+            throw e;
+        }
     }
 
     public CompressionConfig getCompressionConfig() {

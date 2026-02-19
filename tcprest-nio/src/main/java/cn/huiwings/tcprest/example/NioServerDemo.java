@@ -1,8 +1,10 @@
 package cn.huiwings.tcprest.example;
 
 import cn.huiwings.tcprest.classloader.FilePathClassLoader;
-import cn.huiwings.tcprest.logger.NullLogger;
 import cn.huiwings.tcprest.server.NioTcpRestServer;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Use following command to start:
@@ -18,7 +20,8 @@ public class NioServerDemo {
             ClassLoader cl = new FilePathClassLoader("/Users/weli/projs/tcprest/target/test-classes/");
             Class resourceClass = cl.loadClass("io.tcprest.test.HelloWorldResource");
             server.addResource(resourceClass);
-            server.setLogger(new NullLogger());
+            // Disable logging for demo
+            Logger.getLogger(NioTcpRestServer.class.getName()).setLevel(Level.OFF);
             server.up(true);
         } catch (Exception e) {
             e.printStackTrace();

@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.parser;
 
-import cn.huiwings.tcprest.exception.MapperNotFoundException;
-import cn.huiwings.tcprest.exception.ParseException;
+import cn.huiwings.tcprest.exception.ProtocolException;
 import cn.huiwings.tcprest.server.Context;
 
 /**
@@ -149,10 +148,9 @@ public interface RequestParser {
      * @return Context object containing target class, method, deserialized parameters, and codec
      * @throws ClassNotFoundException if the target service class cannot be found or is not registered
      * @throws NoSuchMethodException if the target method (with signature) cannot be found
-     * @throws ParseException if the request format is invalid or parsing fails
-     * @throws MapperNotFoundException if a required custom mapper is not found for parameter types
+     * @throws cn.huiwings.tcprest.exception.ProtocolException if the request format is invalid or parsing fails
      * @throws cn.huiwings.tcprest.exception.SecurityException if security validation fails
      * @see cn.huiwings.tcprest.server.Context
      */
-    Context parse(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException;
+    Context parse(String request) throws ClassNotFoundException, NoSuchMethodException;
 }

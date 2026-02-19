@@ -69,10 +69,17 @@ public class TcpClientFactorySmokeTest {
     }
 
 
-    @Test(expectedExceptions = Exception.class)
-    public void clientSideTimeoutTest() {
-        // Test with: tcpRestServer.getClass().getCanonicalName()
-
+    /**
+     * Negative test: Verify that client-side timeout is properly detected.
+     *
+     * <p>Client has @Timeout(second = 1) but server sleeps for 2 seconds,
+     * causing the socket read to timeout.</p>
+     *
+     * <p>Note: The SocketTimeoutException is wrapped by the dynamic proxy.
+     * We verify both the wrapper and the underlying cause.</p>
+     */
+    @Test
+    public void clientSideTimeoutTest() throws Exception {
         tcpRestServer.addResource(HelloWorldResource.class);
 
         TcpRestClientFactory factory =
@@ -80,8 +87,22 @@ public class TcpClientFactorySmokeTest {
                         tcpRestServer.getServerPort());
 
         HelloWorld client = (HelloWorld) factory.getInstance();
-        client.timeout();
 
+        // This should timeout: client expects 1 sec, server sleeps 2 sec
+        try {
+            client.timeout();
+            assertEquals(true, false, "Should have thrown timeout exception");
+        } catch (java.lang.reflect.UndeclaredThrowableException e) {
+            // Verify the underlying cause is SocketTimeoutException or TimeoutException
+            Throwable cause = e.getCause();
+            boolean isTimeout = (cause instanceof java.net.SocketTimeoutException) ||
+                               (cause instanceof cn.huiwings.tcprest.exception.TimeoutException);
+            assertEquals(true, isTimeout,
+                    "Expected timeout exception but got " + cause.getClass().getName());
+        } catch (cn.huiwings.tcprest.exception.TimeoutException e) {
+            // Also accept unwrapped TimeoutException (if dynamic proxy doesn't wrap it)
+            // This is the desired behavior
+        }
     }
 
 

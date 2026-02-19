@@ -1,6 +1,6 @@
 package cn.huiwings.tcprest.parser.v2;
 
-import cn.huiwings.tcprest.exception.ParseException;
+import cn.huiwings.tcprest.exception.ProtocolException;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.Context;
 import org.testng.annotations.BeforeClass;
@@ -188,32 +188,32 @@ public class ProtocolV2ParserTest {
 
     // ========== Test Error Handling ==========
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_nullRequest() throws Exception {
         parser.parse(null);
     }
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_emptyRequest() throws Exception {
         parser.parse("");
     }
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_notV2Request() throws Exception {
         parser.parse("SomeClass/method()()");
     }
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_invalidFormat() throws Exception {
         parser.parse("V2|0");
     }
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_missingClassMethodSeparator() throws Exception {
         parser.parse("V2|0|TestServiceadd(II)()");
     }
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_missingSignature() throws Exception {
         // Invalid format: missing method signature
         String meta = "TestService/add";  // Missing (SIGNATURE)
@@ -245,14 +245,14 @@ public class ProtocolV2ParserTest {
         parser.parse(request);
     }
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_parameterCountMismatch() throws Exception {
         // Signature says 2 params, but only 1 provided
         String request = buildRequest("add", "(II)", base64("1"));
         parser.parse(request);
     }
 
-    @Test(expectedExceptions = ParseException.class)
+    @Test(expectedExceptions = ProtocolException.class)
     public void testExtract_invalidParameterFormat() throws Exception {
         // Invalid parameter format (not {{base64}})
         String meta = TestService.class.getName() + "/add(II)";

@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.logger.Logger;
-import cn.huiwings.tcprest.logger.LoggerFactory;
+import java.util.logging.Logger;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
@@ -18,7 +17,7 @@ import io.netty.util.CharsetUtil;
  * @updated 2026-02-17 - Upgraded to Netty 4.x API
  */
 public class NettyTcpRestProtocolHandler extends SimpleChannelInboundHandler<String> {
-    private static final Logger logger = LoggerFactory.getDefaultLogger();
+    private static final Logger logger = Logger.getLogger(NettyTcpRestProtocolHandler.class.getName());
     private final NettyTcpRestServer serverInstance;
 
     public NettyTcpRestProtocolHandler(NettyTcpRestServer serverInstance) {
@@ -28,14 +27,14 @@ public class NettyTcpRestProtocolHandler extends SimpleChannelInboundHandler<Str
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, String request) throws Exception {
         try {
-            logger.debug("Received request: " + request);
+            logger.fine("Received request: " + request);
             String response = serverInstance.processRequest(request);
-            logger.debug("Sending response: " + response);
+            logger.fine("Sending response: " + response);
             // Manually create ByteBuf with response + newline for BufferedReader.readLine()
             ByteBuf buf = Unpooled.copiedBuffer(response + "\n", CharsetUtil.UTF_8);
             ctx.writeAndFlush(buf).addListener(ChannelFutureListener.CLOSE);
         } catch (Exception e) {
-            logger.error("Error processing request: " + e.getMessage());
+            logger.severe("Error processing request: " + e.getMessage());
             e.printStackTrace();
             ctx.close();
         }
@@ -43,7 +42,7 @@ public class NettyTcpRestProtocolHandler extends SimpleChannelInboundHandler<Str
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        logger.error("Exception caught in channel: " + cause.getMessage());
+        logger.severe("Exception caught in channel: " + cause.getMessage());
         cause.printStackTrace();
         ctx.close();
     }

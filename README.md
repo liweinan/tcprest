@@ -9,6 +9,13 @@ A lightweight, zero-dependency RPC framework that transforms POJOs into network-
 
 ## ⚡ What's New in v2.0 (2026-02-19)
 
+**Exception System Revolution:**
+- 🎯 **Intelligent exception reconstruction**: Preserves exact exception types across network
+- 🔄 **Smart fallback**: RemoteBusinessException/RemoteServerException when classes missing
+- 🧹 **Simplified hierarchy**: 5 core exceptions (was 8), all unchecked
+- 📊 **Semantic categories**: Clear distinction between business/server/protocol errors
+- ✅ **Full E2E testing**: Comprehensive exception propagation tests
+
 **Major Simplification - V2-Only Architecture:**
 - 🗑️ **V1 protocol removed**: Cleaner codebase, reduced complexity
 - 📦 **Simplified API**: ProtocolCodec, RequestParser (renamed from Converter/Extractor)
@@ -19,7 +26,7 @@ A lightweight, zero-dependency RPC framework that transforms POJOs into network-
 - ✨ **Method overloading**: Full support with type signatures
 - 🧠 **Intelligent mappers**: 4-tier system with auto-serialization for `Serializable` objects
 - 📊 **Collection interfaces**: List, Map, Set work automatically - zero configuration!
-- 🎯 **Exception propagation**: Full error details with status codes
+- 🎯 **Exception propagation**: Full error details with intelligent type reconstruction
 - 📦 **Clean wire format**: JSON-style arrays, compact markers (`~` for null)
 
 ## Quick Start
@@ -156,23 +163,140 @@ calc.add("Hello", "!"); // Calls String add(String, String) → "Hello!"
 
 ### Exception Handling
 
-Exceptions are properly propagated to the client with detailed error information:
+TcpRest provides intelligent exception propagation that preserves exception types and semantics across the network boundary.
+
+#### Exception Reconstruction
+
+When a server throws an exception, TcpRest attempts to recreate the exact same exception type on the client:
 
 ```java
 // Server-side service
 public class UserService {
-    public void validateAge(int age) {
-        if (age < 0) {
-            throw new ValidationException("Age must be non-negative");
+    public User getUser(int id) {
+        if (id < 0) {
+            throw new IllegalArgumentException("User ID must be positive");
         }
+        // ...
     }
 }
 
-// Client receives the exception
+// Client receives the EXACT same exception type
 try {
-    userService.validateAge(-1);
-} catch (RuntimeException e) {
-    // Exception message: "ValidationException: Age must be non-negative"
+    User user = userService.getUser(-1);
+} catch (IllegalArgumentException e) {
+    // Caught as IllegalArgumentException - exact type preserved!
+    assertEquals("User ID must be positive", e.getMessage());
+}
+```
+
+**How it works:**
+1. Server encodes exception with full class name: `java.lang.IllegalArgumentException: User ID must be positive`
+2. Client attempts to load and instantiate the exception class via reflection
+3. If successful → client receives the original exception type
+4. If class not available → intelligent fallback (see below)
+
+#### Intelligent Exception Fallback
+
+When the client doesn't have the exception class (e.g., custom server-side exceptions), TcpRest uses semantic fallback wrappers:
+
+**Business Exception Fallback:**
+```java
+// Server has custom exception (client doesn't)
+public class OrderValidationException extends BusinessException {
+    public OrderValidationException(String message) {
+        super(message);
+    }
+}
+
+// Server throws
+throw new OrderValidationException("Order amount exceeds limit");
+
+// Client receives RemoteBusinessException
+try {
+    orderService.placeOrder(order);
+} catch (RemoteBusinessException e) {
+    // Can still handle appropriately!
+    System.out.println("Business error: " + e.getRemoteExceptionType());
+    // Output: "com.example.OrderValidationException"
+
+    assertTrue(e.isBusinessException());
+    // Can retry with corrected input
+}
+```
+
+**Server Exception Fallback:**
+```java
+// Server has custom exception (client doesn't)
+public class DatabasePoolException extends RuntimeException {
+    // ...
+}
+
+// Server throws
+throw new DatabasePoolException("Connection pool exhausted");
+
+// Client receives RemoteServerException
+try {
+    userService.getUser(123);
+} catch (RemoteServerException e) {
+    // Identifies as server-side error!
+    System.err.println("Server error: " + e.getRemoteExceptionType());
+    // Output: "com.example.DatabasePoolException"
+
+    assertTrue(e.isServerError());
+    // Should log/alert, not retry
+}
+```
+
+#### Exception Categories
+
+TcpRest classifies exceptions into clear categories:
+
+| Category | Exception Type | Meaning | Client Handling |
+|----------|---------------|---------|-----------------|
+| **Business Errors** | `BusinessException` | Expected application logic errors | Retry with corrected input |
+| **Business Fallback** | `RemoteBusinessException` | Server business exception (client missing class) | Handle as business error |
+| **Server Errors** | Standard exceptions (NPE, etc.) | Unexpected server-side failures | Log/alert, don't retry |
+| **Server Fallback** | `RemoteServerException` | Server exception (client missing class) | Handle as server error |
+| **Protocol Errors** | `ProtocolException` | Protocol format/parsing errors | Fix protocol mismatch |
+| **Security Errors** | `SecurityException` | Security violations (checksum, whitelist) | Check security config |
+| **Timeout Errors** | `TimeoutException` | Client-side timeout | Increase timeout or optimize server |
+
+#### Best Practices
+
+**✅ Use BusinessException for expected errors:**
+```java
+public class OrderService {
+    public void validateOrder(Order order) {
+        if (order.getAmount() > limit) {
+            // Extends BusinessException - client knows it's a business rule
+            throw new ValidationException("Order exceeds limit");
+        }
+    }
+}
+```
+
+**✅ Client can distinguish error types:**
+```java
+try {
+    orderService.placeOrder(order);
+} catch (RemoteBusinessException e) {
+    // Business error - user can fix
+    showUserError("Please correct: " + e.getMessage());
+} catch (RemoteServerException e) {
+    // Server error - ops team issue
+    logger.error("Server failure", e);
+    showUserError("Service temporarily unavailable");
+}
+```
+
+**✅ Standard exceptions propagate correctly:**
+```java
+// NullPointerException, IllegalArgumentException, etc.
+// are standard Java exceptions - always available on both sides
+try {
+    service.process(null);
+} catch (NullPointerException e) {
+    // Exact type preserved!
 }
 ```
 

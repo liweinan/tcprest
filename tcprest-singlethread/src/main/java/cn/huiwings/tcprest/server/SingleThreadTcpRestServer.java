@@ -1,7 +1,5 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.exception.MapperNotFoundException;
-import cn.huiwings.tcprest.exception.ParseException;
 import cn.huiwings.tcprest.ssl.SSLParams;
 
 import java.io.BufferedReader;
@@ -121,7 +119,7 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
                 try {
                     while (status.equals(TcpRestServerStatus.RUNNING) && !Thread.currentThread().isInterrupted()) {
                         Socket socket = serverSocket.accept();
-                        logger.debug("Client accepted.");
+                        logger.fine("Client accepted.");
                         BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                         Scanner scanner = new Scanner(reader);
 
@@ -137,39 +135,31 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
                     }
                 } catch (java.net.SocketException e) {
                     // Expected during shutdown when serverSocket.close() is called
-                    logger.debug("Server socket closed: " + e.getMessage());
+                    logger.fine("Server socket closed: " + e.getMessage());
                 } catch (IOException e) {
-                    logger.error("IO error in server: " + e.getMessage());
+                    logger.severe("IO error in server: " + e.getMessage());
                 } catch (ClassNotFoundException e) {
                     String message = "***SingleThreadTcpRestServer: requested class not found.";
-                    logger.error(message);
+                    logger.severe(message);
                     if (writer != null)
                         writer.println(message);
                 } catch (NoSuchMethodException e) {
                     String message = "***SingleThreadTcpRestServer: requested method not found.";
-                    logger.error(message);
+                    logger.severe(message);
                     if (writer != null)
                         writer.println(message);
                 } catch (InstantiationException e) {
                     String message = "***SingleThreadTcpRestServer: resource cannot be instantiated.";
-                    logger.error(message);
+                    logger.severe(message);
                     if (writer != null)
                         writer.println(message);
                 } catch (IllegalAccessException e) {
                     String message = "***SingleThreadTcpRestServer: cannot invoke context.";
-                    logger.error(message);
+                    logger.severe(message);
                     if (writer != null)
                         writer.println(message);
-                } catch (ParseException e) {
-                    logger.error(e.getMessage());
-                    if (writer != null)
-                        writer.println(e.getMessage());
-                } catch (MapperNotFoundException e) {
-                    logger.error(e.getMessage());
-                    if (writer != null)
-                        writer.println(e.getMessage());
                 } catch (Exception e) {
-                    logger.error(e.getMessage());
+                    logger.severe(e.getMessage());
                     if (writer != null)
                         writer.println(e.getMessage());
                 } finally {
@@ -198,7 +188,7 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
             try {
                 serverSocket.close();
             } catch (IOException e) {
-                logger.error("Error closing server socket: " + e.getMessage());
+                logger.severe("Error closing server socket: " + e.getMessage());
             }
         }
 

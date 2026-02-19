@@ -157,7 +157,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                         request = request.substring(0, newlineIndex);
                     }
 
-                    logger.debug("incoming request: " + request);
+                    logger.fine("incoming request: " + request);
                     String response = processRequest(request.trim());
 
                     key.attach(response);
@@ -250,15 +250,15 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                         }
                     } catch (ClosedChannelException e) {
                         // Expected during shutdown when ssc.close() is called
-                        logger.debug("Server channel closed: " + e.getMessage());
+                        logger.fine("Server channel closed: " + e.getMessage());
                         break;
                     } catch (Exception e) {
-                        logger.error("Error in NIO server: " + e.getMessage());
+                        logger.severe("Error in NIO server: " + e.getMessage());
                         for (SocketChannel sc : runningChannels) {
                             try {
                                 sc.close();
                             } catch (IOException e1) {
-                                logger.error("Error closing channel: " + e1.getMessage());
+                                logger.severe("Error closing channel: " + e1.getMessage());
                             }
                         }
                     }
@@ -428,13 +428,13 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                     try {
                         sc.close();
                     } catch (IOException e) {
-                        logger.error("Error closing client channel: " + e.getMessage());
+                        logger.severe("Error closing client channel: " + e.getMessage());
                     }
                 }
                 runningChannels.clear();
             }
         } catch (IOException e) {
-            logger.error("Error closing server channel: " + e.getMessage());
+            logger.severe("Error closing server channel: " + e.getMessage());
         }
 
         // Wait for worker thread termination (5 second timeout)

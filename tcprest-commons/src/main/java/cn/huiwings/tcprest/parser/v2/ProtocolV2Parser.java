@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.parser.v2;
 
-import cn.huiwings.tcprest.exception.MapperNotFoundException;
-import cn.huiwings.tcprest.exception.ParseException;
+import cn.huiwings.tcprest.exception.ProtocolException;
 import cn.huiwings.tcprest.parser.RequestParser;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.TypeSignatureUtil;
@@ -135,18 +134,17 @@ public class ProtocolV2Parser implements RequestParser {
      * @return Context object with extracted information
      * @throws ClassNotFoundException if class cannot be found
      * @throws NoSuchMethodException if method cannot be found
-     * @throws ParseException if parsing fails
-     * @throws MapperNotFoundException not thrown in V2 (retained for interface compatibility)
+     * @throws ProtocolException if parsing fails
      */
     @Override
-    public Context parse(String request) throws ClassNotFoundException, NoSuchMethodException, ParseException, MapperNotFoundException {
+    public Context parse(String request) throws ClassNotFoundException, NoSuchMethodException {
         try {
             if (request == null || request.isEmpty()) {
-                throw new ParseException("Request cannot be null or empty");
+                throw new ProtocolException("Request cannot be null or empty");
             }
 
             if (!request.startsWith(ProtocolV2Constants.PREFIX)) {
-                throw new ParseException("Not a v2 request: " + request);
+                throw new ProtocolException("Not a v2 request: " + request);
             }
 
             // Step 1: Split checksum if present
@@ -154,8 +152,23 @@ public class ProtocolV2Parser implements RequestParser {
             String messageWithoutChecksum = checksumParts[0];
             String checksum = checksumParts[1];
 
-            // Step 2: Verify checksum if present
-            if (!checksum.isEmpty()) {
+            // Step 2: Verify checksum (enforce server security requirements)
+            if (securityConfig.isChecksumEnabled()) {
+                // Server requires checksum - client must provide it
+                if (checksum.isEmpty()) {
+                    throw new cn.huiwings.tcprest.exception.SecurityException(
+                        "Server requires " + securityConfig.getChecksumAlgorithm() +
+                        " checksum, but client did not provide one"
+                    );
+                }
+                // Verify the provided checksum
+                if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+                    throw new cn.huiwings.tcprest.exception.SecurityException(
+                        "Checksum verification failed - message may have been tampered with"
+                    );
+                }
+            } else if (!checksum.isEmpty()) {
+                // Server doesn't require checksum, but client sent one - still verify it
                 if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
                     throw new cn.huiwings.tcprest.exception.SecurityException(
                         "Checksum verification failed - message may have been tampered with"
@@ -166,7 +179,7 @@ public class ProtocolV2Parser implements RequestParser {
             // Step 3: Parse request parts: V2|0|{{META}}|[PARAMS]
             String[] parts = messageWithoutChecksum.split("\\" + ProtocolV2Constants.SEPARATOR, 4);
             if (parts.length < 3) {
-                throw new ParseException("Invalid v2 request format: " + request);
+                throw new ProtocolException("Invalid v2 request format: " + request);
             }
 
             String metaWrapped = parts[2];
@@ -175,7 +188,7 @@ public class ProtocolV2Parser implements RequestParser {
             // Step 4: Unwrap and decode metadata from {{base64(...)}}
             if (!metaWrapped.startsWith(ProtocolV2Constants.PARAM_WRAPPER_START) ||
                 !metaWrapped.endsWith(ProtocolV2Constants.PARAM_WRAPPER_END)) {
-                throw new ParseException("Invalid metadata format, expected {{...}}: " + metaWrapped);
+                throw new ProtocolException("Invalid metadata format, expected {{...}}: " + metaWrapped);
             }
 
             String metaBase64 = metaWrapped.substring(
@@ -187,7 +200,7 @@ public class ProtocolV2Parser implements RequestParser {
             // Step 5: Parse class name and method signature
             int slashIndex = meta.indexOf(ProtocolV2Constants.CLASS_METHOD_SEPARATOR);
             if (slashIndex == -1) {
-                throw new ParseException("Missing class/method separator: " + meta);
+                throw new ProtocolException("Missing class/method separator: " + meta);
             }
 
             String className = meta.substring(0, slashIndex);
@@ -198,7 +211,7 @@ public class ProtocolV2Parser implements RequestParser {
             // Format: methodName(SIGNATURE)
             int firstParenIndex = methodPart.indexOf('(');
             if (firstParenIndex == -1) {
-                throw new ParseException("Missing method signature: " + methodPart);
+                throw new ProtocolException("Missing method signature: " + methodPart);
             }
 
             String methodName = methodPart.substring(0, firstParenIndex);
@@ -228,7 +241,7 @@ public class ProtocolV2Parser implements RequestParser {
             // Find the signature (between first '(' and first ')')
             int signatureEnd = methodPart.indexOf(')', firstParenIndex);
             if (signatureEnd == -1) {
-                throw new ParseException("Malformed method signature: " + methodPart);
+                throw new ProtocolException("Malformed method signature: " + methodPart);
             }
 
             String signature = methodPart.substring(firstParenIndex, signatureEnd + 1);
@@ -252,15 +265,15 @@ public class ProtocolV2Parser implements RequestParser {
         } catch (ClassNotFoundException | NoSuchMethodException e) {
             // Re-throw these as-is (they're declared in the interface)
             throw e;
-        } catch (ParseException e) {
+        } catch (ProtocolException e) {
             // Re-throw ParseException as-is
             throw e;
         } catch (cn.huiwings.tcprest.exception.SecurityException e) {
-            // Wrap SecurityException as ParseException
-            throw new ParseException("Security validation failed: " + e.getMessage());
+            // Re-throw SecurityException as-is (let AbstractTcpRestServer handle it)
+            throw e;
         } catch (Exception e) {
             // Wrap all other exceptions as ParseException
-            throw new ParseException("Failed to parse v2 request: " + e.getMessage());
+            throw new ProtocolException("Failed to parse v2 request: " + e.getMessage());
         }
     }
 
@@ -272,9 +285,9 @@ public class ProtocolV2Parser implements RequestParser {
      * @param paramsArray the parameters array string (e.g., "[p1,p2,p3]")
      * @param paramTypes the expected parameter types
      * @return array of parameter objects
-     * @throws ParseException if parsing fails
+     * @throws ProtocolException if parsing fails
      */
-    private Object[] parseParametersArray(String paramsArray, Class<?>[] paramTypes) throws ParseException {
+    private Object[] parseParametersArray(String paramsArray, Class<?>[] paramTypes) throws ProtocolException {
         try {
             if (paramsArray == null || paramsArray.isEmpty()) {
                 paramsArray = "[]";
@@ -283,7 +296,7 @@ public class ProtocolV2Parser implements RequestParser {
             // Validate array format
             if (!paramsArray.startsWith(ProtocolV2Constants.PARAMS_ARRAY_START) ||
                 !paramsArray.endsWith(ProtocolV2Constants.PARAMS_ARRAY_END)) {
-                throw new ParseException("Invalid parameter array format, expected [...]: " + paramsArray);
+                throw new ProtocolException("Invalid parameter array format, expected [...]: " + paramsArray);
             }
 
             // Extract content between [ and ]
@@ -297,7 +310,7 @@ public class ProtocolV2Parser implements RequestParser {
                     // Single empty string parameter: [] represents one empty string
                     return new Object[]{""};
                 } else {
-                    throw new ParseException(
+                    throw new ProtocolException(
                         "Parameter count mismatch: expected " + paramTypes.length + ", got 0"
                     );
                 }
@@ -307,7 +320,7 @@ public class ProtocolV2Parser implements RequestParser {
             String[] paramParts = arrayContent.split(ProtocolV2Constants.PARAM_SEPARATOR);
 
             if (paramParts.length != paramTypes.length) {
-                throw new ParseException(
+                throw new ProtocolException(
                     "Parameter count mismatch: expected " + paramTypes.length +
                     ", got " + paramParts.length
                 );
@@ -321,10 +334,10 @@ public class ProtocolV2Parser implements RequestParser {
 
             return params;
         } catch (Exception e) {
-            if (e instanceof ParseException) {
-                throw (ParseException) e;
+            if (e instanceof ProtocolException) {
+                throw (ProtocolException) e;
             }
-            throw new ParseException("Failed to parse parameters array: " + e.getMessage());
+            throw new ProtocolException("Failed to parse parameters array: " + e.getMessage());
         }
     }
 
@@ -344,12 +357,12 @@ public class ProtocolV2Parser implements RequestParser {
      * @param paramStr the parameter string (base64-encoded or special marker)
      * @param paramType the expected parameter type
      * @return parsed parameter object
-     * @throws ParseException if parsing fails
+     * @throws ProtocolException if parsing fails
      */
-    private Object parseParameter(String paramStr, Class<?> paramType) throws ParseException {
+    private Object parseParameter(String paramStr, Class<?> paramType) throws ProtocolException {
         try {
             if (paramStr == null) {
-                throw new ParseException("Parameter cannot be null");
+                throw new ProtocolException("Parameter cannot be null");
             }
 
             // Handle empty string (consecutive commas: [a,,b])
@@ -411,10 +424,10 @@ public class ProtocolV2Parser implements RequestParser {
             // Priority 5: Convert to expected type
             return convertToType(decoded, paramType);
         } catch (Exception e) {
-            if (e instanceof ParseException) {
-                throw (ParseException) e;
+            if (e instanceof ProtocolException) {
+                throw (ProtocolException) e;
             }
-            throw new ParseException("Failed to parse parameter: " + e.getMessage());
+            throw new ProtocolException("Failed to parse parameter: " + e.getMessage());
         }
     }
 

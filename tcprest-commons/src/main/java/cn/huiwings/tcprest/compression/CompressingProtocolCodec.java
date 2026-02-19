@@ -1,9 +1,7 @@
 package cn.huiwings.tcprest.compression;
 
 import cn.huiwings.tcprest.codec.ProtocolCodec;
-import cn.huiwings.tcprest.exception.MapperNotFoundException;
-import cn.huiwings.tcprest.logger.Logger;
-import cn.huiwings.tcprest.logger.LoggerFactory;
+import java.util.logging.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
 
 import java.io.IOException;
@@ -23,7 +21,7 @@ public class CompressingProtocolCodec implements ProtocolCodec {
 
     private final ProtocolCodec delegate;
     private final CompressionConfig config;
-    private final Logger logger = LoggerFactory.getDefaultLogger();
+    private final Logger logger = Logger.getLogger(CompressingProtocolCodec.class.getName());
 
     public CompressingProtocolCodec(ProtocolCodec delegate, CompressionConfig config) {
         if (delegate == null) {
@@ -40,8 +38,7 @@ public class CompressingProtocolCodec implements ProtocolCodec {
      * Encode and optionally compress the message
      */
     @Override
-    public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers)
-            throws MapperNotFoundException {
+    public String encode(Class clazz, Method method, Object[] params, Map<String, Mapper> mappers) {
 
         // First, use delegate to encode
         String encoded = delegate.encode(clazz, method, params, mappers);
@@ -52,13 +49,13 @@ public class CompressingProtocolCodec implements ProtocolCodec {
                 String compressed = CompressionUtil.compress(encoded, config);
                 if (CompressionUtil.isCompressed(compressed)) {
                     double ratio = CompressionUtil.getCompressionRatio(encoded, compressed);
-                    logger.debug("Compressed message: " + encoded.length() + " -> " +
+                    logger.fine("Compressed message: " + encoded.length() + " -> " +
                             (compressed.length() - 2) + " bytes (saved " +
                             String.format("%.1f", ratio) + "%)");
                 }
                 return compressed;
             } catch (IOException e) {
-                logger.error("Compression failed, sending uncompressed: " + e.getMessage());
+                logger.severe("Compression failed, sending uncompressed: " + e.getMessage());
                 return "0|" + encoded; // Fallback to uncompressed with prefix
             }
         } else {
@@ -71,8 +68,7 @@ public class CompressingProtocolCodec implements ProtocolCodec {
      * Decompress and decode the message
      */
     @Override
-    public Object[] decode(Method targetMethod, String paramsToken, Map<String, Mapper> mappers)
-            throws MapperNotFoundException {
+    public Object[] decode(Method targetMethod, String paramsToken, Map<String, Mapper> mappers) {
 
         // First decompress if needed
         String decompressed = paramsToken;
@@ -80,11 +76,11 @@ public class CompressingProtocolCodec implements ProtocolCodec {
             try {
                 decompressed = CompressionUtil.decompress(paramsToken);
                 if (CompressionUtil.isCompressed(paramsToken)) {
-                    logger.debug("Decompressed message: " + paramsToken.length() + " -> " +
+                    logger.fine("Decompressed message: " + paramsToken.length() + " -> " +
                             decompressed.length() + " bytes");
                 }
             } catch (IOException e) {
-                logger.error("Decompression failed, trying as-is: " + e.getMessage());
+                logger.severe("Decompression failed, trying as-is: " + e.getMessage());
                 // If decompression fails, try using original (might be legacy format)
                 decompressed = paramsToken;
             }
@@ -105,12 +101,12 @@ public class CompressingProtocolCodec implements ProtocolCodec {
     }
 
     @Override
-    public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) throws MapperNotFoundException {
+    public Mapper getMapper(Map<String, Mapper> mappers, Class targetClazz) {
         return delegate.getMapper(mappers, targetClazz);
     }
 
     @Override
-    public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) throws MapperNotFoundException {
+    public Mapper getMapper(Map<String, Mapper> mappers, String targetClazzName) {
         return delegate.getMapper(mappers, targetClazzName);
     }
 

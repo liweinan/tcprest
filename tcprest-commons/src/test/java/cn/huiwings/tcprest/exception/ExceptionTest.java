@@ -80,106 +80,64 @@ public class ExceptionTest {
         assertEquals(ex.getMessage(), "Custom error");
     }
 
-    // ========== RemoteInvocationException Tests ==========
+    // ========== RemoteBusinessException Tests ==========
 
     @Test
-    public void testRemoteInvocationException_businessException() {
-        RemoteInvocationException ex = new RemoteInvocationException(
-            "ValidationException",
-            "Invalid input"
+    public void testRemoteBusinessException_basic() {
+        RemoteBusinessException ex = new RemoteBusinessException(
+            "com.example.OrderValidationException",
+            "Order amount exceeds limit"
         );
 
         assertTrue(ex.isBusinessException());
         assertFalse(ex.isServerError());
-        assertEquals(ex.getRemoteExceptionType(), "ValidationException");
-        assertTrue(ex.getMessage().contains("ValidationException"));
-        assertTrue(ex.getMessage().contains("Invalid input"));
+        assertEquals(ex.getRemoteExceptionType(), "com.example.OrderValidationException");
+        assertTrue(ex.getMessage().contains("OrderValidationException"));
+        assertTrue(ex.getMessage().contains("Order amount exceeds limit"));
     }
 
     @Test
-    public void testRemoteInvocationException_serverError() {
-        RemoteInvocationException ex = new RemoteInvocationException(
-            "NullPointerException",
-            "Object is null",
-            false
-        );
-
-        assertFalse(ex.isBusinessException());
-        assertTrue(ex.isServerError());
-        assertEquals(ex.getRemoteExceptionType(), "NullPointerException");
-        assertTrue(ex.getMessage().contains("NullPointerException"));
-        assertTrue(ex.getMessage().contains("Object is null"));
-    }
-
-    @Test
-    public void testRemoteInvocationException_withCause() {
-        Exception cause = new IllegalStateException("Internal error");
-        RemoteInvocationException ex = new RemoteInvocationException(
-            "ServerException",
-            "Server failed",
-            false,
+    public void testRemoteBusinessException_withCause() {
+        Exception cause = new IllegalArgumentException("Invalid parameter");
+        RemoteBusinessException ex = new RemoteBusinessException(
+            "com.example.ValidationException",
+            "Validation failed",
             cause
         );
 
         assertEquals(ex.getCause(), cause);
-        assertEquals(ex.getRemoteExceptionType(), "ServerException");
+        assertEquals(ex.getRemoteExceptionType(), "com.example.ValidationException");
+        assertTrue(ex.isBusinessException());
+    }
+
+    // ========== RemoteServerException Tests ==========
+
+    @Test
+    public void testRemoteServerException_basic() {
+        RemoteServerException ex = new RemoteServerException(
+            "com.example.CustomDatabaseException",
+            "Connection pool exhausted"
+        );
+
+        assertFalse(ex.isBusinessException());
         assertTrue(ex.isServerError());
+        assertEquals(ex.getRemoteExceptionType(), "com.example.CustomDatabaseException");
+        assertTrue(ex.getMessage().contains("CustomDatabaseException"));
+        assertTrue(ex.getMessage().contains("Connection pool exhausted"));
     }
 
     @Test
-    public void testRemoteInvocationException_nullType() {
-        RemoteInvocationException ex = new RemoteInvocationException(
-            null,
-            "Some error"
+    public void testRemoteServerException_withCause() {
+        Exception cause = new RuntimeException("Internal error");
+        RemoteServerException ex = new RemoteServerException(
+            "com.example.ServerException",
+            "Server failed",
+            cause
         );
 
-        assertNull(ex.getRemoteExceptionType());
-        assertEquals(ex.getMessage(), "Some error");
-    }
-
-    @Test
-    public void testRemoteInvocationException_emptyType() {
-        RemoteInvocationException ex = new RemoteInvocationException(
-            "",
-            "Some error"
-        );
-
-        assertEquals(ex.getRemoteExceptionType(), "");
-        assertEquals(ex.getMessage(), "Some error");
-    }
-
-    @Test
-    public void testRemoteInvocationException_nullMessage() {
-        RemoteInvocationException ex = new RemoteInvocationException(
-            "TestException",
-            null
-        );
-
-        assertEquals(ex.getRemoteExceptionType(), "TestException");
-        assertTrue(ex.getMessage().contains("TestException"));
-    }
-
-    @Test
-    public void testRemoteInvocationException_nullTypeAndMessage() {
-        RemoteInvocationException ex = new RemoteInvocationException(
-            null,
-            null
-        );
-
-        assertNull(ex.getRemoteExceptionType());
-        assertEquals(ex.getMessage(), "Remote invocation failed");
-    }
-
-    @Test
-    public void testRemoteInvocationException_formatting() {
-        RemoteInvocationException ex1 = new RemoteInvocationException("Type1", "Message1");
-        assertEquals(ex1.getMessage(), "Type1: Message1");
-
-        RemoteInvocationException ex2 = new RemoteInvocationException("Type2", "");
-        assertEquals(ex2.getMessage(), "Type2: ");
-
-        RemoteInvocationException ex3 = new RemoteInvocationException("", "Message3");
-        assertEquals(ex3.getMessage(), "Message3");
+        assertEquals(ex.getCause(), cause);
+        assertEquals(ex.getRemoteExceptionType(), "com.example.ServerException");
+        assertTrue(ex.isServerError());
     }
 
     // ========== Test Helper Classes ==========

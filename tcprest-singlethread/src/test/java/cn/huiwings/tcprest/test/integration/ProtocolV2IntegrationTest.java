@@ -3,7 +3,7 @@ package cn.huiwings.tcprest.test.integration;
 import cn.huiwings.tcprest.client.DefaultTcpRestClient;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.exception.BusinessException;
-import cn.huiwings.tcprest.exception.RemoteInvocationException;
+import cn.huiwings.tcprest.exception.RemoteBusinessException;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;

@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.classloader;
 
-import cn.huiwings.tcprest.logger.Logger;
-import cn.huiwings.tcprest.logger.LoggerFactory;
+import java.util.logging.Logger;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,7 +16,7 @@ import java.util.List;
  * @author Weinan Li
  */
 public class FilePathClassLoader extends ClassLoader {
-    Logger logger = LoggerFactory.getDefaultLogger();
+    Logger logger = Logger.getLogger(FilePathClassLoader.class.getName());
 
     String[] dirs;
 
@@ -56,7 +55,7 @@ public class FilePathClassLoader extends ClassLoader {
         for (String dir : dirs) {
             byte[] buf = getClassData(dir, canonicalName);
             if (buf != null) {
-                logger.debug("Loading '" + canonicalName + "' from: " + dir);
+                logger.fine("Loading '" + canonicalName + "' from: " + dir);
                 return defineClass(canonicalName, buf, 0, buf.length);
             }
         }
@@ -77,7 +76,7 @@ public class FilePathClassLoader extends ClassLoader {
                 pathSeg.append(tokens[j]).append("/");
             }
             String classFile = directory + "/" + pathSeg.toString() + className + ".class";
-            logger.debug("search in: " + classFile);
+            logger.fine("search in: " + classFile);
             File f = (new File(classFile));
             int classSize = Math.toIntExact(f.length());
             buf = new byte[classSize];
@@ -86,7 +85,7 @@ public class FilePathClassLoader extends ClassLoader {
                 classSize = filein.read(buf);
                 filein.close();
                 if (buf != null) {
-                    logger.debug("found in: " + pathSeg.toString());
+                    logger.fine("found in: " + pathSeg.toString());
                     break;
                 }
             } catch (FileNotFoundException e) {
