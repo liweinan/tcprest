@@ -5,18 +5,17 @@ import java.util.*;
 /**
  * Helper class providing default mappers for common types.
  *
- * <p><b>Design Note:</b> Primitive types (int, long, double, etc.) and their wrapper classes
+ * <p><b>Design Note:</b> Primitive types (int, long, double, etc.), wrapper classes, and String
  * are NOT included in DEFAULT_MAPPERS because Protocol V2's {@code convertToType()} method
  * handles them natively using direct parsing (Integer.parseInt(), etc.). This approach:</p>
  * <ul>
- *   <li>Reduces code complexity - no need for redundant IntegerMapper, LongMapper, etc.</li>
+ *   <li>Reduces code complexity - no need for redundant mappers</li>
  *   <li>Improves performance - direct parsing is faster than mapper lookup + delegation</li>
  *   <li>Maintains clean separation - protocol-level types vs user-defined custom types</li>
  * </ul>
  *
  * <p><b>Included Mappers:</b></p>
  * <ul>
- *   <li>{@link StringMapper} - For String type (simple passthrough, kept for consistency)</li>
  *   <li>{@link RawTypeMapper} - For collections (List, Set, Map, Queue) and custom Serializable objects</li>
  *   <li>{@link ExceptionMapper} - For exception message transfer (security: no stack traces)</li>
  * </ul>
@@ -34,9 +33,6 @@ public class MapperHelper {
     public static final HashMap<String, Mapper> DEFAULT_MAPPERS = new HashMap<String, Mapper>();
 
     static {
-        // String mapper (simple passthrough, kept for API consistency)
-        DEFAULT_MAPPERS.put(String.class.getCanonicalName(), new StringMapper());
-
         // Collection mappers (use Java serialization for complex types)
         DEFAULT_MAPPERS.put(Collection.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(Set.class.getCanonicalName(), new RawTypeMapper());

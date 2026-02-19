@@ -68,8 +68,7 @@ package cn.huiwings.tcprest.mapper;
  * <p><b>Built-in Mappers:</b></p>
  * <ul>
  *   <li>{@link RawTypeMapper} - Java serialization for {@link java.io.Serializable} types</li>
- *   <li>{@link IntegerMapper}, {@link LongMapper}, etc. - Primitive wrappers (V1 only)</li>
- *   <li>{@link StringMapper} - String type (V1 only)</li>
+ *   <li>{@link ExceptionMapper} - Exception message transfer (security: no stack traces)</li>
  * </ul>
  *
  * <p><b>Registration:</b></p>
