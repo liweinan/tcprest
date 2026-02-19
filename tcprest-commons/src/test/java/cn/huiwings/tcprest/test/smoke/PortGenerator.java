@@ -3,19 +3,27 @@ package cn.huiwings.tcprest.test.smoke;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Port generator for tests.
+ * Port generator for tests. Generates sequential ports to avoid conflicts.
  *
- * <p>Generates sequential port numbers starting from a base port.
- * Each test class should use a different base port to avoid conflicts.</p>
+ * <p>Supports both global port generation and dedicated port ranges per test class.
+ * Each module/test class may use {@link #from(int)} for an isolated range.</p>
  *
- * <p>Recommended port ranges:</p>
+ * <p>Recommended port ranges (per CLAUDE.md):</p>
  * <ul>
- *   <li>Smoke tests: 20000-20999</li>
- *   <li>Integration tests: 21000-22999</li>
- *   <li>Performance tests: 23000-23999</li>
+ *   <li>tcprest-commons: 8000+</li>
+ *   <li>tcprest-singlethread: 14000+, e.g. integration 21000, bind 26000</li>
+ *   <li>tcprest-netty: 20000+, e.g. bind 30000</li>
  * </ul>
  *
- * @author <a href="mailto:l.weinan@gmail.com">Weinan Li</a>
+ * <p>Usage:</p>
+ * <pre>
+ * int port = PortGenerator.get();
+ * // or dedicated range:
+ * private static final PortRange portRange = PortGenerator.from(21000);
+ * int port = portRange.next();
+ * </pre>
+ *
+ * @author Weinan Li
  */
 public class PortGenerator {
 

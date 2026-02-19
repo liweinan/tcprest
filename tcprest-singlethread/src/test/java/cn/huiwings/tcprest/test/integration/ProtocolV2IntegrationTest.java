@@ -4,6 +4,7 @@ import cn.huiwings.tcprest.client.DefaultTcpRestClient;
 import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.RemoteBusinessException;
+import cn.huiwings.tcprest.exception.RemoteServerException;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
@@ -165,9 +166,11 @@ public class ProtocolV2IntegrationTest {
             exceptionClient.causeNullPointer();
             fail("Should have thrown exception");
         } catch (RuntimeException e) {
-            // Should contain exception type info
-            assertTrue(e.getMessage().contains("NullPointerException") ||
-                      e.getMessage().contains("null"));
+            // Reconstructed NPE (Java 17 may set message; Java 11 often getMessage() == "" or null)
+            // Or RemoteServerException when client cannot reconstruct
+            assertTrue(e instanceof NullPointerException
+                || (e.getMessage() != null && (e.getMessage().contains("NullPointerException") || e.getMessage().contains("null")))
+                || (e instanceof RemoteServerException && ((RemoteServerException) e).getRemoteExceptionType().contains("NullPointerException")));
         }
     }
 
