@@ -375,7 +375,23 @@ public class ProtocolV2Parser implements RequestParser {
                 return null;
             }
 
-            // Priority 1: User-defined Mapper
+            // Priority 1: Object arrays (e.g. PersonDto[]) - serialized as Base64 by client, not "[...]" format.
+            // Must run before decoding as string, since Base64 payload is not "[...]".
+            if (paramType.isArray()) {
+                Class<?> componentType = paramType.getComponentType();
+                boolean isPrimitiveOrString = componentType == int.class || componentType == long.class
+                    || componentType == double.class || componentType == float.class
+                    || componentType == byte.class || componentType == short.class
+                    || componentType == boolean.class || componentType == char.class
+                    || componentType == String.class;
+                if (!isPrimitiveOrString) {
+                    String standardBase64 = convertUrlSafeToStandard(paramStr);
+                    cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+                    return rawMapper.stringToObject(standardBase64);
+                }
+            }
+
+            // Priority 2: User-defined Mapper
             if (mappers != null) {
                 // Use getCanonicalName() to match MapperHelper.DEFAULT_MAPPERS keys
                 cn.huiwings.tcprest.mapper.Mapper mapper = mappers.get(paramType.getCanonicalName());
@@ -395,7 +411,7 @@ public class ProtocolV2Parser implements RequestParser {
                 }
             }
 
-            // Priority 2: Common collection interfaces (List, Map, Set, etc.)
+            // Priority 3: Common collection interfaces (List, Map, Set, etc.)
             // These interfaces aren't Serializable themselves, but their implementations are
             if (isCommonCollectionInterface(paramType)) {
                 // Convert URL-safe Base64 back to standard Base64 for RawTypeMapper
@@ -405,7 +421,7 @@ public class ProtocolV2Parser implements RequestParser {
                 return rawMapper.stringToObject(standardBase64);
             }
 
-            // Priority 3: Auto Deserialization for Serializable types
+            // Priority 4: Auto Deserialization for Serializable types (non-array)
             if (java.io.Serializable.class.isAssignableFrom(paramType) &&
                 paramType != String.class &&
                 !paramType.isArray() &&
@@ -417,11 +433,11 @@ public class ProtocolV2Parser implements RequestParser {
                 return rawMapper.stringToObject(standardBase64);
             }
 
-            // Priority 4: Decode from URL-safe Base64
+            // Priority 5: Decode from URL-safe Base64
             String standardBase64 = convertUrlSafeToStandard(paramStr);
             String decoded = new String(Base64.getDecoder().decode(standardBase64));
 
-            // Priority 5: Convert to expected type
+            // Priority 6: Convert to expected type (primitives, primitive arrays, String, String[])
             return convertToType(decoded, paramType);
         } catch (Exception e) {
             if (e instanceof ProtocolException) {

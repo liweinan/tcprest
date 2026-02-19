@@ -59,6 +59,11 @@ import java.util.Map;
 public class ProtocolV2Codec implements ProtocolCodec {
 
     private static final String COMPRESSION_DISABLED = "0";
+
+    // Array safety limits (prevent DoS attacks)
+    private static final int MAX_ARRAY_DEPTH = 10;    // Maximum nesting depth for arrays
+    private static final int MAX_ARRAY_SIZE = 100000;  // Maximum array length
+
     private SecurityConfig securityConfig;
     private Map<String, Mapper> mappers;
 
@@ -259,6 +264,19 @@ public class ProtocolV2Codec implements ProtocolCodec {
         // Priority 3: Arrays
         if (param.getClass().isArray()) {
             paramStr = arrayToString(param);
+            // Object arrays: arrayToString already returns Base64 from RawTypeMapper - do not double-encode
+            Class<?> componentType = param.getClass().getComponentType();
+            boolean primitiveOrStringArray = componentType == int.class || componentType == long.class
+                || componentType == double.class || componentType == float.class
+                || componentType == byte.class || componentType == short.class
+                || componentType == boolean.class || componentType == char.class
+                || componentType == String.class;
+            if (!primitiveOrStringArray) {
+                if (paramStr == null || paramStr.isEmpty()) {
+                    return paramStr == null ? "~" : "";
+                }
+                return paramStr.replace('+', '-').replace('/', '_').replace("=", "");
+            }
         } else {
             // Priority 4: Primitives and other types
             paramStr = param.toString();
@@ -306,14 +324,38 @@ public class ProtocolV2Codec implements ProtocolCodec {
     }
 
     /**
-     * Convert array to string representation.
+     * Convert array to string representation with safety checks.
+     *
+     * <p><b>Supported array types:</b></p>
+     * <ul>
+     *   <li>Primitive arrays (int[], long[], etc.) - uses Arrays.toString()</li>
+     *   <li>String[] - uses Arrays.toString()</li>
+     *   <li>Object arrays (User[], Person[], etc.) - uses Java serialization via RawTypeMapper</li>
+     *   <li>Nested arrays (int[][], User[][], etc.) - uses Java serialization</li>
+     * </ul>
+     *
+     * <p><b>Safety limits:</b></p>
+     * <ul>
+     *   <li>Maximum array size: {@value MAX_ARRAY_SIZE} elements</li>
+     *   <li>Maximum nesting depth: {@value MAX_ARRAY_DEPTH} levels (checked during decode)</li>
+     * </ul>
      *
      * @param array the array object
      * @return string representation
+     * @throws IllegalArgumentException if array exceeds size limit
      */
     private String arrayToString(Object array) {
         Class<?> componentType = array.getClass().getComponentType();
+        int length = java.lang.reflect.Array.getLength(array);
 
+        // Safety check: array size limit
+        if (length > MAX_ARRAY_SIZE) {
+            throw new IllegalArgumentException(
+                "Array too large: " + length + " elements (max: " + MAX_ARRAY_SIZE + ")"
+            );
+        }
+
+        // Primitive arrays - use Arrays.toString() for human-readable format
         if (componentType == int.class) {
             return java.util.Arrays.toString((int[]) array);
         } else if (componentType == double.class) {
@@ -330,9 +372,14 @@ public class ProtocolV2Codec implements ProtocolCodec {
             return java.util.Arrays.toString((float[]) array);
         } else if (componentType == char.class) {
             return java.util.Arrays.toString((char[]) array);
+        } else if (componentType == String.class) {
+            // String arrays - use Arrays.toString() for human-readable format
+            return java.util.Arrays.toString((String[]) array);
         } else {
-            // Object arrays
-            return java.util.Arrays.toString((Object[]) array);
+            // Object arrays (including nested arrays) - use Java serialization
+            // This supports User[], Person[], int[][], User[][], etc.
+            cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+            return rawMapper.objectToString(array);
         }
     }
 
@@ -647,14 +694,72 @@ public class ProtocolV2Codec implements ProtocolCodec {
     }
 
     /**
-     * Parse array from string representation like "[a, b, c]".
+     * Parse array from string representation with safety checks.
+     *
+     * <p><b>Supported formats:</b></p>
+     * <ul>
+     *   <li>Primitive/String arrays: "[1, 2, 3]" or "[a, b, c]"</li>
+     *   <li>Object arrays: Base64-encoded serialized data (via RawTypeMapper)</li>
+     * </ul>
+     *
+     * <p><b>Safety limits:</b></p>
+     * <ul>
+     *   <li>Maximum array size: {@value MAX_ARRAY_SIZE} elements</li>
+     *   <li>Maximum nesting depth: {@value MAX_ARRAY_DEPTH} levels</li>
+     * </ul>
      *
      * @param value the string value
      * @param componentType the array component type
      * @return parsed array
+     * @throws IllegalArgumentException if array format is invalid or exceeds limits
      */
     private Object parseArray(String value, Class<?> componentType) {
-        // Remove brackets and split by comma
+        return parseArray(value, componentType, 0);
+    }
+
+    /**
+     * Parse array with depth tracking (internal method).
+     *
+     * @param value the string value
+     * @param componentType the array component type
+     * @param depth current nesting depth
+     * @return parsed array
+     */
+    private Object parseArray(String value, Class<?> componentType, int depth) {
+        // Safety check: nesting depth limit
+        if (depth > MAX_ARRAY_DEPTH) {
+            throw new IllegalArgumentException(
+                "Array nesting too deep: " + depth + " levels (max: " + MAX_ARRAY_DEPTH + ")"
+            );
+        }
+
+        // Check if this is a serialized Object array (Base64 data, not "[...]" format)
+        // Object arrays are serialized by RawTypeMapper in arrayToString()
+        if (componentType != int.class && componentType != long.class &&
+            componentType != double.class && componentType != float.class &&
+            componentType != byte.class && componentType != short.class &&
+            componentType != boolean.class && componentType != char.class &&
+            componentType != String.class) {
+
+            // This is an Object array (User[], Person[], int[][], etc.)
+            // It was serialized by RawTypeMapper, so deserialize it
+            cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+            Object array = rawMapper.stringToObject(value);
+
+            // Safety check: verify array size after deserialization
+            if (array != null && array.getClass().isArray()) {
+                int length = java.lang.reflect.Array.getLength(array);
+                if (length > MAX_ARRAY_SIZE) {
+                    throw new IllegalArgumentException(
+                        "Array too large: " + length + " elements (max: " + MAX_ARRAY_SIZE + ")"
+                    );
+                }
+            }
+
+            return array;
+        }
+
+        // Parse primitive or String arrays from "[...]" format
         String trimmed = value.trim();
         if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
             throw new IllegalArgumentException("Invalid array format: " + value);
@@ -667,6 +772,13 @@ public class ProtocolV2Codec implements ProtocolCodec {
         }
 
         String[] parts = content.split(",\\s*");
+
+        // Safety check: array size limit
+        if (parts.length > MAX_ARRAY_SIZE) {
+            throw new IllegalArgumentException(
+                "Array too large: " + parts.length + " elements (max: " + MAX_ARRAY_SIZE + ")"
+            );
+        }
 
         if (componentType == int.class) {
             int[] array = new int[parts.length];
@@ -718,12 +830,8 @@ public class ProtocolV2Codec implements ProtocolCodec {
             return array;
         }
 
-        // For other types, create an Object array
-        Object[] array = (Object[]) java.lang.reflect.Array.newInstance(componentType, parts.length);
-        for (int i = 0; i < parts.length; i++) {
-            array[i] = parts[i].trim();
-        }
-        return array;
+        // Should not reach here given the initial check, but as fallback
+        throw new IllegalArgumentException("Unsupported array component type: " + componentType);
     }
 
     /**

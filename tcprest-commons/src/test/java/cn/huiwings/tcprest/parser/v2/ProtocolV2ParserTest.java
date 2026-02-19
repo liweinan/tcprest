@@ -1,11 +1,13 @@
 package cn.huiwings.tcprest.parser.v2;
 
 import cn.huiwings.tcprest.exception.ProtocolException;
+import cn.huiwings.tcprest.mapper.RawTypeMapper;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
 import cn.huiwings.tcprest.server.Context;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.Serializable;
 import java.util.Base64;
 
 import static org.testng.Assert.*;
@@ -160,6 +162,42 @@ public class ProtocolV2ParserTest {
     }
 
     // ========== Test Type Conversions ==========
+
+    /**
+     * Object array parameter: server receives Base64-serialized array (not "[...]" format).
+     * Verifies Priority 1 in parseParameter handles array types with non-primitive component.
+     */
+    @Test
+    public void testExtract_objectArrayParameter() throws Exception {
+        PersonDto[] input = {
+            new PersonDto("Alice", 25),
+            new PersonDto("Bob", 30)
+        };
+        RawTypeMapper rawMapper = new RawTypeMapper();
+        String serializedBase64 = rawMapper.objectToString(input);
+
+        // Signature for PersonDto[]: [L fully.qualified.PersonDto;
+        String signature = "([L" + PersonDto.class.getName().replace('.', '/') + ";)";
+        String meta = TestServiceWithArray.class.getName() + "/echoPersonArray" + signature;
+        String metaBase64 = ProtocolSecurity.encodeComponent(meta);
+        String paramsArray = "[" + serializedBase64 + "]";
+        String request = "V2|0|{{" + metaBase64 + "}}|" + paramsArray;
+
+        Context context = parser.parse(request);
+
+        assertEquals(context.getTargetMethod().getName(), "echoPersonArray");
+        assertEquals(context.getTargetMethod().getParameterTypes().length, 1);
+        assertTrue(context.getTargetMethod().getParameterTypes()[0].isArray());
+        assertEquals(context.getTargetMethod().getParameterTypes()[0].getComponentType(), PersonDto.class);
+
+        PersonDto[] decoded = (PersonDto[]) context.getParams()[0];
+        assertNotNull(decoded);
+        assertEquals(decoded.length, 2);
+        assertEquals(decoded[0].getName(), "Alice");
+        assertEquals(decoded[0].getAge(), 25);
+        assertEquals(decoded[1].getName(), "Bob");
+        assertEquals(decoded[1].getAge(), 30);
+    }
 
     @Test
     public void testExtract_allPrimitiveTypes() throws Exception {
@@ -341,5 +379,29 @@ public class ProtocolV2ParserTest {
         void process(int i, String s);
         void noParams();
         void allTypes(byte b, short s, int i, long l, float f, double d, boolean bool, char c);
+    }
+
+    /** DTO for object-array parser test. */
+    public static class PersonDto implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private String name;
+        private int age;
+
+        public PersonDto() {}
+
+        public PersonDto(String name, int age) {
+            this.name = name;
+            this.age = age;
+        }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public int getAge() { return age; }
+        public void setAge(int age) { this.age = age; }
+    }
+
+    /** Service with object-array method for parser test. */
+    public interface TestServiceWithArray {
+        PersonDto[] echoPersonArray(PersonDto[] arr);
     }
 }

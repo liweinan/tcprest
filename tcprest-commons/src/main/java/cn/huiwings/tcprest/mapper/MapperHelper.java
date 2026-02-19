@@ -38,6 +38,7 @@ public class MapperHelper {
         DEFAULT_MAPPERS.put(Set.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(List.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(Queue.class.getCanonicalName(), new RawTypeMapper());
+        DEFAULT_MAPPERS.put(Deque.class.getCanonicalName(), new RawTypeMapper());
         DEFAULT_MAPPERS.put(Map.class.getCanonicalName(), new RawTypeMapper());
 
         // Exception mapper (transfers exception messages, not full stack traces for security)
