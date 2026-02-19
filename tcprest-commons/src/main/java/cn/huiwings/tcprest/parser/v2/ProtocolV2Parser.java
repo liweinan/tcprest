@@ -375,69 +375,55 @@ public class ProtocolV2Parser implements RequestParser {
                 return null;
             }
 
-            // Priority 1: Object arrays (e.g. PersonDto[]) - serialized as Base64 by client, not "[...]" format.
-            // Must run before decoding as string, since Base64 payload is not "[...]".
-            if (paramType.isArray()) {
-                Class<?> componentType = paramType.getComponentType();
-                boolean isPrimitiveOrString = componentType == int.class || componentType == long.class
-                    || componentType == double.class || componentType == float.class
-                    || componentType == byte.class || componentType == short.class
-                    || componentType == boolean.class || componentType == char.class
-                    || componentType == String.class;
-                if (!isPrimitiveOrString) {
-                    String standardBase64 = convertUrlSafeToStandard(paramStr);
-                    cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
-                    return rawMapper.stringToObject(standardBase64);
-                }
-            }
-
-            // Priority 2: User-defined Mapper
-            if (mappers != null) {
-                // Use getCanonicalName() to match MapperHelper.DEFAULT_MAPPERS keys
-                cn.huiwings.tcprest.mapper.Mapper mapper = mappers.get(paramType.getCanonicalName());
-                if (mapper != null) {
-                    // Convert URL-safe Base64 to standard first
-                    String standardBase64 = convertUrlSafeToStandard(paramStr);
-
-                    // RawTypeMapper expects Base64 string directly, other mappers expect decoded string
-                    if (mapper instanceof cn.huiwings.tcprest.mapper.RawTypeMapper) {
-                        // RawTypeMapper handles Base64 decoding internally
-                        return mapper.stringToObject(standardBase64);
-                    } else {
-                        // Other mappers expect decoded string
-                        String decoded = new String(Base64.getDecoder().decode(standardBase64));
-                        return mapper.stringToObject(decoded);
-                    }
-                }
-            }
-
-            // Priority 3: Common collection interfaces (List, Map, Set, etc.)
-            // These interfaces aren't Serializable themselves, but their implementations are
-            if (isCommonCollectionInterface(paramType)) {
-                // Convert URL-safe Base64 back to standard Base64 for RawTypeMapper
+            // Priority 1: Primitives, wrappers, String, primitive arrays, String[] (fast path).
+            // Wire format is Base64(toString) or Base64("[...]"); decode once then convertToType.
+            if (paramType == String.class || isWrapperType(paramType) || paramType.isPrimitive() ||
+                (paramType.isArray() && isPrimitiveOrStringComponent(paramType.getComponentType()))) {
                 String standardBase64 = convertUrlSafeToStandard(paramStr);
-                // Use RawTypeMapper to deserialize the actual implementation (ArrayList, HashMap, etc.)
+                String decoded = new String(Base64.getDecoder().decode(standardBase64));
+                return convertToType(decoded, paramType);
+            }
+
+            // Priority 2: Object arrays (e.g. PersonDto[]) - serialized as Base64 by client, not "[...]" format.
+            if (paramType.isArray()) {
+                String standardBase64 = convertUrlSafeToStandard(paramStr);
                 cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
                 return rawMapper.stringToObject(standardBase64);
             }
 
-            // Priority 4: Auto Deserialization for Serializable types (non-array)
+            // Priority 3: User-defined Mapper
+            if (mappers != null) {
+                cn.huiwings.tcprest.mapper.Mapper mapper = mappers.get(paramType.getCanonicalName());
+                if (mapper != null) {
+                    String standardBase64 = convertUrlSafeToStandard(paramStr);
+                    if (mapper instanceof cn.huiwings.tcprest.mapper.RawTypeMapper) {
+                        return mapper.stringToObject(standardBase64);
+                    }
+                    String decoded = new String(Base64.getDecoder().decode(standardBase64));
+                    return mapper.stringToObject(decoded);
+                }
+            }
+
+            // Priority 4: Common collection interfaces (List, Map, Set, Deque, etc.)
+            if (isCommonCollectionInterface(paramType)) {
+                String standardBase64 = convertUrlSafeToStandard(paramStr);
+                cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
+                return rawMapper.stringToObject(standardBase64);
+            }
+
+            // Priority 5: Auto Deserialization for Serializable types (non-array)
             if (java.io.Serializable.class.isAssignableFrom(paramType) &&
                 paramType != String.class &&
                 !paramType.isArray() &&
                 !isWrapperType(paramType)) {
-                // Convert URL-safe Base64 back to standard Base64 for RawTypeMapper
                 String standardBase64 = convertUrlSafeToStandard(paramStr);
-                // RawTypeMapper expects direct Base64 string (not decoded)
                 cn.huiwings.tcprest.mapper.RawTypeMapper rawMapper = new cn.huiwings.tcprest.mapper.RawTypeMapper();
                 return rawMapper.stringToObject(standardBase64);
             }
 
-            // Priority 5: Decode from URL-safe Base64
+            // Priority 6: Fallback — decode and convert (e.g. unknown types → string)
             String standardBase64 = convertUrlSafeToStandard(paramStr);
             String decoded = new String(Base64.getDecoder().decode(standardBase64));
-
-            // Priority 6: Convert to expected type (primitives, primitive arrays, String, String[])
             return convertToType(decoded, paramType);
         } catch (Exception e) {
             if (e instanceof ProtocolException) {
@@ -478,6 +464,14 @@ public class ProtocolV2Parser implements RequestParser {
         return clazz == Integer.class || clazz == Long.class || clazz == Double.class ||
                clazz == Float.class || clazz == Boolean.class || clazz == Byte.class ||
                clazz == Short.class || clazz == Character.class;
+    }
+
+    private boolean isPrimitiveOrStringComponent(Class<?> componentType) {
+        return componentType == int.class || componentType == long.class
+            || componentType == double.class || componentType == float.class
+            || componentType == byte.class || componentType == short.class
+            || componentType == boolean.class || componentType == char.class
+            || componentType == String.class;
     }
 
     /**

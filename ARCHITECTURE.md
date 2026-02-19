@@ -93,6 +93,7 @@ V2 | SUCCESS | Calculator/add(II) | [5, 3]
 - ✅ **Status codes** for error handling (0=SUCCESS, 1=BUSINESS_EXCEPTION, 2=SERVER_ERROR)
 - ✅ **Protocol markers** (`~` for null, empty string for empty)
 - ✅ **Security features** (checksum, HMAC, class whitelist)
+- ✅ **Array handling**: Primitive/String arrays → `Arrays.toString()` then Base64; object arrays → RawTypeMapper (single Base64, URL-safe). Decode enforces `MAX_ARRAY_SIZE` and `MAX_ARRAY_DEPTH`.
 
 **Status Codes:**
 
@@ -206,8 +207,8 @@ Protocol V2 uses a **priority-based mapper resolution system** that provides zer
 - Example: `GsonMapper` for custom JSON serialization
 - Use case: Override default behavior, third-party types, special formats
 
-**Priority 2: Collection Interfaces** ⭐ NEW
-- Automatic support for: `List`, `Map`, `Set`, `Queue`, `Deque`
+**Priority 2: Collection Interfaces** ⭐ Zero config
+- Automatic support for: `List`, `Map`, `Set`, `Queue`, `Deque`, `Collection` (via `MapperHelper.DEFAULT_MAPPERS`)
 - Uses `RawTypeMapper` (Java serialization) for implementation
 - Example: `List<User>` → works automatically, deserializes to `ArrayList`
 - **Zero configuration needed** - just use `Serializable` DTOs!
@@ -220,7 +221,7 @@ Protocol V2 uses a **priority-based mapper resolution system** that provides zer
 
 **Priority 4: Built-in Types** (Lowest)
 - Primitives and wrappers: `int`, `Integer`, `long`, `Long`, `boolean`, `Boolean`, etc.
-- `String`, `byte[]`, arrays
+- `String`, `byte[]`, arrays (primitive/String arrays via `Arrays.toString()`; object arrays via RawTypeMapper, with size/depth limits)
 - Optimized for common types
 
 **Built-in mapper implementations:**
@@ -297,10 +298,10 @@ These components form the server-side request processing pipeline:
 
 **ProtocolV2Parser capabilities:**
 - ✅ **Method signature parsing**: `add(II)` → finds `add(int, int)` even with overloads
-- ✅ **4-tier mapper resolution**: User → Collection → Auto-serialization → Built-in
+- ✅ **Parameter parsing priority** (server-side): P1 primitives/wrappers/String/primitive arrays/String[] (decode + convertToType); P2 object arrays (Base64 → RawTypeMapper); P3 user mapper; P4 collection interfaces; P5 Serializable; P6 fallback
 - ✅ **Security validation**: Checksum verification (CRC32/HMAC), class whitelist
 - ✅ **Protocol markers**: `~` for null, empty string for empty
-- ✅ **Exception handling**: Throws `ParseException`, `MapperNotFoundException`, `SecurityException`
+- ✅ **Exception handling**: Throws `ProtocolException`, `SecurityException`
 
 **Example:**
 ```java
@@ -1395,6 +1396,14 @@ public class PersonService {
 - Ensure correct host and port in client factory
 
 ## Recent Enhancements (2026)
+
+**V2 Array Handling & Parser Priority (2026-02-19):**
+- ✅ **Array safety**: `MAX_ARRAY_SIZE` (100k) and `MAX_ARRAY_DEPTH` (10) in ProtocolV2Codec to prevent DoS
+- ✅ **Array encoding**: Primitive/String arrays use `Arrays.toString()`; object arrays use RawTypeMapper (single Base64, no double-encoding)
+- ✅ **Parser parameter order**: P1 = primitives/String/primitive arrays/String[] (fast path); P2 = object arrays; P3 = user mapper; P4 = collections; P5 = Serializable; P6 = fallback
+- ✅ **MapperHelper**: `Deque` added to `DEFAULT_MAPPERS` (with RawTypeMapper)
+- ✅ **ProtocolV2Parser**: Object-array params parsed as Base64 → RawTypeMapper; `isPrimitiveOrStringComponent()` helper
+- ✅ **Tests**: ProtocolV2ParserTest.testExtract_objectArrayParameter; ArrayAndDequeIntegrationTest; NettyArrayE2ETest (int[]/String[]/PersonDto[] over Netty)
 
 **Exception System Refactoring (2026-02-19):**
 - ✅ Unified exception hierarchy: 5 core exceptions (was 8)

@@ -25,7 +25,8 @@ A lightweight, zero-dependency RPC framework that transforms POJOs into network-
 **V2 Protocol Features:**
 - ✨ **Method overloading**: Full support with type signatures
 - 🧠 **Intelligent mappers**: 4-tier system with auto-serialization for `Serializable` objects
-- 📊 **Collection interfaces**: List, Map, Set work automatically - zero configuration!
+- 📊 **Collection interfaces**: List, Map, Set, Queue, **Deque**, Collection — zero configuration!
+- 📐 **Array support**: Primitive/String arrays via `Arrays.toString()`; object arrays (e.g. `Person[]`) via Java serialization; safety limits (max size/depth) to prevent DoS
 - 🎯 **Exception propagation**: Full error details with intelligent type reconstruction
 - 📦 **Clean wire format**: JSON-style arrays, compact markers (`~` for null)
 
@@ -776,12 +777,13 @@ Map<String, Integer> myMap = new HashMap<>();   // ✅
 Map<String, Integer> myMap = new TreeMap<>();   // ✅
 ```
 
-**Supported interfaces:**
+**Supported interfaces (MapperHelper.DEFAULT_MAPPERS):**
 - ✅ `java.util.List` - ArrayList, LinkedList, Vector, etc.
 - ✅ `java.util.Map` - HashMap, TreeMap, LinkedHashMap, etc.
 - ✅ `java.util.Set` - HashSet, TreeSet, LinkedHashSet, etc.
 - ✅ `java.util.Queue` - LinkedList, PriorityQueue, etc.
-- ✅ `java.util.Deque` - ArrayDeque, LinkedList, etc.
+- ✅ `java.util.Deque` - ArrayDeque, LinkedList (added in DEFAULT_MAPPERS)
+- ✅ `java.util.Collection` - parent interface
 
 **Type preservation:** Concrete types are preserved (ArrayList stays ArrayList, not just List).
 
@@ -826,8 +828,8 @@ List<User> users = client.getAllUsers();  // Collections + DTOs = ✅
 
 **What's supported automatically:**
 - ✅ Any class implementing `Serializable` (DTOs, entities, domain objects)
-- ✅ Collection interfaces (List, Map, Set)
-- ✅ Arrays of any type
+- ✅ Collection interfaces (List, Map, Set, Queue, Deque, Collection)
+- ✅ **Arrays**: primitive/`String[]` via `Arrays.toString()`; object arrays (e.g. `User[]`) via Java serialization, with size/depth limits to prevent DoS
 - ✅ `transient` fields (automatically excluded)
 - ✅ Nested Serializable objects (entire object graph)
 - ✅ Class inheritance (exact types preserved: Car → Car, not Vehicle)
@@ -1189,6 +1191,8 @@ See the test directories for comprehensive examples:
 - See `tcprest-nio/src/main/java/.../example/NioServerDemo.java`
 
 **Netty server:**
+- **E2E (arrays)**: `tcprest-netty/.../integration/NettyArrayE2ETest` — int[]/String[]/object array over Netty
+- **Integration (array + Deque)**: `tcprest-netty/.../integration/ArrayAndDequeIntegrationTest`
 - See `tcprest-netty/src/test/java/cn/huiwings/tcprest/test/`
 
 ## Requirements
