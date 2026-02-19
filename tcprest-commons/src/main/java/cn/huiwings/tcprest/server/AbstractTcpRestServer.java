@@ -15,7 +15,9 @@ import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
 import cn.huiwings.tcprest.security.SecurityConfig;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -52,6 +54,20 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
     private volatile ProtocolV2Invoker invoker;
     private volatile ProtocolCodec codec;
 
+    /**
+     * When true, addResource/addSingletonResource throw if any DTO type is neither
+     * Serializable nor has a mapper. When false (default), only a warning is logged.
+     */
+    private boolean strictTypeCheck = false;
+
+    public void setStrictTypeCheck(boolean strictTypeCheck) {
+        this.strictTypeCheck = strictTypeCheck;
+    }
+
+    public boolean isStrictTypeCheck() {
+        return strictTypeCheck;
+    }
+
     public void addResource(Class resourceClass) {
         if (resourceClass == null) {
             return;
@@ -67,6 +83,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
             deleteResource(resourceClass);
             resourceClasses.put(resourceClass.getCanonicalName(), resourceClass);
         }
+        validateResourceTypes(resourceClass);
     }
 
     public void deleteResource(Class resourceClass) {
@@ -76,10 +93,14 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
     }
 
     public void addSingletonResource(Object instance) {
+        if (instance == null) {
+            return;
+        }
         synchronized (singletonResources) {
             deleteSingletonResource(instance);
             singletonResources.put(instance.getClass().getCanonicalName(), instance);
         }
+        validateResourceTypes(instance.getClass());
     }
 
     public void deleteSingletonResource(Object instance) {
@@ -337,6 +358,97 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
      */
     public ProtocolV2Invoker getInvoker() {
         return invoker;
+    }
+
+    /**
+     * Validate that all DTO types used by the resource are either Serializable or have a mapper.
+     * Logs warning for each unsupported type; if {@link #strictTypeCheck} is true, throws instead.
+     *
+     * @param resourceClass the resource class to validate
+     * @throws IllegalStateException if strictTypeCheck is true and any unsupported type is found
+     */
+    protected void validateResourceTypes(Class<?> resourceClass) {
+        List<String> unsupported = collectUnsupportedTypes(resourceClass, mappers);
+        if (unsupported.isEmpty()) {
+            return;
+        }
+        String message = "Resource " + resourceClass.getCanonicalName()
+            + " uses types that are neither Serializable nor have a mapper; they will be serialized as toString() and may cause ClassCastException/IllegalArgumentException: "
+            + unsupported;
+        if (strictTypeCheck) {
+            throw new IllegalStateException(message);
+        }
+        logger.warning(message);
+    }
+
+    /**
+     * Collect fully qualified type names that are not supported (no Serializable, no mapper).
+     * Matches Protocol V2 semantics: primitives, String, wrappers, collection interfaces,
+     * primitive/String arrays are supported; other types need Serializable or mapper.
+     */
+    private static List<String> collectUnsupportedTypes(Class<?> resourceClass, Map<String, Mapper> mappers) {
+        List<String> unsupported = new ArrayList<>();
+        for (java.lang.reflect.Method method : resourceClass.getMethods()) {
+            if (method.getDeclaringClass() == Object.class) {
+                continue;
+            }
+            for (Class<?> paramType : method.getParameterTypes()) {
+                if (!isTypeSupported(paramType, mappers)) {
+                    String name = paramType.getCanonicalName();
+                    if (name != null && !unsupported.contains(name)) {
+                        unsupported.add(name);
+                    }
+                }
+            }
+            Class<?> returnType = method.getReturnType();
+            if (returnType != void.class && !isTypeSupported(returnType, mappers)) {
+                String name = returnType.getCanonicalName();
+                if (name != null && !unsupported.contains(name)) {
+                    unsupported.add(name);
+                }
+            }
+        }
+        return unsupported;
+    }
+
+    private static boolean isTypeSupported(Class<?> type, Map<String, Mapper> mappers) {
+        if (type == null || type == void.class) {
+            return true;
+        }
+        if (type.isPrimitive()) {
+            return true;
+        }
+        if (type == String.class) {
+            return true;
+        }
+        if (isWrapperType(type)) {
+            return true;
+        }
+        if (isCommonCollectionInterface(type)) {
+            return true;
+        }
+        if (type.isArray()) {
+            Class<?> component = type.getComponentType();
+            if (component.isPrimitive() || component == String.class) {
+                return true;
+            }
+            return java.io.Serializable.class.isAssignableFrom(component)
+                || (mappers != null && mappers.containsKey(component.getCanonicalName()));
+        }
+        return java.io.Serializable.class.isAssignableFrom(type)
+            || (mappers != null && mappers.containsKey(type.getCanonicalName()));
+    }
+
+    private static boolean isWrapperType(Class<?> clazz) {
+        return clazz == Integer.class || clazz == Long.class || clazz == Double.class
+            || clazz == Float.class || clazz == Boolean.class || clazz == Byte.class
+            || clazz == Short.class || clazz == Character.class;
+    }
+
+    private static boolean isCommonCollectionInterface(Class<?> clazz) {
+        return clazz == java.util.List.class || clazz == java.util.Map.class
+            || clazz == java.util.Set.class || clazz == java.util.Queue.class
+            || clazz == java.util.Deque.class || clazz == java.util.Collection.class;
     }
 
 }

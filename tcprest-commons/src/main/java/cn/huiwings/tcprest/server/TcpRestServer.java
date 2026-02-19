@@ -37,6 +37,21 @@ public interface TcpRestServer {
     Map<String, Object> getSingletonResources();
 
     /**
+     * When true, addResource/addSingletonResource throw if any DTO type is neither
+     * Serializable nor has a mapper. When false (default), only a warning is logged.
+     *
+     * @param strictTypeCheck true to fail registration on unsupported types
+     */
+    void setStrictTypeCheck(boolean strictTypeCheck);
+
+    /**
+     * Whether strict DTO/mapper type check is enabled.
+     *
+     * @return true if unsupported types cause registration to throw
+     */
+    boolean isStrictTypeCheck();
+
+    /**
      * Get a cloned copy of mappers
      * The impelmentation should ensure thread safety
      * @return
