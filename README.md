@@ -839,12 +839,12 @@ Primitives, wrappers, Strings, and arrays - always supported.
 
 #### When to Use Each Approach
 
-| Approach | Use Case | Configuration |
-|----------|----------|---------------|
-| **Collection Interfaces** (Priority 2) | List, Map, Set parameters | Zero config - works automatically! |
-| **Auto-Serialization** (Priority 3) | Internal microservices, DTOs you control | Just implement `Serializable` - zero config! |
-| **Custom Mapper** (Priority 1) | Public APIs, human-readable format (JSON/XML), specific generic types | Register mapper on client & server |
-| **Built-in** (Priority 4) | Primitives, strings, simple types | Always available |
+| Approach | Parser priority | Use Case | Configuration |
+|----------|-----------------|----------|----------------|
+| **Built-in** | P1 | Primitives, strings, primitive/String arrays | Always available |
+| **Custom Mapper** | P3 | Public APIs, JSON/XML, cross-language, exact generics | Register mapper on client & server |
+| **Collection Interfaces** | P4 | List, Map, Set, Queue, Deque parameters | Zero config - works automatically! |
+| **Auto-Serialization** | P5 | Internal microservices, DTOs you control | Just implement `Serializable` - zero config! |
 
 **Best Practices:**
 
