@@ -109,6 +109,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
      *
      * @param setDaemon whether to use daemon threads (deprecated, ignored)
      */
+    @Override
     public void up(boolean setDaemon) {
         bossGroup = new NioEventLoopGroup(1); // Accepts incoming connections
         workerGroup = new NioEventLoopGroup(); // Handles I/O operations

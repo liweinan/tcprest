@@ -282,9 +282,9 @@ public class ProtocolV2Codec implements ProtocolCodec {
             paramStr = param.toString();
         }
 
-        // Handle empty string
-        if (paramStr.isEmpty()) {
-            return ""; // Empty string
+        // Handle null or empty string
+        if (paramStr == null || paramStr.isEmpty()) {
+            return "";
         }
 
         return Base64.getEncoder().encodeToString(paramStr.getBytes());
@@ -603,7 +603,7 @@ public class ProtocolV2Codec implements ProtocolCodec {
             } catch (NoSuchMethodException e) {
                 // No String constructor, try default constructor
                 try {
-                    return (Exception) exceptionClass.newInstance();
+                    return (Exception) exceptionClass.getDeclaredConstructor().newInstance();
                 } catch (Exception ex) {
                     // Can't instantiate - fall through to fallback
                 }
@@ -671,22 +671,27 @@ public class ProtocolV2Codec implements ProtocolCodec {
             return parseArray(value, expectedType.getComponentType());
         }
 
-        if (expectedType == int.class || expectedType == Integer.class) {
-            return Integer.parseInt(value);
-        } else if (expectedType == double.class || expectedType == Double.class) {
-            return Double.parseDouble(value);
-        } else if (expectedType == boolean.class || expectedType == Boolean.class) {
+        if (expectedType == boolean.class || expectedType == Boolean.class) {
             return Boolean.parseBoolean(value);
-        } else if (expectedType == long.class || expectedType == Long.class) {
-            return Long.parseLong(value);
-        } else if (expectedType == float.class || expectedType == Float.class) {
-            return Float.parseFloat(value);
-        } else if (expectedType == byte.class || expectedType == Byte.class) {
-            return Byte.parseByte(value);
-        } else if (expectedType == short.class || expectedType == Short.class) {
-            return Short.parseShort(value);
         } else if (expectedType == char.class || expectedType == Character.class) {
-            return value.charAt(0);
+            return value.isEmpty() ? '\0' : value.charAt(0);
+        }
+        try {
+            if (expectedType == int.class || expectedType == Integer.class) {
+                return Integer.parseInt(value);
+            } else if (expectedType == double.class || expectedType == Double.class) {
+                return Double.parseDouble(value);
+            } else if (expectedType == long.class || expectedType == Long.class) {
+                return Long.parseLong(value);
+            } else if (expectedType == float.class || expectedType == Float.class) {
+                return Float.parseFloat(value);
+            } else if (expectedType == byte.class || expectedType == Byte.class) {
+                return Byte.parseByte(value);
+            } else if (expectedType == short.class || expectedType == Short.class) {
+                return Short.parseShort(value);
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid number format for " + expectedType.getSimpleName() + ": '" + value + "'", e);
         }
 
         // For other types, return string representation

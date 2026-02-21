@@ -125,6 +125,7 @@ public class RawTypeMapper implements Mapper {
      * @param param Base64-encoded serialization data (must not be null)
      * @return deserialized Java object (preserves exact type), or null if deserialization fails
      */
+    @Override
     public Object stringToObject(String param) {
         try {
             ByteArrayInputStream source = new ByteArrayInputStream(Base64.getDecoder().decode(param));
@@ -166,6 +167,7 @@ public class RawTypeMapper implements Mapper {
      * @param object the object to serialize (must implement Serializable)
      * @return Base64-encoded serialization string, or null if serialization fails
      */
+    @Override
     public String objectToString(Object object) {
         try {
             ByteArrayOutputStream target = new ByteArrayOutputStream();

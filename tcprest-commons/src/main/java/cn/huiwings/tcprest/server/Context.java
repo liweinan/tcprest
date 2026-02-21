@@ -227,7 +227,7 @@ public class Context {
     /**
      * Sets the protocol-specific converter for encoding responses.
      *
-     * @param converter the codec to use for encoding the method result
+     * @param codec the codec to use for encoding the method result
      */
     public void setCodec(ProtocolCodec codec) {
         this.codec = codec;

@@ -88,6 +88,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         logger.info("NioServerSocket initialized: " + ssc.socket());
     }
 
+    @Override
     public int getServerPort() {
         return ssc.socket().getLocalPort();
     }
@@ -102,6 +103,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
             this.key = key;
         }
 
+        @Override
         public void run() {
             SocketChannel _sc = null;
             try {
@@ -187,6 +189,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
             this.key = key;
         }
 
+        @Override
         public void run() {
             SocketChannel sc = null;
             try {
@@ -211,6 +214,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         status = TcpRestServerStatus.RUNNING;
         initializeProtocolComponents();
         worker = new Thread() {
+            @Override
             public void run() {
                 while (status.equals(TcpRestServerStatus.RUNNING) && !Thread.currentThread().isInterrupted()) {
                     try {
@@ -269,6 +273,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         worker.start();
     }
 
+    @Override
     public void up() {
         up(false);
     }
@@ -410,6 +415,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         cb.clear(); // Prepare buffer to be filled again
     }
 
+    @Override
     public void down() {
         status = TcpRestServerStatus.CLOSING;
 

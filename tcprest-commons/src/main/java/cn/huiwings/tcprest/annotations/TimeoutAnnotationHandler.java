@@ -12,6 +12,7 @@ public class TimeoutAnnotationHandler extends AnnotationHandler {
     public static int getTimeout(Method mtd) {
 
         OperationCallback<Integer> op = new OperationCallback<Integer>() {
+            @Override
             public Integer process(Annotation annotation) {
                 return ((Timeout) annotation).second();
             }

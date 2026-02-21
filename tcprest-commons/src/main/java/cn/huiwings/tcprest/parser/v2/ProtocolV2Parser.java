@@ -526,22 +526,27 @@ public class ProtocolV2Parser implements RequestParser {
         // Handle primitives and wrappers
         if (targetType == String.class) {
             return value;
-        } else if (targetType == int.class || targetType == Integer.class) {
-            return Integer.parseInt(value);
-        } else if (targetType == double.class || targetType == Double.class) {
-            return Double.parseDouble(value);
         } else if (targetType == boolean.class || targetType == Boolean.class) {
             return Boolean.parseBoolean(value);
-        } else if (targetType == long.class || targetType == Long.class) {
-            return Long.parseLong(value);
-        } else if (targetType == float.class || targetType == Float.class) {
-            return Float.parseFloat(value);
-        } else if (targetType == byte.class || targetType == Byte.class) {
-            return Byte.parseByte(value);
-        } else if (targetType == short.class || targetType == Short.class) {
-            return Short.parseShort(value);
         } else if (targetType == char.class || targetType == Character.class) {
             return value.length() > 0 ? value.charAt(0) : '\0';
+        }
+        try {
+            if (targetType == int.class || targetType == Integer.class) {
+                return Integer.parseInt(value);
+            } else if (targetType == double.class || targetType == Double.class) {
+                return Double.parseDouble(value);
+            } else if (targetType == long.class || targetType == Long.class) {
+                return Long.parseLong(value);
+            } else if (targetType == float.class || targetType == Float.class) {
+                return Float.parseFloat(value);
+            } else if (targetType == byte.class || targetType == Byte.class) {
+                return Byte.parseByte(value);
+            } else if (targetType == short.class || targetType == Short.class) {
+                return Short.parseShort(value);
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid number format for " + targetType.getSimpleName() + ": '" + value + "'", e);
         }
 
         // For other types, return string

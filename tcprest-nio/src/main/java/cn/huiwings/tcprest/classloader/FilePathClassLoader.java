@@ -49,6 +49,7 @@ public class FilePathClassLoader extends ClassLoader {
         return path.toString();
     }
 
+    @Override
     public synchronized Class findClass(String canonicalName)
             throws ClassNotFoundException {
 
@@ -76,7 +77,7 @@ public class FilePathClassLoader extends ClassLoader {
                 pathSeg.append(tokens[j]).append("/");
             }
             String classFile = directory + "/" + pathSeg.toString() + className + ".class";
-            logger.fine("search in: " + classFile);
+            logger.fine("searching for class: " + className);
             File f = (new File(classFile));
             int classSize = Math.toIntExact(f.length());
             buf = new byte[classSize];
@@ -84,10 +85,8 @@ public class FilePathClassLoader extends ClassLoader {
                 FileInputStream filein = new FileInputStream(classFile);
                 classSize = filein.read(buf);
                 filein.close();
-                if (buf != null) {
-                    logger.fine("found in: " + pathSeg.toString());
-                    break;
-                }
+                logger.fine("found class: " + className);
+                break;
             } catch (FileNotFoundException e) {
                 continue;
             } catch (IOException e) {

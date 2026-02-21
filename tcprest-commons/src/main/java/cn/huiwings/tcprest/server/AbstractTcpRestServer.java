@@ -60,14 +60,17 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      */
     private boolean strictTypeCheck = false;
 
+    @Override
     public void setStrictTypeCheck(boolean strictTypeCheck) {
         this.strictTypeCheck = strictTypeCheck;
     }
 
+    @Override
     public boolean isStrictTypeCheck() {
         return strictTypeCheck;
     }
 
+    @Override
     public void addResource(Class resourceClass) {
         if (resourceClass == null) {
             return;
@@ -86,12 +89,14 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
         validateResourceTypes(resourceClass);
     }
 
+    @Override
     public void deleteResource(Class resourceClass) {
         synchronized (resourceClasses) {
             resourceClasses.remove(resourceClass.getCanonicalName());
         }
     }
 
+    @Override
     public void addSingletonResource(Object instance) {
         if (instance == null) {
             return;
@@ -103,16 +108,19 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
         validateResourceTypes(instance.getClass());
     }
 
+    @Override
     public void deleteSingletonResource(Object instance) {
         synchronized (singletonResources) {
             singletonResources.remove(instance.getClass().getCanonicalName());
         }
     }
 
+    @Override
     public Map<String, Class> getResourceClasses() {
         return new HashMap<String, Class>(resourceClasses);
     }
 
+    @Override
     public Map<String, Object> getSingletonResources() {
         return new HashMap<String, Object>(singletonResources);
     }
@@ -164,7 +172,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * @throws Exception if request processing fails critically
      */
     protected String processRequest(String request) throws Exception {
-        logger.fine("request: " + request);
+        logger.fine("request: " + sanitizeForLog(request));
 
         // Components should be initialized in up() method via initializeProtocolComponents()
         // If not initialized (edge case), initialize now
@@ -235,22 +243,26 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
         return ((ProtocolV2Codec) codec).encodeException(error, StatusCode.PROTOCOL_ERROR);
     }
 
+    @Override
     public Map<String, Mapper> getMappers() {
         // We don't want user to modify the mappers by getMappers.
         // Use addMapper() to add mapper to server to ensure concurrency safety
         return new HashMap<String, Mapper>(this.mappers);
     }
 
+    @Override
     public void addMapper(String canonicalName, Mapper mapper) {
         synchronized (mappers) {
             mappers.put(canonicalName, mapper);
         }
     }
 
+    @Override
     public CompressionConfig getCompressionConfig() {
         return compressionConfig;
     }
 
+    @Override
     public void setCompressionConfig(CompressionConfig compressionConfig) {
         if (compressionConfig == null) {
             throw new IllegalArgumentException("Compression config cannot be null");
@@ -262,6 +274,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     /**
      * Enable compression with default settings.
      */
+    @Override
     public void enableCompression() {
         this.compressionConfig.setEnabled(true);
         logger.info("Compression enabled with default settings");
@@ -270,6 +283,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     /**
      * Disable compression.
      */
+    @Override
     public void disableCompression() {
         this.compressionConfig.setEnabled(false);
         logger.info("Compression disabled");
@@ -312,6 +326,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      *
      * @param securityConfig security configuration
      */
+    @Override
     public void setSecurityConfig(SecurityConfig securityConfig) {
         this.securityConfig = securityConfig;
         if (securityConfig != null) {
@@ -329,6 +344,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      *
      * @return security configuration
      */
+    @Override
     public SecurityConfig getSecurityConfig() {
         return securityConfig;
     }
@@ -449,6 +465,13 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
         return clazz == java.util.List.class || clazz == java.util.Map.class
             || clazz == java.util.Set.class || clazz == java.util.Queue.class
             || clazz == java.util.Deque.class || clazz == java.util.Collection.class;
+    }
+
+    /** Sanitize string for logging to prevent log injection (newlines/control chars). */
+    private static String sanitizeForLog(String s) {
+        if (s == null) return "null";
+        String t = s.replace("\r", " ").replace("\n", " ");
+        return t.length() > 500 ? t.substring(0, 500) + "..." : t;
     }
 
 }

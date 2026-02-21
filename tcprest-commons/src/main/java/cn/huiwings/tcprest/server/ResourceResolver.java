@@ -110,11 +110,11 @@ public final class ResourceResolver {
             }
 
             // Create new instance from implementation class
-            return implClass.newInstance();
+            return implClass.getDeclaredConstructor().newInstance();
         }
 
         // Step 3: No implementation found, try to create instance directly
-        return targetClass.newInstance();
+        return targetClass.getDeclaredConstructor().newInstance();
     }
 
     /**

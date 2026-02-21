@@ -9,6 +9,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -32,16 +33,20 @@ public class DefaultTcpRestClient implements TcpRestClient {
     }
 
     private String sendRequest(String request, Socket socket) throws Exception {
-        PrintWriter writer = new PrintWriter(socket.getOutputStream());
-        BufferedReader reader =
-                new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        writer.println(request);
-        writer.flush();
-        String response = reader.readLine();
-        socket.close();
-        return response;
+        try (PrintWriter writer = new PrintWriter(socket.getOutputStream());
+             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+            writer.println(request);
+            writer.flush();
+            return reader.readLine();
+        } finally {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+            }
+        }
     }
 
+    @Override
     public String sendRequest(String request, int timeout) throws Exception {
         if (sslParams == null) {
             Socket clientSocket = new Socket(host, port);
@@ -64,6 +69,7 @@ public class DefaultTcpRestClient implements TcpRestClient {
         return sendRequest(request, socket);
     }
 
+    @Override
     public String getDeletgatedClassName() {
         return deletgatedClassName;
     }

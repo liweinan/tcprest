@@ -102,71 +102,72 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
     }
 
 
+    @Override
     public int getServerPort() {
         return serverSocket.getLocalPort();
     }
 
+    @Override
     public void up() {
         up(false);
     }
 
+    @Override
     public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
         initializeProtocolComponents();
         serverThread = new Thread() {
+            @Override
             public void run() {
-                PrintWriter writer = null;
                 try {
                     while (status.equals(TcpRestServerStatus.RUNNING) && !Thread.currentThread().isInterrupted()) {
-                        Socket socket = serverSocket.accept();
-                        logger.fine("Client accepted.");
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                        Scanner scanner = new Scanner(reader);
+                        Socket socket = null;
+                        PrintWriter writer = null;
+                        try {
+                            socket = serverSocket.accept();
+                            logger.fine("Client accepted.");
+                            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                            Scanner scanner = new Scanner(reader);
+                            writer = new PrintWriter(socket.getOutputStream());
 
-                        writer = new PrintWriter(socket.getOutputStream());
-
-                        String request = scanner.nextLine();
-
-                        String response = processRequest(request);
-
-                        writer.println(response);
-                        writer.flush();
-
+                            String request = scanner.nextLine();
+                            String response = processRequest(request);
+                            writer.println(response);
+                            writer.flush();
+                        } catch (ClassNotFoundException e) {
+                            String message = "***SingleThreadTcpRestServer: requested class not found.";
+                            logger.severe(message);
+                            if (writer != null) writer.println(message);
+                        } catch (NoSuchMethodException e) {
+                            String message = "***SingleThreadTcpRestServer: requested method not found.";
+                            logger.severe(message);
+                            if (writer != null) writer.println(message);
+                        } catch (InstantiationException e) {
+                            String message = "***SingleThreadTcpRestServer: resource cannot be instantiated.";
+                            logger.severe(message);
+                            if (writer != null) writer.println(message);
+                        } catch (IllegalAccessException e) {
+                            String message = "***SingleThreadTcpRestServer: cannot invoke context.";
+                            logger.severe(message);
+                            if (writer != null) writer.println(message);
+                        } catch (Exception e) {
+                            if (e instanceof IOException) throw (IOException) e;
+                            logger.severe(e.getMessage());
+                            if (writer != null) writer.println(e.getMessage());
+                        } finally {
+                            if (writer != null) {
+                                try { writer.close(); } catch (Exception ignored) { }
+                            }
+                            if (socket != null) {
+                                try { socket.close(); } catch (IOException ignored) { }
+                            }
+                        }
                     }
                 } catch (java.net.SocketException e) {
-                    // Expected during shutdown when serverSocket.close() is called
                     logger.fine("Server socket closed: " + e.getMessage());
                 } catch (IOException e) {
                     logger.severe("IO error in server: " + e.getMessage());
-                } catch (ClassNotFoundException e) {
-                    String message = "***SingleThreadTcpRestServer: requested class not found.";
-                    logger.severe(message);
-                    if (writer != null)
-                        writer.println(message);
-                } catch (NoSuchMethodException e) {
-                    String message = "***SingleThreadTcpRestServer: requested method not found.";
-                    logger.severe(message);
-                    if (writer != null)
-                        writer.println(message);
-                } catch (InstantiationException e) {
-                    String message = "***SingleThreadTcpRestServer: resource cannot be instantiated.";
-                    logger.severe(message);
-                    if (writer != null)
-                        writer.println(message);
-                } catch (IllegalAccessException e) {
-                    String message = "***SingleThreadTcpRestServer: cannot invoke context.";
-                    logger.severe(message);
-                    if (writer != null)
-                        writer.println(message);
-                } catch (Exception e) {
-                    logger.severe(e.getMessage());
-                    if (writer != null)
-                        writer.println(e.getMessage());
                 } finally {
-                    // Only close client resources, not server socket
-                    if (writer != null) {
-                        writer.close();
-                    }
                     logger.info("Server stopped.");
                 }
             }
@@ -175,6 +176,7 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
         serverThread.start();
     }
 
+    @Override
     public void down() {
         status = TcpRestServerStatus.CLOSING;
 

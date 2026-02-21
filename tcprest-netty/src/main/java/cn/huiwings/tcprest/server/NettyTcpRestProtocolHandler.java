@@ -27,9 +27,9 @@ public class NettyTcpRestProtocolHandler extends SimpleChannelInboundHandler<Str
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, String request) throws Exception {
         try {
-            logger.fine("Received request: " + request);
+            logger.fine("Received request: " + sanitizeForLog(request));
             String response = serverInstance.processRequest(request);
-            logger.fine("Sending response: " + response);
+            logger.fine("Sending response: " + sanitizeForLog(response));
             // Manually create ByteBuf with response + newline for BufferedReader.readLine()
             ByteBuf buf = Unpooled.copiedBuffer(response + "\n", CharsetUtil.UTF_8);
             ctx.writeAndFlush(buf).addListener(ChannelFutureListener.CLOSE);
@@ -45,5 +45,12 @@ public class NettyTcpRestProtocolHandler extends SimpleChannelInboundHandler<Str
         logger.severe("Exception caught in channel: " + cause.getMessage());
         cause.printStackTrace();
         ctx.close();
+    }
+
+    /** Sanitize string for logging to prevent log injection (newlines/control chars). */
+    private static String sanitizeForLog(String s) {
+        if (s == null) return "null";
+        String t = s.replace("\r", " ").replace("\n", " ");
+        return t.length() > 500 ? t.substring(0, 500) + "..." : t;
     }
 }

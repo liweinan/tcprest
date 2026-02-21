@@ -163,6 +163,7 @@ public class TcpRestClientProxy implements InvocationHandler {
      * @return method result
      * @throws Throwable if invocation fails
      */
+    @Override
     public Object invoke(Object proxy, Method method, Object[] params) throws Throwable {
         String className = method.getDeclaringClass().getCanonicalName();
         if (!className.equals(tcpRestClient.getDeletgatedClassName())) {
@@ -174,11 +175,11 @@ public class TcpRestClientProxy implements InvocationHandler {
             // V2 supports intelligent type mapping: custom mappers > auto serialization > built-in
             String request = codec.encode(method.getDeclaringClass(), method, params, mappers);
 
-            logger.fine("V2 request: " + request);
+            logger.fine("V2 request: " + sanitizeForLog(request));
 
             // Send request
             String response = tcpRestClient.sendRequest(request, TimeoutAnnotationHandler.getTimeout(method));
-            logger.fine("V2 response: " + response);
+            logger.fine("V2 response: " + sanitizeForLog(response));
 
             // Decode response (handles status codes and exceptions)
             return codec.decode(response, method.getReturnType());
@@ -230,5 +231,12 @@ public class TcpRestClientProxy implements InvocationHandler {
      */
     public ProtocolV2Codec getCodec() {
         return codec;
+    }
+
+    /** Sanitize string for logging to prevent log injection (newlines/control chars). */
+    private static String sanitizeForLog(String s) {
+        if (s == null) return "null";
+        String t = s.replace("\r", " ").replace("\n", " ");
+        return t.length() > 500 ? t.substring(0, 500) + "..." : t;
     }
 }
