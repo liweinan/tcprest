@@ -7,56 +7,26 @@ import cn.huiwings.tcprest.security.SecurityConfig;
 import java.util.Map;
 
 /**
+ * TCP REST server interface. Extends {@link ResourceRegister} for resource registration
+ * and lookup; adds lifecycle (up/down) and configuration (mappers, compression, security).
+ *
  * @author Weinan Li
  * @date Jul 29 2012
  */
-public interface TcpRestServer {
+public interface TcpRestServer extends ResourceRegister {
 
-    public void up();
+    void up();
 
-    public void up(boolean setDaemon);
+    void up(boolean setDaemon);
 
-    public void down();
-
-    void addResource(Class resourceClass);
-
-    void deleteResource(Class resourceClass);
+    void down();
 
     /**
-     * Adding multiple instances of same class is meaningless. So every TcpRestServer implementation
-     * should check and overwrite existing instances of same class and give out warning each time a
-     * singleton resource is added.
-     * @param instance
-     */
-    void addSingletonResource(Object instance);
-
-    void deleteSingletonResource(Object instance);
-
-    Map<String, Class> getResourceClasses();
-
-    Map<String, Object> getSingletonResources();
-
-    /**
-     * When true, addResource/addSingletonResource throw if any DTO type is neither
-     * Serializable nor has a mapper. When false (default), only a warning is logged.
+     * Get a cloned copy of mappers. The implementation should ensure thread safety.
      *
-     * @param strictTypeCheck true to fail registration on unsupported types
+     * @return map of canonical class name to mapper
      */
-    void setStrictTypeCheck(boolean strictTypeCheck);
-
-    /**
-     * Whether strict DTO/mapper type check is enabled.
-     *
-     * @return true if unsupported types cause registration to throw
-     */
-    boolean isStrictTypeCheck();
-
-    /**
-     * Get a cloned copy of mappers
-     * The impelmentation should ensure thread safety
-     * @return
-     */
-    public Map<String, Mapper> getMappers();
+    Map<String, Mapper> getMappers();
 
     void addMapper(String canonicalName, Mapper mapper);
 

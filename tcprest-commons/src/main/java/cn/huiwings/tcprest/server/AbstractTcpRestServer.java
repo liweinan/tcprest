@@ -31,7 +31,7 @@ import java.util.Map;
  * @author Weinan Li
  * @created_at 08 26 2012
  */
-public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRegister {
+public abstract class AbstractTcpRestServer implements TcpRestServer {
 
     protected final Map<String, Mapper> mappers = new HashMap<>(MapperHelper.DEFAULT_MAPPERS);
 
@@ -276,7 +276,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
     }
 
     /**
-     * Get resource instance by class name (ResourceRegister interface).
+     * Get resource instance by class name.
      *
      * @param className fully qualified class name
      * @return resource instance, or null if not found
@@ -294,7 +294,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer, ResourceRe
     }
 
     /**
-     * Check if resource is registered (ResourceRegister interface).
+     * Check if resource is registered.
      *
      * @param className fully qualified class name
      * @return true if registered

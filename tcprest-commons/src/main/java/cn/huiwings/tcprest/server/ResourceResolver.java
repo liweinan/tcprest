@@ -5,7 +5,10 @@ import java.util.logging.Logger;
 import java.util.Map;
 
 /**
- * Utility class for resolving resource instances from ResourceRegister.
+ * Utility class for resolving resource instances from {@link ResourceRegister}.
+ *
+ * <p>The resource registration and lookup contract is defined by {@link ResourceRegister};
+ * {@link TcpRestServer} extends that interface and adds lifecycle and configuration.</p>
  *
  * <p><b>Purpose:</b> Provides centralized resource resolution logic.
  * Used by {@link AbstractTcpRestServer} for resource lookup and instance creation.</p>
