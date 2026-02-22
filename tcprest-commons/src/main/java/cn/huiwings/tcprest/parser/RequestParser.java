@@ -108,7 +108,6 @@ public interface RequestParser {
      * context.getTargetClass()   // → Calculator.class
      * context.getTargetMethod()  // → public int add(int, int)
      * context.getParams()        // → [5, 3]
-     * context.getCodec()         // → ProtocolV2Codec instance
      * </pre>
      *
      * <p><b>V1 vs V2 Protocol Differences:</b></p>
@@ -145,7 +144,7 @@ public interface RequestParser {
      * </ul>
      *
      * @param request the protocol request string from client
-     * @return Context object containing target class, method, deserialized parameters, and codec
+     * @return Context object containing target class, method, and deserialized parameters
      * @throws ClassNotFoundException if the target service class cannot be found or is not registered
      * @throws NoSuchMethodException if the target method (with signature) cannot be found
      * @throws cn.huiwings.tcprest.exception.ProtocolException if the request format is invalid or parsing fails

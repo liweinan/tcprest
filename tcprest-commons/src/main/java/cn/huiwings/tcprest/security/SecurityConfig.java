@@ -51,6 +51,10 @@ public class SecurityConfig {
     private SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.NONE;
     private PrivateKey signingPrivateKey = null;
     private PublicKey verificationPublicKey = null;
+    /** Custom signature algorithm name (e.g. "GPG") when using SPI handler; null when not used */
+    private String customSignatureAlgorithmName = null;
+    private Object signingKeyConfig = null;
+    private Object verificationKeyConfig = null;
     private boolean enableClassWhitelist = false;
     private Set<String> allowedClasses = new HashSet<>();
 
@@ -126,6 +130,30 @@ public class SecurityConfig {
     }
 
     /**
+     * Enables custom signature via SPI (e.g. GPG from tcprest-pgp).
+     *
+     * @param algorithmName wire prefix, e.g. "GPG" for SIG:GPG:base64
+     * @param signingKeyConfig opaque key for signing (e.g. PGP private key)
+     * @param verificationKeyConfig opaque key for verification (e.g. PGP public key)
+     * @return this config for chaining
+     */
+    public SecurityConfig enableCustomSignature(String algorithmName, Object signingKeyConfig, Object verificationKeyConfig) {
+        if (algorithmName == null || algorithmName.isEmpty() || algorithmName.contains(":")) {
+            throw new IllegalArgumentException("Algorithm name must be non-empty and contain no colon");
+        }
+        if (signingKeyConfig == null || verificationKeyConfig == null) {
+            throw new IllegalArgumentException("Signing and verification key config cannot be null");
+        }
+        this.signatureAlgorithm = SignatureAlgorithm.NONE;
+        this.signingPrivateKey = null;
+        this.verificationPublicKey = null;
+        this.customSignatureAlgorithmName = algorithmName;
+        this.signingKeyConfig = signingKeyConfig;
+        this.verificationKeyConfig = verificationKeyConfig;
+        return this;
+    }
+
+    /**
      * Disables signature (default).
      *
      * @return this config for chaining
@@ -134,6 +162,9 @@ public class SecurityConfig {
         this.signatureAlgorithm = SignatureAlgorithm.NONE;
         this.signingPrivateKey = null;
         this.verificationPublicKey = null;
+        this.customSignatureAlgorithmName = null;
+        this.signingKeyConfig = null;
+        this.verificationKeyConfig = null;
         return this;
     }
 
@@ -234,6 +265,18 @@ public class SecurityConfig {
     }
 
     public boolean isSignatureEnabled() {
-        return signatureAlgorithm != SignatureAlgorithm.NONE;
+        return signatureAlgorithm != SignatureAlgorithm.NONE || customSignatureAlgorithmName != null;
+    }
+
+    public String getCustomSignatureAlgorithmName() {
+        return customSignatureAlgorithmName;
+    }
+
+    public Object getSigningKeyConfig() {
+        return signingPrivateKey != null ? signingPrivateKey : signingKeyConfig;
+    }
+
+    public Object getVerificationKeyConfig() {
+        return verificationPublicKey != null ? verificationPublicKey : verificationKeyConfig;
     }
 }

@@ -1,7 +1,5 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.codec.ProtocolCodec;
-
 import java.lang.reflect.Method;
 
 /**
@@ -30,7 +28,6 @@ import java.lang.reflect.Method;
  * context.setTargetClass(Calculator.class);
  * context.setTargetMethod(Calculator.class.getMethod("add", int.class, int.class));
  * context.setParams(new Object[]{5, 3});
- * context.setCodec(new ProtocolV2Codec());
  *
  * // 2. Server sets target instance
  * context.setTargetInstance(calculatorInstance);  // Singleton or new instance
@@ -49,7 +46,6 @@ import java.lang.reflect.Method;
  *   <li><b>targetInstance</b>: The actual object to invoke method on (singleton or newly created)</li>
  *   <li><b>params</b>: Deserialized method arguments ready for invocation</li>
  *   <li><b>paramTypes</b>: Parameter type information (used for method resolution)</li>
- *   <li><b>codec</b>: Protocol-specific codec for encoding the response</li>
  * </ul>
  *
  * <p><b>Thread safety:</b> Context instances are NOT thread-safe. Each request should have
@@ -62,7 +58,6 @@ import java.lang.reflect.Method;
  * @since 1.0.0
  * @see cn.huiwings.tcprest.parser.RequestParser
  * @see cn.huiwings.tcprest.invoker.Invoker
- * @see cn.huiwings.tcprest.codec.ProtocolCodec
  */
 public class Context {
     /**
@@ -71,17 +66,6 @@ public class Context {
      * <p>Set by: {@link cn.huiwings.tcprest.parser.RequestParser}</p>
      */
     private Class targetClazz;
-
-    /**
-     * Protocol-specific codec for encoding the method result.
-     * <p>Different protocol versions use different codecs:</p>
-     * <ul>
-     *   <li>Protocol V1: {@link cn.huiwings.tcprest.codec.DefaultProtocolCodec}</li>
-     *   <li>Protocol V2: {@link cn.huiwings.tcprest.codec.v2.ProtocolV2Codec}</li>
-     * </ul>
-     * <p>Set by: {@link cn.huiwings.tcprest.parser.RequestParser}</p>
-     */
-    private ProtocolCodec codec;
 
     /**
      * Target service instance to invoke the method on.
@@ -214,24 +198,4 @@ public class Context {
     public void setTargetInstance(Object targetInstance) {
         this.targetInstance = targetInstance;
     }
-
-    /**
-     * Gets the protocol-specific converter for encoding responses.
-     *
-     * @return the codec, may be null if not yet set
-     */
-    public ProtocolCodec getCodec() {
-        return codec;
-    }
-
-    /**
-     * Sets the protocol-specific converter for encoding responses.
-     *
-     * @param codec the codec to use for encoding the method result
-     */
-    public void setCodec(ProtocolCodec codec) {
-        this.codec = codec;
-    }
-
-
 }

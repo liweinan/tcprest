@@ -51,10 +51,6 @@ public final class ProtocolV2ServerComponents {
         return invoker;
     }
 
-    public ProtocolCodec getCodec() {
-        return codec;
-    }
-
     /**
      * Apply security config to parser and codec (used when config is set after component creation).
      */

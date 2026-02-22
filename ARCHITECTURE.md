@@ -6,7 +6,7 @@ TcpRest is a lightweight TCP-based RPC framework that transforms Plain Old Java 
 
 ## Multi-Module Architecture
 
-The project is organized into four Maven modules:
+The project is organized into five Maven modules:
 
 ### tcprest-commons
 **Zero-dependency commons module** containing all shared framework components using pure JDK implementations.
@@ -63,6 +63,21 @@ The project is organized into four Maven modules:
 - io.netty:netty-all:4.1.131.Final
 
 **Use case:** High-concurrency production scenarios, SSL with NIO performance
+
+### tcprest-pgp
+**Optional GPG/OpenPGP signature module** providing `SIG:GPG:base64` support via Bouncy Castle.
+
+**Key components:**
+- PgpSignatureHandler (implements `SignatureHandler` from commons)
+- Auto-registers as "GPG" on class load via `ProtocolSecurity.registerSignatureHandler`
+
+**Dependencies:**
+- tcprest-commons
+- org.bouncycastle:bcpg-jdk15on
+
+**Use case:** Origin authentication with PGP keys (e.g. existing key rings, tooling compatibility). Commons stays zero-dependency; RSA remains built-in; GPG is opt-in via this module.
+
+**Integration:** Add the dependency and ensure the handler is loaded (e.g. reference `PgpSignatureHandler` or call `PgpSignatureHandler.register()`). Then use `SecurityConfig.enableCustomSignature("GPG", pgpPrivateKey, pgpPublicKey)` on server and client.
 
 ## Core Components
 
@@ -462,8 +477,8 @@ factory.setSecurityConfig(clientConfig);
 ```
 
 - **Purpose**: Prove message origin (who sent it); integrity is covered by CHK if needed.
-- **Wire format**: Optional trailing segment `SIG:RSA:base64(signature)`. When both CHK and SIG are used: `content|CHK:value|SIG:value`.
-- **Keys**: Inject `PrivateKey`/`PublicKey` via SecurityConfig (e.g. from KeyStore); commons does not mandate key storage format.
+- **Wire format**: Optional trailing segment `SIG:RSA:base64(signature)` or `SIG:GPG:base64(signature)` (GPG via optional tcprest-pgp). When both CHK and SIG are used: `content|CHK:value|SIG:value`.
+- **Keys**: Inject `PrivateKey`/`PublicKey` via SecurityConfig (RSA); or use `enableCustomSignature(algorithmName, signingKeyConfig, verificationKeyConfig)` for custom algorithms (e.g. "GPG" with Bouncy Castle `PGPPrivateKey`/`PGPPublicKey`). Commons defines the SPI (`SignatureHandler`); optional modules (e.g. tcprest-pgp) register handlers so codec/parser dispatch by algorithm name.
 
 **4. Class Whitelist** (Optional)
 

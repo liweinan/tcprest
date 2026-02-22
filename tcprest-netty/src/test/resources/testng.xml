@@ -12,6 +12,7 @@
             <class name="cn.huiwings.tcprest.test.smoke.TcpClientFactorySmokeTest"/>
             <class name="cn.huiwings.tcprest.test.exception.ExceptionPropagationTest"/>
             <class name="cn.huiwings.tcprest.test.exception.ExceptionReconstructionE2ETest"/>
+            <class name="cn.huiwings.tcprest.test.integration.NettySigE2ETest"/>
         </classes>
     </test>
 </suite>

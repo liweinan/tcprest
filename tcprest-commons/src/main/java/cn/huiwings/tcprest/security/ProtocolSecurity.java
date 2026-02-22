@@ -10,6 +10,8 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.util.Base64;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.CRC32;
 
 /**
@@ -34,6 +36,35 @@ public class ProtocolSecurity {
 
     /** Signature value prefix for RSA (wire format: SIG:RSA:base64) */
     private static final String SIG_RSA_PREFIX = "RSA:";
+
+    /** Registry of custom signature handlers (e.g. "GPG" from tcprest-pgp) */
+    private static final Map<String, SignatureHandler> SIGNATURE_HANDLERS = new ConcurrentHashMap<>();
+
+    /**
+     * Registers a custom signature handler. Used by optional modules (e.g. tcprest-pgp).
+     *
+     * @param algorithmName name used in wire format (e.g. "GPG")
+     * @param handler handler implementation
+     */
+    public static void registerSignatureHandler(String algorithmName, SignatureHandler handler) {
+        if (algorithmName == null || algorithmName.isEmpty() || handler == null) {
+            throw new IllegalArgumentException("Algorithm name and handler cannot be null or empty");
+        }
+        SIGNATURE_HANDLERS.put(algorithmName, handler);
+    }
+
+    /**
+     * Unregisters a custom signature handler.
+     *
+     * @param algorithmName name used when registered
+     */
+    public static void unregisterSignatureHandler(String algorithmName) {
+        SIGNATURE_HANDLERS.remove(algorithmName);
+    }
+
+    static SignatureHandler getSignatureHandler(String algorithmName) {
+        return SIGNATURE_HANDLERS.get(algorithmName);
+    }
 
     /**
      * Encodes a protocol component using URL-safe Base64.
@@ -291,6 +322,19 @@ public class ProtocolSecurity {
         if (config == null || !config.isSignatureEnabled()) {
             return "";
         }
+        String customName = config.getCustomSignatureAlgorithmName();
+        if (customName != null) {
+            SignatureHandler handler = getSignatureHandler(customName);
+            if (handler == null) {
+                return "";
+            }
+            Object keyConfig = config.getSigningKeyConfig();
+            if (keyConfig == null) {
+                return "";
+            }
+            String signatureBase64 = handler.sign(message, keyConfig);
+            return TcpRestProtocol.SIGNATURE_PREFIX + customName + ":" + signatureBase64;
+        }
         if (config.getSignatureAlgorithm() != SecurityConfig.SignatureAlgorithm.RSA_SHA256) {
             return "";
         }
@@ -332,6 +376,22 @@ public class ProtocolSecurity {
                 throw new SecurityException("Signature verification failed - message may have been tampered or wrong key");
             }
             return;
+        }
+        int colon = value.indexOf(':');
+        if (colon > 0) {
+            String algo = value.substring(0, colon);
+            SignatureHandler handler = getSignatureHandler(algo);
+            if (handler != null) {
+                String signatureBase64 = value.substring(colon + 1);
+                Object keyConfig = config.getVerificationKeyConfig();
+                if (keyConfig == null) {
+                    throw new SecurityException("Signature verification key not configured for " + algo);
+                }
+                if (!handler.verify(signedPayload, signatureBase64, keyConfig)) {
+                    throw new SecurityException("Signature verification failed - message may have been tampered or wrong key");
+                }
+                return;
+            }
         }
         if (value.startsWith("GPG:")) {
             throw new SecurityException("GPG signature not supported in commons; use optional tcprest-pgp module");

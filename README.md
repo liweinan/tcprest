@@ -134,6 +134,16 @@ TcpRest is organized into focused modules - choose what you need:
 </dependency>
 ```
 
+**5. PGP/GPG signature** (optional, wire format `SIG:GPG:base64`):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-pgp</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+Requires Bouncy Castle (transitive). Register once (e.g. class-load `cn.huiwings.tcprest.pgp.PgpSignatureHandler`), then use `SecurityConfig.enableCustomSignature("GPG", pgpPrivateKey, pgpPublicKey)` on both server and client. See [Security (GPG)](#gpg-signature-optional) below.
+
 ### Server Comparison
 
 | Feature | SingleThread | NIO | Netty |
@@ -1282,7 +1292,24 @@ SecurityConfig withSig = new SecurityConfig()
     .enableSignature(myPrivateKey, peerPublicKey);
 ```
 
-**CHK vs SIG:** CHK (checksum) is **integrity only** (CRC32/HMAC). SIG (signature) is **origin authentication** (e.g. RSA-SHA256). Both can be used together: wire format is `content|CHK:value|SIG:value`.
+**CHK vs SIG:** CHK (checksum) is **integrity only** (CRC32/HMAC). SIG (signature) is **origin authentication** (e.g. RSA-SHA256 or GPG). Both can be used together: wire format is `content|CHK:value|SIG:value`.
+
+#### GPG signature (optional)
+
+To use **GPG/OpenPGP** signatures (wire format `SIG:GPG:base64`), add the optional **tcprest-pgp** module and Bouncy Castle. Ensure the GPG handler is loaded (e.g. reference `cn.huiwings.tcprest.pgp.PgpSignatureHandler` or call `PgpSignatureHandler.register()`), then configure custom signature with PGP key objects:
+
+```java
+// Server: sign with server PGP private key, verify with client PGP public key
+SecurityConfig serverConfig = new SecurityConfig()
+    .enableCRC32()
+    .enableCustomSignature("GPG", serverPgpPrivateKey, clientPgpPublicKey);
+// Client: sign with client PGP private key, verify with server PGP public key
+SecurityConfig clientConfig = new SecurityConfig()
+    .enableCRC32()
+    .enableCustomSignature("GPG", clientPgpPrivateKey, serverPgpPublicKey);
+```
+
+Key types are Bouncy Castle `PGPPrivateKey` and `PGPPublicKey` (e.g. from key rings or in-memory generation).
 
 #### Security Features
 
@@ -1291,7 +1318,8 @@ SecurityConfig withSig = new SecurityConfig()
 | **Full Encoding** | Base64-encodes all protocol components | Prevents all injection attacks |
 | **CHK (CRC32)** | Fast integrity verification | Detect accidental corruption |
 | **CHK (HMAC-SHA256)** | Symmetric integrity/auth | Prevent tampering (shared secret) |
-| **SIG (RSA-SHA256)** | Asymmetric origin signature | Prove who sent the message |
+| **SIG (RSA-SHA256)** | Asymmetric origin signature (JDK) | Prove who sent the message |
+| **SIG (GPG)** | OpenPGP signature (tcprest-pgp, Bouncy Castle) | Same as above, `SIG:GPG:base64` |
 | **Class Whitelist** | Restrict accessible classes | Public API security |
 
 #### Protection Against Attacks

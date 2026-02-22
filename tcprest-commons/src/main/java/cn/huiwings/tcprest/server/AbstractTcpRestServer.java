@@ -1,6 +1,5 @@
 package cn.huiwings.tcprest.server;
 
-import cn.huiwings.tcprest.codec.ProtocolCodec;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
@@ -333,15 +332,6 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      */
     public RequestParser getParser() {
         return protocolComponents != null ? protocolComponents.getParser() : null;
-    }
-
-    /**
-     * Get the protocol codec.
-     *
-     * @return protocol codec
-     */
-    public ProtocolCodec getCodec() {
-        return protocolComponents != null ? protocolComponents.getCodec() : null;
     }
 
     /**
