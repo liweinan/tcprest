@@ -1,7 +1,6 @@
 package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.codec.ProtocolCodec;
-import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
@@ -10,8 +9,7 @@ import java.util.logging.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
 import cn.huiwings.tcprest.parser.RequestParser;
-import cn.huiwings.tcprest.parser.v2.ProtocolV2Parser;
-import cn.huiwings.tcprest.protocol.v2.ProtocolV2Constants;
+import cn.huiwings.tcprest.protocol.v2.ProtocolV2ServerComponents;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
 import cn.huiwings.tcprest.security.SecurityConfig;
 
@@ -50,9 +48,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * <p>Initialized in {@link #initializeProtocolComponents()} when server starts (in up() method).</p>
      * <p>Once initialized, remain constant during server lifetime.</p>
      */
-    private volatile RequestParser parser;
-    private volatile ProtocolV2Invoker invoker;
-    private volatile ProtocolCodec codec;
+    private volatile ProtocolV2ServerComponents protocolComponents;
 
     /**
      * When true, addResource/addSingletonResource throw if any DTO type is neither
@@ -144,17 +140,8 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * </pre>
      */
     protected void initializeProtocolComponents() {
-        if (parser == null) {
-            parser = new ProtocolV2Parser(mappers);
-            invoker = new ProtocolV2Invoker();
-            codec = new ProtocolV2Codec(mappers);
-
-            // Apply security config if it was set before initialization
-            if (securityConfig != null) {
-                ((ProtocolV2Parser) parser).setSecurityConfig(securityConfig);
-                ((ProtocolV2Codec) codec).setSecurityConfig(securityConfig);
-            }
-
+        if (protocolComponents == null) {
+            protocolComponents = ProtocolV2ServerComponents.create(mappers, securityConfig);
             logger.info("Protocol V2 components initialized");
         }
     }
@@ -181,29 +168,15 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
 
         // Components should be initialized in up() method via initializeProtocolComponents()
         // If not initialized (edge case), initialize now
-        if (parser == null) {
+        if (protocolComponents == null) {
             logger.warning("Protocol components not initialized - initializing now. " +
                        "Consider calling initializeProtocolComponents() in up() method.");
             initializeProtocolComponents();
         }
 
-        // Validate request
-        if (request == null || request.isEmpty()) {
-            return handleError(new ProtocolException("Empty request"));
-        }
-
-        // Validate protocol version
-        if (!request.startsWith(ProtocolV2Constants.PREFIX)) {
-            return handleError(new ProtocolException(
-                "Only Protocol V2 is supported. Request must start with '" +
-                ProtocolV2Constants.PREFIX + "'"
-            ));
-        }
-
-        // Process V2 request
         try {
             // Parse request into context
-            Context context = parser.parse(request);
+            Context context = protocolComponents.getParser().parse(request);
 
             // Resolve resource instance
             Class<?> targetClass = context.getTargetClass();
@@ -211,41 +184,31 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
             context.setTargetInstance(instance);
 
             // Invoke method
-            Object result = invoker.invoke(context);
+            Object result = protocolComponents.getInvoker().invoke(context);
 
             // Encode success response
-            return ((ProtocolV2Codec) codec).encodeResponse(result, StatusCode.SUCCESS);
+            return protocolComponents.encodeResponse(result, StatusCode.SUCCESS);
 
         } catch (BusinessException e) {
             // Business exception - expected error from business logic
             logger.warning("Business exception: " + e.getMessage());
-            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.BUSINESS_EXCEPTION);
+            return protocolComponents.encodeException(e, StatusCode.BUSINESS_EXCEPTION);
 
         } catch (cn.huiwings.tcprest.exception.SecurityException e) {
             // Security violation - checksum failure, whitelist block, etc.
             logger.severe("Security violation: " + e.getMessage());
-            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.PROTOCOL_ERROR);
+            return protocolComponents.encodeException(e, StatusCode.PROTOCOL_ERROR);
 
         } catch (ProtocolException e) {
             // Protocol error - malformed request or parsing failure
             logger.severe("Protocol error: " + e.getMessage());
-            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.PROTOCOL_ERROR);
+            return protocolComponents.encodeException(e, StatusCode.PROTOCOL_ERROR);
 
         } catch (Exception e) {
             // Server error - unexpected exception during processing
             logger.severe("Server error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
-            return ((ProtocolV2Codec) codec).encodeException(e, StatusCode.SERVER_ERROR);
+            return protocolComponents.encodeException(e, StatusCode.SERVER_ERROR);
         }
-    }
-
-    /**
-     * Handle errors and return appropriate error response.
-     *
-     * @param error the error
-     * @return error response
-     */
-    private String handleError(Exception error) {
-        return encodeErrorResponse(error, StatusCode.PROTOCOL_ERROR);
     }
 
     /**
@@ -256,7 +219,10 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * @return V2 response string
      */
     protected String encodeErrorResponse(Throwable error, StatusCode status) {
-        return ((ProtocolV2Codec) codec).encodeException(error, status);
+        if (protocolComponents == null) {
+            throw new IllegalStateException("Protocol components not initialized");
+        }
+        return protocolComponents.encodeException(error, status);
     }
 
     @Override
@@ -345,13 +311,8 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     @Override
     public void setSecurityConfig(SecurityConfig securityConfig) {
         this.securityConfig = securityConfig;
-        if (securityConfig != null) {
-            if (parser instanceof ProtocolV2Parser) {
-                ((ProtocolV2Parser) parser).setSecurityConfig(securityConfig);
-            }
-            if (codec instanceof ProtocolV2Codec) {
-                ((ProtocolV2Codec) codec).setSecurityConfig(securityConfig);
-            }
+        if (securityConfig != null && protocolComponents != null) {
+            protocolComponents.setSecurityConfig(securityConfig);
         }
     }
 
@@ -371,7 +332,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * @return request parser
      */
     public RequestParser getParser() {
-        return parser;
+        return protocolComponents != null ? protocolComponents.getParser() : null;
     }
 
     /**
@@ -380,7 +341,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * @return protocol codec
      */
     public ProtocolCodec getCodec() {
-        return codec;
+        return protocolComponents != null ? protocolComponents.getCodec() : null;
     }
 
     /**
@@ -389,7 +350,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * @return method invoker
      */
     public ProtocolV2Invoker getInvoker() {
-        return invoker;
+        return protocolComponents != null ? protocolComponents.getInvoker() : null;
     }
 
     /**

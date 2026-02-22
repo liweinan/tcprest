@@ -115,8 +115,8 @@ V2 | SUCCESS | Calculator/add(II) | [5, 3]
 Base class providing common functionality:
 - Resource management (classes and singleton instances)
 - Mapper registry
-- Request processing pipeline
-- Extractor and invoker integration
+- Request processing pipeline: delegates to **Protocol V2 components** (parser, invoker, codec) created via `ProtocolV2ServerComponents` so the server does not depend on concrete V2 implementation types
+- Request validation (null/empty, V2 prefix) is performed inside the parser (`ProtocolV2Parser.parse()`); the server does not duplicate this logic and relies on `ProtocolException` from the parser for error responses
 
 #### Server Implementations
 
@@ -292,11 +292,11 @@ server.addMapper(User.class.getCanonicalName(), new GsonUserMapper());
 
 **Thread safety:** Mappers should be stateless or thread-safe.
 
-### 5. Request Parser and Invoker
+### 5. Request Parser, Invoker, and V2 Server Components
 
-**Package:** `cn.huiwings.tcprest.parser`, `cn.huiwings.tcprest.invoker`
+**Package:** `cn.huiwings.tcprest.parser`, `cn.huiwings.tcprest.invoker`, `cn.huiwings.tcprest.protocol.v2`
 
-These components form the server-side request processing pipeline:
+These components form the server-side request processing pipeline. **ProtocolV2ServerComponents** (`protocol.v2`) creates and holds the parser, invoker, and codec for V2; the server calls `ProtocolV2ServerComponents.create(mappers, securityConfig)` and uses the result for parsing, invocation, and response encoding so it does not depend on `ProtocolV2Parser`/`ProtocolV2Codec` types directly.
 
 #### RequestParser: Protocol Parsing
 
@@ -307,6 +307,7 @@ These components form the server-side request processing pipeline:
 - `ProtocolV2Parser`: Protocol V2 parser with full feature support
 
 **ProtocolV2Parser capabilities:**
+- ✅ **Request validation** (single source): null/empty and V2 prefix check; invalid requests throw `ProtocolException` so the server does not duplicate validation
 - ✅ **Method signature parsing**: `add(II)` → finds `add(int, int)` even with overloads
 - ✅ **Parameter parsing priority** (server-side): P1 primitives/wrappers/String/primitive arrays/String[] (decode + convertToType); P2 object arrays (Base64 → RawTypeMapper); P3 user mapper; P4 collection interfaces; P5 Serializable; P6 fallback
 - ✅ **Security validation**: Checksum verification (CRC32/HMAC), class whitelist
