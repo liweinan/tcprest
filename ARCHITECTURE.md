@@ -117,6 +117,7 @@ Base class providing common functionality:
 - Mapper registry
 - Request processing pipeline: delegates to **Protocol V2 components** (parser, invoker, codec) created via `ProtocolV2ServerComponents` so the server does not depend on concrete V2 implementation types
 - Request validation (null/empty, V2 prefix) is performed inside the parser (`ProtocolV2Parser.parse()`); the server does not duplicate this logic and relies on `ProtocolException` from the parser for error responses
+- Resource type validation at registration: when adding resources/singletons, unsupported DTO/parameter/return types (no Serializable, no mapper) are detected via `ProtocolV2TypeSupport` (`protocol.v2`); server logs a warning or throws if `strictTypeCheck` is enabled, so type-support rules live in one place aligned with V2 parser/codec
 
 #### Server Implementations
 

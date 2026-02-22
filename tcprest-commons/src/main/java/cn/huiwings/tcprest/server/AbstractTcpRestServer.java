@@ -10,10 +10,10 @@ import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
 import cn.huiwings.tcprest.parser.RequestParser;
 import cn.huiwings.tcprest.protocol.v2.ProtocolV2ServerComponents;
+import cn.huiwings.tcprest.protocol.v2.ProtocolV2TypeSupport;
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
 import cn.huiwings.tcprest.security.SecurityConfig;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -361,7 +361,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * @throws IllegalStateException if strictTypeCheck is true and any unsupported type is found
      */
     protected void validateResourceTypes(Class<?> resourceClass) {
-        List<String> unsupported = collectUnsupportedTypes(resourceClass, mappers);
+        List<String> unsupported = ProtocolV2TypeSupport.collectUnsupportedTypes(resourceClass, mappers);
         if (unsupported.isEmpty()) {
             return;
         }
@@ -372,76 +372,6 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
             throw new IllegalStateException(message);
         }
         logger.warning(message);
-    }
-
-    /**
-     * Collect fully qualified type names that are not supported (no Serializable, no mapper).
-     * Matches Protocol V2 semantics: primitives, String, wrappers, collection interfaces,
-     * primitive/String arrays are supported; other types need Serializable or mapper.
-     */
-    private static List<String> collectUnsupportedTypes(Class<?> resourceClass, Map<String, Mapper> mappers) {
-        List<String> unsupported = new ArrayList<>();
-        for (java.lang.reflect.Method method : resourceClass.getMethods()) {
-            if (method.getDeclaringClass() == Object.class) {
-                continue;
-            }
-            for (Class<?> paramType : method.getParameterTypes()) {
-                if (!isTypeSupported(paramType, mappers)) {
-                    String name = paramType.getCanonicalName();
-                    if (name != null && !unsupported.contains(name)) {
-                        unsupported.add(name);
-                    }
-                }
-            }
-            Class<?> returnType = method.getReturnType();
-            if (returnType != void.class && !isTypeSupported(returnType, mappers)) {
-                String name = returnType.getCanonicalName();
-                if (name != null && !unsupported.contains(name)) {
-                    unsupported.add(name);
-                }
-            }
-        }
-        return unsupported;
-    }
-
-    private static boolean isTypeSupported(Class<?> type, Map<String, Mapper> mappers) {
-        if (type == null || type == void.class) {
-            return true;
-        }
-        if (type.isPrimitive()) {
-            return true;
-        }
-        if (type == String.class) {
-            return true;
-        }
-        if (isWrapperType(type)) {
-            return true;
-        }
-        if (isCommonCollectionInterface(type)) {
-            return true;
-        }
-        if (type.isArray()) {
-            Class<?> component = type.getComponentType();
-            if (component.isPrimitive() || component == String.class) {
-                return true;
-            }
-            return java.io.Serializable.class.isAssignableFrom(component)
-                || (mappers != null && mappers.containsKey(component.getCanonicalName()));
-        }
-        return java.io.Serializable.class.isAssignableFrom(type)
-            || (mappers != null && mappers.containsKey(type.getCanonicalName()));
-    }
-
-    private static boolean isWrapperType(Class<?> clazz) {
-        return clazz == Integer.class || clazz == Long.class || clazz == Double.class
-            || clazz == Float.class || clazz == Boolean.class || clazz == Byte.class
-            || clazz == Short.class || clazz == Character.class;
-    }
-
-    private static boolean isCommonCollectionInterface(Class<?> clazz) {
-        return clazz == java.util.List.class || clazz == java.util.Map.class
-            || clazz == java.util.Set.class || clazz == java.util.Queue.class
-            || clazz == java.util.Deque.class || clazz == java.util.Collection.class;
     }
 
     /** Sanitize string for logging to prevent log injection (newlines/control chars). */
