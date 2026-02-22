@@ -43,9 +43,7 @@ public class MultiInterfaceClientFactoryTest {
     @Test
     public void getInstanceByType_returnsCorrectProxies() {
         TcpRestClientFactory factory = new TcpRestClientFactory(
-                new Class<?>[]{HelloWorld.class, Counter.class},
-                "localhost",
-                tcpRestServer.getServerPort());
+                "localhost", tcpRestServer.getServerPort(), HelloWorld.class, Counter.class);
 
         HelloWorld helloClient = factory.getInstance(HelloWorld.class);
         Counter counterClient = factory.getInstance(Counter.class);
@@ -59,9 +57,7 @@ public class MultiInterfaceClientFactoryTest {
     @Test
     public void getClientByType_returnsSameAsGetInstanceByType() {
         TcpRestClientFactory factory = new TcpRestClientFactory(
-                new Class<?>[]{HelloWorld.class, Counter.class},
-                "localhost",
-                tcpRestServer.getServerPort());
+                "localhost", tcpRestServer.getServerPort(), HelloWorld.class, Counter.class);
 
         HelloWorld viaGetInstance = factory.getInstance(HelloWorld.class);
         HelloWorld viaGetClient = factory.getClient(HelloWorld.class);
@@ -73,9 +69,7 @@ public class MultiInterfaceClientFactoryTest {
     @Test
     public void getInstanceWithNoArgs_throwsWhenMultipleInterfaces() {
         TcpRestClientFactory factory = new TcpRestClientFactory(
-                new Class<?>[]{HelloWorld.class, Counter.class},
-                "localhost",
-                tcpRestServer.getServerPort());
+                "localhost", tcpRestServer.getServerPort(), HelloWorld.class, Counter.class);
 
         try {
             factory.getInstance();
@@ -88,9 +82,7 @@ public class MultiInterfaceClientFactoryTest {
     @Test
     public void getInstanceWithUnregisteredType_throws() {
         TcpRestClientFactory factory = new TcpRestClientFactory(
-                new Class<?>[]{HelloWorld.class, Counter.class},
-                "localhost",
-                tcpRestServer.getServerPort());
+                "localhost", tcpRestServer.getServerPort(), HelloWorld.class, Counter.class);
 
         try {
             factory.getInstance(UnregisteredInterface.class);
@@ -118,6 +110,27 @@ public class MultiInterfaceClientFactoryTest {
                     "localhost",
                     tcpRestServer.getServerPort());
             fail("Expected IllegalArgumentException when registering a class");
+        } catch (IllegalArgumentException e) {
+            assert e.getMessage() != null && e.getMessage().contains("must be an interface")
+                    && e.getMessage().contains(HelloWorldResource.class.getName());
+        }
+    }
+
+    @Test
+    public void varargsConstructor_acceptsMultipleInterfaces() {
+        TcpRestClientFactory factory = new TcpRestClientFactory(
+                "localhost", tcpRestServer.getServerPort(), HelloWorld.class, Counter.class);
+        assertEquals(factory.getClient(HelloWorld.class).helloWorld(), "Hello, world!");
+        assertEquals(factory.getClient(Counter.class).getCounter(), 0);
+    }
+
+    @Test
+    public void varargsConstructor_rejectsConcreteClass() {
+        try {
+            new TcpRestClientFactory(
+                    "localhost", tcpRestServer.getServerPort(),
+                    HelloWorld.class, HelloWorldResource.class);
+            fail("Expected IllegalArgumentException when registering a class via varargs");
         } catch (IllegalArgumentException e) {
             assert e.getMessage() != null && e.getMessage().contains("must be an interface")
                     && e.getMessage().contains(HelloWorldResource.class.getName());

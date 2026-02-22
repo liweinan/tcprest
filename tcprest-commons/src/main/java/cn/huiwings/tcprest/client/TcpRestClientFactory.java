@@ -22,10 +22,10 @@ import java.util.Map;
  *     .getInstance();
  * </pre>
  *
- * <p><b>Multiple interfaces:</b></p>
+ * <p><b>Multiple interfaces (varargs):</b></p>
  * <pre>
  * TcpRestClientFactory factory = new TcpRestClientFactory(
- *     new Class&lt;?&gt;[]{ Calculator.class, ExceptionService.class }, "localhost", 8080);
+ *     "localhost", 8080, Calculator.class, ExceptionService.class);
  * Calculator calc = factory.getInstance(Calculator.class);
  * ExceptionService svc = factory.getInstance(ExceptionService.class);
  * </pre>
@@ -120,6 +120,53 @@ public class TcpRestClientFactory {
     }
 
     public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+        this.extraMappers = extraMappers;
+        this.sslParams = sslParams;
+        this.compressionConfig = compressionConfig;
+    }
+
+    /**
+     * Multi-interface constructor (varargs). Registers all given interface classes.
+     *
+     * @param host server host
+     * @param port server port
+     * @param resourceClasses one or more interface classes (varargs)
+     * @throws IllegalArgumentException if resourceClasses is null, empty, or any element is not an interface
+     */
+    public TcpRestClientFactory(String host, int port, Class<?>... resourceClasses) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+    }
+
+    /**
+     * Multi-interface constructor (varargs) with custom mappers.
+     */
+    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, Class<?>... resourceClasses) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+        this.extraMappers = extraMappers;
+    }
+
+    /**
+     * Multi-interface constructor (varargs) with custom mappers and SSL.
+     */
+    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, Class<?>... resourceClasses) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+        this.extraMappers = extraMappers;
+        this.sslParams = sslParams;
+    }
+
+    /**
+     * Multi-interface constructor (varargs) with full configuration.
+     */
+    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig, Class<?>... resourceClasses) {
         this.resourceClasses = validateResourceClasses(resourceClasses);
         this.host = host;
         this.port = port;

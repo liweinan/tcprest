@@ -80,9 +80,9 @@ int sum = client.add(10, 20);              // 30
 Only **interfaces** may be registered; registering a concrete class throws `IllegalArgumentException`. The factory supports **single-interface** (one interface `Class`, then `getClient()`) and **multi-interface** (multiple interface classes, then `getClient(Class<T>)` per type):
 
 ```java
-// One factory, multiple service interfaces
+// One factory, multiple service interfaces (varargs)
 TcpRestClientFactory factory = new TcpRestClientFactory(
-    new Class<?>[]{ Calculator.class, UserService.class }, "localhost", 8001
+    "localhost", 8001, Calculator.class, UserService.class
 );
 Calculator calc = factory.getClient(Calculator.class);
 UserService users = factory.getClient(UserService.class);

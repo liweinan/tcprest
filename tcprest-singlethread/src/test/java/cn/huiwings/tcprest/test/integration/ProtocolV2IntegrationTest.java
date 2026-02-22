@@ -49,11 +49,9 @@ public class ProtocolV2IntegrationTest {
 
         Thread.sleep(500); // Wait for server startup
 
-        // Create v2 clients via single factory with multiple interfaces
+        // Create v2 clients via single factory with multiple interfaces (varargs)
         TcpRestClientFactory factory = new TcpRestClientFactory(
-            new Class<?>[]{ OverloadedCalculator.class, ExceptionTestService.class },
-            "localhost",
-            port
+            "localhost", port, OverloadedCalculator.class, ExceptionTestService.class
         );
         calculatorClient = factory.getInstance(OverloadedCalculator.class);
         exceptionClient = factory.getInstance(ExceptionTestService.class);
