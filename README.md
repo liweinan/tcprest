@@ -146,6 +146,30 @@ TcpRest is organized into focused modules - choose what you need:
 
 *Through transitive dependency on `tcprest-commons` (which has zero runtime dependencies)
 
+### UDP transport (Netty module)
+
+The **tcprest-netty** module also provides **UDP** transport: one datagram = one request, one datagram = one response. Same Protocol V2 on the wire. Use when you need low-latency, fire-and-forget style, or non-TCP networks.
+
+| Component | Class | Notes |
+|-----------|--------|-------|
+| Server | `NettyUdpRestServer` | `new NettyUdpRestServer(port)` then `addResource` / `up()` |
+| Client | `NettyUdpRestClientFactory` | `new NettyUdpRestClientFactory(MyService.class, host, port).getClient()`; call `shutdown()` when done |
+
+**Limitations:** No SSL/DTLS. Request and response must fit in a single UDP packet (default max 1472 bytes). Oversized packets are dropped.
+
+```java
+// Server
+NettyUdpRestServer server = new NettyUdpRestServer(9090);
+server.addResource(HelloWorldResource.class);
+server.up();
+
+// Client (same interface as TCP)
+NettyUdpRestClientFactory factory = new NettyUdpRestClientFactory(HelloWorld.class, "localhost", 9090);
+HelloWorld client = factory.getClient();
+assertEquals(client.helloWorld(), "Hello, world!");
+factory.shutdown();
+```
+
 ## Key Features
 
 ### Zero Dependencies

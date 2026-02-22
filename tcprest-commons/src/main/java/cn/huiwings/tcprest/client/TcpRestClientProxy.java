@@ -75,6 +75,30 @@ public class TcpRestClientProxy implements InvocationHandler {
     }
 
     /**
+     * Create client proxy with an existing transport client (e.g. UDP client).
+     * Use this when the transport is not TCP (e.g. NettyUdpRestClient).
+     *
+     * @param delegatedClassName target service class name
+     * @param tcpRestClient the transport client (must implement sendRequest and getDeletgatedClassName)
+     * @param extraMappers custom mappers (optional)
+     * @param sslParams ignored for UDP; optional for other transports
+     * @param compressionConfig compression configuration (optional)
+     * @param securityConfig security configuration (optional)
+     */
+    public TcpRestClientProxy(String delegatedClassName, TcpRestClient tcpRestClient,
+                              Map<String, Mapper> extraMappers, SSLParams sslParams,
+                              CompressionConfig compressionConfig, SecurityConfig securityConfig) {
+        mappers = new HashMap<>(MapperHelper.DEFAULT_MAPPERS);
+        if (extraMappers != null) {
+            mappers.putAll(extraMappers);
+        }
+        this.compressionConfig = compressionConfig != null ? compressionConfig : new CompressionConfig();
+        this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
+        this.codec = new ProtocolV2Codec(this.securityConfig, this.mappers);
+        this.tcpRestClient = tcpRestClient;
+    }
+
+    /**
      * Create client proxy with compression.
      *
      * @param delegatedClassName target service class name

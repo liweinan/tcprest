@@ -240,7 +240,18 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * @return error response
      */
     private String handleError(Exception error) {
-        return ((ProtocolV2Codec) codec).encodeException(error, StatusCode.PROTOCOL_ERROR);
+        return encodeErrorResponse(error, StatusCode.PROTOCOL_ERROR);
+    }
+
+    /**
+     * Encode an exception as a V2 error response. For use by transport layers (e.g. UDP handler).
+     *
+     * @param error the exception
+     * @param status the status code (e.g. SERVER_ERROR for processing failures)
+     * @return V2 response string
+     */
+    protected String encodeErrorResponse(Throwable error, StatusCode status) {
+        return ((ProtocolV2Codec) codec).encodeException(error, status);
     }
 
     @Override

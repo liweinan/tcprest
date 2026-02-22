@@ -6,8 +6,8 @@ import java.util.Map;
  * Interface for resource registration and lookup.
  *
  * <p>Defines the full contract for registering and resolving service instances (resources)
- * for method invocation. {@link TcpRestServer} extends this interface and adds lifecycle
- * and configuration (compression, security, mappers).</p>
+ * for method invocation. {@link TcpRestServer} extends this interface and
+ * {@link MapperRegister}, and adds lifecycle and server configuration (compression, security).</p>
  *
  * @since 1.1.0
  */

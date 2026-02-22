@@ -148,6 +148,13 @@ Base class providing common functionality:
 - Requires: Netty dependency
 - Combines NIO performance with SSL support
 
+**NettyUdpRestServer** / **NettyUdpRestClient** (`tcprest-netty`)
+- UDP transport: one datagram = one request, one datagram = one response; same Protocol V2 payload.
+- **SSL/DTLS:** ❌ No.
+- Single-packet constraint: request and response must fit in one UDP packet (default max 1472 bytes); oversized packets are dropped.
+- Use when: low-latency, fire-and-forget, or non-TCP networks.
+- Client: `NettyUdpRestClientFactory(interfaceClass, host, port).getClient()`; call `shutdown()` when done.
+
 #### Lifecycle Management
 
 All servers implement the `TcpRestServer` interface:
