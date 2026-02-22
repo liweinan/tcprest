@@ -176,12 +176,12 @@ Uses **dynamic proxy pattern** to create type-safe client stubs:
 TcpRestClientFactory factory = new TcpRestClientFactory(
     MyService.class, "localhost", 8080
 );
-MyService client = factory.produceProxy();
+MyService client = factory.getClient();
 String result = client.someMethod(arg1, arg2);
 ```
 
 **Key classes:**
-- `TcpRestClientFactory`: Factory for creating client proxies
+- `TcpRestClientFactory`: Factory for creating client proxies; only interfaces may be registered (concrete classes throw `IllegalArgumentException`). Supports single-interface (one `Class` + `getClient()`) or multi-interface (array of `Class` + `getClient(Class<T>)` per type).
 - `TcpRestClientProxy`: InvocationHandler that serializes calls to protocol format
 - Supports custom mappers and SSL
 

@@ -11,12 +11,23 @@ import java.util.Map;
 /**
  * Factory for creating Protocol V2 TcpRest client instances.
  *
- * <p>Provides a fluent API for configuring and creating client proxies.</p>
+ * <p>Only <b>interfaces</b> may be registered; passing a concrete class will throw
+ * {@link IllegalArgumentException}. Supports both single-interface and multi-interface
+ * registration. When multiple interfaces are registered, use {@link #getInstance(Class)}
+ * to obtain a proxy for a specific interface.</p>
  *
- * <p><b>Basic Usage:</b></p>
+ * <p><b>Single interface (basic):</b></p>
  * <pre>
  * Calculator calc = new TcpRestClientFactory(Calculator.class, "localhost", 8080)
  *     .getInstance();
+ * </pre>
+ *
+ * <p><b>Multiple interfaces:</b></p>
+ * <pre>
+ * TcpRestClientFactory factory = new TcpRestClientFactory(
+ *     new Class&lt;?&gt;[]{ Calculator.class, ExceptionService.class }, "localhost", 8080);
+ * Calculator calc = factory.getInstance(Calculator.class);
+ * ExceptionService svc = factory.getInstance(ExceptionService.class);
  * </pre>
  *
  * <p><b>With Compression:</b></p>
@@ -39,7 +50,7 @@ import java.util.Map;
  */
 public class TcpRestClientFactory {
 
-    Class<?> resourceClass;
+    private final Class<?>[] resourceClasses;
     String host;
     int port;
     Map<String, Mapper> extraMappers;
@@ -48,20 +59,20 @@ public class TcpRestClientFactory {
     SecurityConfig securityConfig;
 
     public TcpRestClientFactory(Class<?> resourceClass, String host, int port) {
-        this.resourceClass = resourceClass;
+        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
         this.host = host;
         this.port = port;
     }
 
     public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers) {
-        this.resourceClass = resourceClass;
+        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
     }
 
     public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams) {
-        this.resourceClass = resourceClass;
+        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
@@ -69,7 +80,7 @@ public class TcpRestClientFactory {
     }
 
     public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
-        this.resourceClass = resourceClass;
+        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
@@ -77,16 +88,102 @@ public class TcpRestClientFactory {
         this.compressionConfig = compressionConfig;
     }
 
+    private static Class<?> validateInterface(Class<?> type) {
+        if (type == null) {
+            throw new IllegalArgumentException("resourceClass must not be null");
+        }
+        if (!type.isInterface()) {
+            throw new IllegalArgumentException("resourceClass must be an interface: " + type.getName());
+        }
+        return type;
+    }
+
+    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+    }
+
+    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port, Map<String, Mapper> extraMappers) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+        this.extraMappers = extraMappers;
+    }
+
+    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+        this.extraMappers = extraMappers;
+        this.sslParams = sslParams;
+    }
+
+    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
+        this.resourceClasses = validateResourceClasses(resourceClasses);
+        this.host = host;
+        this.port = port;
+        this.extraMappers = extraMappers;
+        this.sslParams = sslParams;
+        this.compressionConfig = compressionConfig;
+    }
+
+    private static Class<?>[] validateResourceClasses(Class<?>[] classes) {
+        if (classes == null || classes.length == 0) {
+            throw new IllegalArgumentException("resourceClasses must not be null or empty");
+        }
+        for (int i = 0; i < classes.length; i++) {
+            if (classes[i] == null) {
+                throw new IllegalArgumentException("resourceClasses[" + i + "] must not be null");
+            }
+            if (!classes[i].isInterface()) {
+                throw new IllegalArgumentException("resourceClasses[" + i + "] must be an interface: " + classes[i].getName());
+            }
+        }
+        return classes.clone();
+    }
+
     /**
-     * Create and return client instance.
+     * Create and return client instance. When only one interface is registered,
+     * returns the proxy for that interface. When multiple interfaces are registered,
+     * throws IllegalStateException; use {@link #getInstance(Class)} instead.
      *
      * @param <T> client interface type
      * @return client proxy instance
+     * @throws IllegalStateException if multiple interfaces are registered
      */
     public <T> T getInstance() {
-        return (T) Proxy.newProxyInstance(resourceClass.getClassLoader(),
-                new Class[]{resourceClass},
-                new TcpRestClientProxy(resourceClass.getCanonicalName(), host, port,
+        if (resourceClasses.length != 1) {
+            throw new IllegalStateException("Multiple interfaces registered; use getInstance(Class<T>) to get a proxy.");
+        }
+        return (T) createProxy(resourceClasses[0]);
+    }
+
+    /**
+     * Create and return client instance for the given interface type.
+     * The type must be one of the interfaces registered with this factory.
+     *
+     * @param <T> client interface type
+     * @param type the interface class to get a proxy for
+     * @return client proxy instance for the given type
+     * @throws IllegalArgumentException if type is not registered with this factory
+     */
+    public <T> T getInstance(Class<T> type) {
+        if (type == null || !type.isInterface()) {
+            throw new IllegalArgumentException("type must be a non-null interface");
+        }
+        for (Class<?> c : resourceClasses) {
+            if (c == type) {
+                return (T) createProxy(type);
+            }
+        }
+        throw new IllegalArgumentException("Interface not registered with this factory: " + type.getName());
+    }
+
+    private Object createProxy(Class<?> type) {
+        return Proxy.newProxyInstance(type.getClassLoader(),
+                new Class<?>[]{type},
+                new TcpRestClientProxy(type.getCanonicalName(), host, port,
                         extraMappers, sslParams, compressionConfig, securityConfig));
     }
 
@@ -96,9 +193,23 @@ public class TcpRestClientFactory {
      *
      * @param <T> client interface type
      * @return client proxy instance
+     * @throws IllegalStateException if multiple interfaces are registered
      */
     public <T> T getClient() {
         return getInstance();
+    }
+
+    /**
+     * Get client instance for the given interface type.
+     * Alias for getInstance(Class).
+     *
+     * @param <T> client interface type
+     * @param type the interface class to get a proxy for
+     * @return client proxy instance for the given type
+     * @throws IllegalArgumentException if type is not registered with this factory
+     */
+    public <T> T getClient(Class<T> type) {
+        return getInstance(type);
     }
 
     public void setCompressionConfig(CompressionConfig compressionConfig) {

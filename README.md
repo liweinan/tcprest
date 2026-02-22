@@ -77,6 +77,17 @@ String greeting = client.helloWorld();    // "Hello, world!"
 int sum = client.add(10, 20);              // 30
 ```
 
+Only **interfaces** may be registered; registering a concrete class throws `IllegalArgumentException`. The factory supports **single-interface** (one interface `Class`, then `getClient()`) and **multi-interface** (multiple interface classes, then `getClient(Class<T>)` per type):
+
+```java
+// One factory, multiple service interfaces
+TcpRestClientFactory factory = new TcpRestClientFactory(
+    new Class<?>[]{ Calculator.class, UserService.class }, "localhost", 8001
+);
+Calculator calc = factory.getClient(Calculator.class);
+UserService users = factory.getClient(UserService.class);
+```
+
 That's it! TcpRest handles all serialization, networking, and deserialization automatically.
 
 ## Installation
