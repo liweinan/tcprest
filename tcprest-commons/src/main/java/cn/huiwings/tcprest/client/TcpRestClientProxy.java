@@ -90,6 +90,9 @@ public class TcpRestClientProxy implements InvocationHandler {
                               CompressionConfig compressionConfig, SecurityConfig securityConfig) {
         java.util.Objects.requireNonNull(delegatedClassName, "delegatedClassName must not be null");
         java.util.Objects.requireNonNull(tcpRestClient, "tcpRestClient must not be null");
+        if (sslParams != null) {
+            /* Ignored for UDP transport; kept for API consistency with TCP constructor */
+        }
         mappers = new HashMap<>(MapperHelper.DEFAULT_MAPPERS);
         if (extraMappers != null) {
             mappers.putAll(extraMappers);

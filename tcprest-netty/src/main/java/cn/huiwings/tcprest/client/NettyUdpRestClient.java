@@ -48,7 +48,8 @@ public class NettyUdpRestClient implements TcpRestClient {
                                 String s = msg.content().toString(CharsetUtil.UTF_8);
                                 if (!responseQueue.offer(s)) {
                                     responseQueue.clear();
-                                    responseQueue.offer(s);
+                                    boolean added = responseQueue.offer(s);
+                                    assert added : "capacity 1, empty after clear";
                                 }
                             }
                         });
