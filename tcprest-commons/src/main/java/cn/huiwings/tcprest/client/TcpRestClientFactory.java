@@ -50,7 +50,7 @@ import java.util.Map;
  */
 public class TcpRestClientFactory {
 
-    private final Class<?>[] resourceClasses;
+    private final Class<?>[] interfaceClasses;
     String host;
     int port;
     Map<String, Mapper> extraMappers;
@@ -58,29 +58,29 @@ public class TcpRestClientFactory {
     CompressionConfig compressionConfig;
     SecurityConfig securityConfig;
 
-    public TcpRestClientFactory(Class<?> resourceClass, String host, int port) {
-        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
+    public TcpRestClientFactory(Class<?> interfaceClass, String host, int port) {
+        this.interfaceClasses = new Class<?>[]{validateInterface(interfaceClass)};
         this.host = host;
         this.port = port;
     }
 
-    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers) {
-        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
+    public TcpRestClientFactory(Class<?> interfaceClass, String host, int port, Map<String, Mapper> extraMappers) {
+        this.interfaceClasses = new Class<?>[]{validateInterface(interfaceClass)};
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
     }
 
-    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams) {
-        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
+    public TcpRestClientFactory(Class<?> interfaceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams) {
+        this.interfaceClasses = new Class<?>[]{validateInterface(interfaceClass)};
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
         this.sslParams = sslParams;
     }
 
-    public TcpRestClientFactory(Class<?> resourceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
-        this.resourceClasses = new Class<?>[]{validateInterface(resourceClass)};
+    public TcpRestClientFactory(Class<?> interfaceClass, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
+        this.interfaceClasses = new Class<?>[]{validateInterface(interfaceClass)};
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
@@ -90,37 +90,37 @@ public class TcpRestClientFactory {
 
     private static Class<?> validateInterface(Class<?> type) {
         if (type == null) {
-            throw new IllegalArgumentException("resourceClass must not be null");
+            throw new IllegalArgumentException("interfaceClass must not be null");
         }
         if (!type.isInterface()) {
-            throw new IllegalArgumentException("resourceClass must be an interface: " + type.getName());
+            throw new IllegalArgumentException("interfaceClass must be an interface: " + type.getName());
         }
         return type;
     }
 
-    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(Class<?>[] interfaceClasses, String host, int port) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
     }
 
-    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port, Map<String, Mapper> extraMappers) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(Class<?>[] interfaceClasses, String host, int port, Map<String, Mapper> extraMappers) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
     }
 
-    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(Class<?>[] interfaceClasses, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
         this.sslParams = sslParams;
     }
 
-    public TcpRestClientFactory(Class<?>[] resourceClasses, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(Class<?>[] interfaceClasses, String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
@@ -133,11 +133,11 @@ public class TcpRestClientFactory {
      *
      * @param host server host
      * @param port server port
-     * @param resourceClasses one or more interface classes (varargs)
-     * @throws IllegalArgumentException if resourceClasses is null, empty, or any element is not an interface
+     * @param interfaceClasses one or more interface classes (varargs)
+     * @throws IllegalArgumentException if interfaceClasses is null, empty, or any element is not an interface
      */
-    public TcpRestClientFactory(String host, int port, Class<?>... resourceClasses) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(String host, int port, Class<?>... interfaceClasses) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
     }
@@ -145,8 +145,8 @@ public class TcpRestClientFactory {
     /**
      * Multi-interface constructor (varargs) with custom mappers.
      */
-    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, Class<?>... resourceClasses) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, Class<?>... interfaceClasses) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
@@ -155,8 +155,8 @@ public class TcpRestClientFactory {
     /**
      * Multi-interface constructor (varargs) with custom mappers and SSL.
      */
-    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, Class<?>... resourceClasses) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, Class<?>... interfaceClasses) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
@@ -166,8 +166,8 @@ public class TcpRestClientFactory {
     /**
      * Multi-interface constructor (varargs) with full configuration.
      */
-    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig, Class<?>... resourceClasses) {
-        this.resourceClasses = validateResourceClasses(resourceClasses);
+    public TcpRestClientFactory(String host, int port, Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig, Class<?>... interfaceClasses) {
+        this.interfaceClasses = validateInterfaceClasses(interfaceClasses);
         this.host = host;
         this.port = port;
         this.extraMappers = extraMappers;
@@ -175,16 +175,16 @@ public class TcpRestClientFactory {
         this.compressionConfig = compressionConfig;
     }
 
-    private static Class<?>[] validateResourceClasses(Class<?>[] classes) {
+    private static Class<?>[] validateInterfaceClasses(Class<?>[] classes) {
         if (classes == null || classes.length == 0) {
-            throw new IllegalArgumentException("resourceClasses must not be null or empty");
+            throw new IllegalArgumentException("interfaceClasses must not be null or empty");
         }
         for (int i = 0; i < classes.length; i++) {
             if (classes[i] == null) {
-                throw new IllegalArgumentException("resourceClasses[" + i + "] must not be null");
+                throw new IllegalArgumentException("interfaceClasses[" + i + "] must not be null");
             }
             if (!classes[i].isInterface()) {
-                throw new IllegalArgumentException("resourceClasses[" + i + "] must be an interface: " + classes[i].getName());
+                throw new IllegalArgumentException("interfaceClasses[" + i + "] must be an interface: " + classes[i].getName());
             }
         }
         return classes.clone();
@@ -200,10 +200,10 @@ public class TcpRestClientFactory {
      * @throws IllegalStateException if multiple interfaces are registered
      */
     public <T> T getInstance() {
-        if (resourceClasses.length != 1) {
+        if (interfaceClasses.length != 1) {
             throw new IllegalStateException("Multiple interfaces registered; use getInstance(Class<T>) to get a proxy.");
         }
-        return (T) createProxy(resourceClasses[0]);
+        return (T) createProxy(interfaceClasses[0]);
     }
 
     /**
@@ -219,7 +219,7 @@ public class TcpRestClientFactory {
         if (type == null || !type.isInterface()) {
             throw new IllegalArgumentException("type must be a non-null interface");
         }
-        for (Class<?> c : resourceClasses) {
+        for (Class<?> c : interfaceClasses) {
             if (c == type) {
                 return (T) createProxy(type);
             }

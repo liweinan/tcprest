@@ -181,7 +181,7 @@ String result = client.someMethod(arg1, arg2);
 ```
 
 **Key classes:**
-- `TcpRestClientFactory`: Factory for creating client proxies; only interfaces may be registered (concrete classes throw `IllegalArgumentException`). Supports single-interface (one `Class` + `getClient()`) or multi-interface (array of `Class` + `getClient(Class<T>)` per type).
+- `TcpRestClientFactory`: Factory for creating client proxies; only **interfaces** may be registered (constructor params `interfaceClass` / `interfaceClasses`; concrete classes throw `IllegalArgumentException`). Supports single-interface (one `Class` + `getClient()`) or multi-interface (varargs/array + `getClient(Class<T>)` per type). Terminology is aligned with the server: server uses "resource" (addResource, getResource), client uses "interface" (contract only).
 - `TcpRestClientProxy`: InvocationHandler that serializes calls to protocol format
 - Supports custom mappers and SSL
 

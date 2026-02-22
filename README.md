@@ -90,6 +90,8 @@ UserService users = factory.getClient(UserService.class);
 
 That's it! TcpRest handles all serialization, networking, and deserialization automatically.
 
+**API terminology:** The server registers **resources** (implementation classes or singleton instances via `addResource` / `addSingletonResource`). The client registers **interfaces** (contract types only; constructor parameters are `interfaceClass` / `interfaceClasses`). This keeps server = implementation, client = contract.
+
 ## Installation
 
 ### Maven Dependencies
