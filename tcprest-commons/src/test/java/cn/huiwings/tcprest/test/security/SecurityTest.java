@@ -5,6 +5,11 @@ import cn.huiwings.tcprest.security.SecurityConfig;
 import cn.huiwings.tcprest.exception.SecurityException;
 import org.testng.annotations.Test;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+
 import static org.testng.Assert.*;
 
 /**
@@ -196,5 +201,91 @@ public class SecurityTest {
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testHMACWithEmptySecret() {
         new SecurityConfig().enableHMAC("");
+    }
+
+    @Test
+    public void testRSASignatureAndVerify() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair keyPair = kpg.generateKeyPair();
+        PrivateKey privateKey = keyPair.getPrivate();
+        PublicKey publicKey = keyPair.getPublic();
+
+        String message = "V2|0|meta|[p1,p2]";
+        String signatureBase64 = ProtocolSecurity.sign(message, privateKey);
+        assertNotNull(signatureBase64);
+        assertTrue(ProtocolSecurity.verifySignature(message, signatureBase64, publicKey));
+        assertFalse(ProtocolSecurity.verifySignature(message + "x", signatureBase64, publicKey));
+        assertFalse(ProtocolSecurity.verifySignature(message, signatureBase64 + "x", publicKey));
+    }
+
+    @Test
+    public void testCalculateSignatureAndVerifySegment() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair keyPair = kpg.generateKeyPair();
+        SecurityConfig config = new SecurityConfig().enableSignature(keyPair.getPrivate(), keyPair.getPublic());
+
+        String message = "V2|0|0|{{body}}|CHK:abc";
+        String sigSegment = ProtocolSecurity.calculateSignature(message, config);
+        assertTrue(sigSegment.startsWith("SIG:RSA:"));
+        ProtocolSecurity.verifySignatureSegment(message, sigSegment, config);
+    }
+
+    @Test(expectedExceptions = SecurityException.class)
+    public void testVerifySignatureSegmentTamperedPayload() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair keyPair = kpg.generateKeyPair();
+        SecurityConfig config = new SecurityConfig().enableSignature(keyPair.getPrivate(), keyPair.getPublic());
+        String message = "V2|0|0|{{body}}";
+        String sigSegment = ProtocolSecurity.calculateSignature(message, config);
+        ProtocolSecurity.verifySignatureSegment(message + "x", sigSegment, config);
+    }
+
+    @Test
+    public void testParseTrailingSegments() {
+        String contentOnly = "V2|0|meta|[p]";
+        ProtocolSecurity.TrailingSegments seg = ProtocolSecurity.parseTrailingSegments(contentOnly);
+        assertEquals(seg.getContent(), contentOnly);
+        assertEquals(seg.getChkSegment(), "");
+        assertEquals(seg.getSigSegment(), "");
+
+        String withChk = "V2|0|meta|[p]|CHK:abc123";
+        seg = ProtocolSecurity.parseTrailingSegments(withChk);
+        assertEquals(seg.getContent(), "V2|0|meta|[p]");
+        assertEquals(seg.getChkSegment(), "CHK:abc123");
+        assertEquals(seg.getSigSegment(), "");
+        assertEquals(seg.getSignedPayload(), "V2|0|meta|[p]|CHK:abc123");
+
+        String withChkAndSig = "V2|0|meta|[p]|CHK:abc|SIG:RSA:base64sig";
+        seg = ProtocolSecurity.parseTrailingSegments(withChkAndSig);
+        assertEquals(seg.getContent(), "V2|0|meta|[p]");
+        assertEquals(seg.getChkSegment(), "CHK:abc");
+        assertEquals(seg.getSigSegment(), "SIG:RSA:base64sig");
+        assertEquals(seg.getSignedPayload(), "V2|0|meta|[p]|CHK:abc");
+    }
+
+    @Test
+    public void testSignatureDisabled() throws Exception {
+        SecurityConfig config = new SecurityConfig();
+        String message = "V2|0|0|{{x}}";
+        assertEquals(ProtocolSecurity.calculateSignature(message, config), "");
+        ProtocolSecurity.verifySignatureSegment(message, "", config);
+        ProtocolSecurity.verifySignatureSegment(message, "SIG:RSA:any", config);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testEnableSignatureWithNullPrivateKey() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        new SecurityConfig().enableSignature(null, kpg.generateKeyPair().getPublic());
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testEnableSignatureWithNullPublicKey() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        new SecurityConfig().enableSignature(kpg.generateKeyPair().getPrivate(), null);
     }
 }

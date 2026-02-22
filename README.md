@@ -1273,15 +1273,25 @@ SecurityConfig securityConfig = new SecurityConfig()
     .enableHMAC("your-secret-key")
     .enableClassWhitelist()
     .allowClass("com.example.PublicAPI");
+
+// Optional: origin signature (RSA-SHA256). CHK = integrity, SIG = who sent it.
+// Server: enableSignature(serverPrivateKey, clientPublicKey);
+// Client: enableSignature(clientPrivateKey, serverPublicKey);
+SecurityConfig withSig = new SecurityConfig()
+    .enableCRC32()
+    .enableSignature(myPrivateKey, peerPublicKey);
 ```
+
+**CHK vs SIG:** CHK (checksum) is **integrity only** (CRC32/HMAC). SIG (signature) is **origin authentication** (e.g. RSA-SHA256). Both can be used together: wire format is `content|CHK:value|SIG:value`.
 
 #### Security Features
 
 | Feature | Description | Use Case |
 |---------|-------------|----------|
 | **Full Encoding** | Base64-encodes all protocol components | Prevents all injection attacks |
-| **CRC32 Checksum** | Fast integrity verification | Detect accidental corruption |
-| **HMAC-SHA256** | Cryptographic message authentication | Prevent malicious tampering |
+| **CHK (CRC32)** | Fast integrity verification | Detect accidental corruption |
+| **CHK (HMAC-SHA256)** | Symmetric integrity/auth | Prevent tampering (shared secret) |
+| **SIG (RSA-SHA256)** | Asymmetric origin signature | Prove who sent the message |
 | **Class Whitelist** | Restrict accessible classes | Public API security |
 
 #### Protection Against Attacks

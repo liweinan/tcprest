@@ -434,14 +434,38 @@ server.setSecurityConfig(config);
 - **Performance**: ~0.5ms overhead
 - **Use case**: Production, public APIs, untrusted networks
 
-**Protocol format with checksum:**
+**Protocol format with checksum (CHK):**
 ```
-V2|0|{{base64(class/method(sig))}}|[params]|checksum
+V2|0|{{base64(class/method(sig))}}|[params]|CHK:value
                                              ↑
-                                   CRC32 or HMAC-SHA256
+                                   CRC32 or HMAC-SHA256 (integrity only)
 ```
 
-**3. Class Whitelist** (Optional)
+**CHK vs SIG:** CHK is **integrity only** (data not corrupted/tampered). SIG is **origin authentication** (proves who sent the message). Both can be used together; wire format is `content|CHK:value|SIG:value` (order: CHK then SIG).
+
+**3. Signature (SIG) - Origin Authentication** (Optional)
+
+RSA-SHA256 signature for non-repudiation (JDK only, zero extra dependency):
+
+```java
+// Server: sign responses with server private key, verify requests with client public key
+SecurityConfig serverConfig = new SecurityConfig()
+    .enableCRC32()
+    .enableSignature(serverPrivateKey, clientPublicKey);
+server.setSecurityConfig(serverConfig);
+
+// Client: sign requests with client private key, verify responses with server public key
+SecurityConfig clientConfig = new SecurityConfig()
+    .enableCRC32()
+    .enableSignature(clientPrivateKey, serverPublicKey);
+factory.setSecurityConfig(clientConfig);
+```
+
+- **Purpose**: Prove message origin (who sent it); integrity is covered by CHK if needed.
+- **Wire format**: Optional trailing segment `SIG:RSA:base64(signature)`. When both CHK and SIG are used: `content|CHK:value|SIG:value`.
+- **Keys**: Inject `PrivateKey`/`PublicKey` via SecurityConfig (e.g. from KeyStore); commons does not mandate key storage format.
+
+**4. Class Whitelist** (Optional)
 
 Restrict which classes can be invoked:
 
@@ -457,7 +481,7 @@ server.setSecurityConfig(config);
 - **Use case**: Public APIs, multi-tenant systems
 - **Behavior**: Non-whitelisted classes → `SecurityException`
 
-**4. Combined Security (Recommended for Production)**
+**5. Combined Security (Recommended for Production)**
 
 ```java
 SecurityConfig config = new SecurityConfig()
@@ -473,7 +497,8 @@ SecurityConfig config = new SecurityConfig()
 | **Delimiter Injection** | Base64 encoding | `evil/method()` → cannot inject delimiters |
 | **Path Traversal** | Base64 encoding | `../../EvilClass` → treated as literal string |
 | **Method Injection** | Signature matching | `method:::evil` → signature mismatch, rejected |
-| **Message Tampering** | HMAC-SHA256 | Modified message → checksum fails |
+| **Message Tampering** | HMAC/CHK or SIG | Modified message → checksum or signature fails |
+| **Origin Spoofing** | SIG (RSA-SHA256) | Wrong or missing signature → verification fails |
 | **Unauthorized Access** | Class whitelist | Non-whitelisted class → `SecurityException` |
 | **Replay Attacks** | (Future) Timestamp/nonce | Not yet implemented |
 

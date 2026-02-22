@@ -197,10 +197,14 @@ public class ProtocolV2Codec implements ProtocolCodec {
                         ProtocolV2Constants.SEPARATOR + metaBase64 +
                         ProtocolV2Constants.SEPARATOR + paramsArray;
 
-        // Step 7: Add checksum if enabled
+        // Step 7: Add CHK then SIG if enabled (order: content|CHK:value|SIG:value)
         String checksum = ProtocolSecurity.calculateChecksum(message, securityConfig);
         if (!checksum.isEmpty()) {
             message += ProtocolV2Constants.SEPARATOR + checksum;
+        }
+        String sigSegment = ProtocolSecurity.calculateSignature(message, securityConfig);
+        if (!sigSegment.isEmpty()) {
+            message += ProtocolV2Constants.SEPARATOR + sigSegment;
         }
 
         return message;
@@ -398,22 +402,28 @@ public class ProtocolV2Codec implements ProtocolCodec {
             return null;
         }
 
-        // Step 1: Split checksum if present
-        String[] checksumParts = ProtocolSecurity.splitChecksum(response);
-        String messageWithoutChecksum = checksumParts[0];
-        String checksum = checksumParts[1];
+        // Step 1: Parse trailing CHK and SIG segments
+        ProtocolSecurity.TrailingSegments segments = ProtocolSecurity.parseTrailingSegments(response);
 
-        // Step 2: Verify checksum if present
-        if (!checksum.isEmpty()) {
-            if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+        // Step 2: Verify CHK if present
+        if (!segments.getChkSegment().isEmpty()) {
+            if (!ProtocolSecurity.verifyChecksum(segments.getContent(), segments.getChkSegment(), securityConfig)) {
                 throw new cn.huiwings.tcprest.exception.SecurityException(
                     "Response checksum verification failed"
                 );
             }
         }
+        if (securityConfig.isChecksumEnabled() && segments.getChkSegment().isEmpty()) {
+            throw new cn.huiwings.tcprest.exception.SecurityException(
+                "Server requires checksum but response did not provide one"
+            );
+        }
 
-        // Step 3: Parse response parts: V2|0|STATUS|BODY
-        String[] parts = messageWithoutChecksum.split("\\" + ProtocolV2Constants.SEPARATOR, 4);
+        // Step 3: Verify SIG if required
+        ProtocolSecurity.verifySignatureSegment(segments.getSignedPayload(), segments.getSigSegment(), securityConfig);
+
+        // Step 4: Parse response parts: V2|0|STATUS|BODY
+        String[] parts = segments.getContent().split("\\" + ProtocolV2Constants.SEPARATOR, 4);
         if (parts.length < ProtocolV2Constants.MIN_RESPONSE_PARTS) {
             throw new IllegalArgumentException("Invalid v2 response format: " + response);
         }
@@ -857,10 +867,14 @@ public class ProtocolV2Codec implements ProtocolCodec {
                         ProtocolV2Constants.SEPARATOR + status.getCode() +
                         ProtocolV2Constants.SEPARATOR + bodyString;
 
-        // Step 3: Add checksum if enabled
+        // Step 3: Add CHK then SIG if enabled
         String checksum = ProtocolSecurity.calculateChecksum(message, securityConfig);
         if (!checksum.isEmpty()) {
             message += ProtocolV2Constants.SEPARATOR + checksum;
+        }
+        String sigSegment = ProtocolSecurity.calculateSignature(message, securityConfig);
+        if (!sigSegment.isEmpty()) {
+            message += ProtocolV2Constants.SEPARATOR + sigSegment;
         }
 
         return message;
@@ -946,10 +960,14 @@ public class ProtocolV2Codec implements ProtocolCodec {
                         ProtocolV2Constants.SEPARATOR + status.getCode() +
                         ProtocolV2Constants.SEPARATOR + bodyString;
 
-        // Step 3: Add checksum if enabled
+        // Step 3: Add CHK then SIG if enabled
         String checksum = ProtocolSecurity.calculateChecksum(message, securityConfig);
         if (!checksum.isEmpty()) {
             message += ProtocolV2Constants.SEPARATOR + checksum;
+        }
+        String sigSegment = ProtocolSecurity.calculateSignature(message, securityConfig);
+        if (!sigSegment.isEmpty()) {
+            message += ProtocolV2Constants.SEPARATOR + sigSegment;
         }
 
         return message;

@@ -1,5 +1,7 @@
 package cn.huiwings.tcprest.security;
 
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -8,12 +10,14 @@ import java.util.Set;
  *
  * <p>Provides options for:
  * <ul>
- *   <li>Message integrity verification (CRC32/HMAC)</li>
+ *   <li>Message integrity verification via CHK (CRC32/HMAC)</li>
+ *   <li>Origin signature via SIG (e.g. RSA-SHA256)</li>
  *   <li>Class name whitelist validation</li>
  *   <li>Secure encoding of all protocol components</li>
  * </ul>
  *
- * <p>All security features are optional and disabled by default for backward compatibility.
+ * <p>CHK and SIG are independent: CHK is integrity-only; SIG is origin authentication.
+ * Both are optional and disabled by default for backward compatibility.
  *
  * @author Weinan Li
  * @date 2026-02-18
@@ -21,7 +25,7 @@ import java.util.Set;
 public class SecurityConfig {
 
     /**
-     * Checksum algorithm for message integrity verification.
+     * Checksum algorithm for message integrity verification (CHK segment).
      */
     public enum ChecksumAlgorithm {
         /** No checksum (default) */
@@ -32,8 +36,21 @@ public class SecurityConfig {
         HMAC_SHA256
     }
 
+    /**
+     * Signature algorithm for origin authentication (SIG segment).
+     */
+    public enum SignatureAlgorithm {
+        /** No signature (default) */
+        NONE,
+        /** RSA with SHA-256 (JDK built-in, zero extra dependency) */
+        RSA_SHA256
+    }
+
     private ChecksumAlgorithm checksumAlgorithm = ChecksumAlgorithm.NONE;
     private String hmacSecret = null;
+    private SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.NONE;
+    private PrivateKey signingPrivateKey = null;
+    private PublicKey verificationPublicKey = null;
     private boolean enableClassWhitelist = false;
     private Set<String> allowedClasses = new HashSet<>();
 
@@ -83,6 +100,40 @@ public class SecurityConfig {
     public SecurityConfig disableChecksum() {
         this.checksumAlgorithm = ChecksumAlgorithm.NONE;
         this.hmacSecret = null;
+        return this;
+    }
+
+    /**
+     * Enables RSA-SHA256 signature for origin authentication (SIG segment).
+     *
+     * <p>Each side configures its own signing private key and the peer's public key for verification.
+     * Server signs responses with server private key; client verifies with server public key.
+     * Client signs requests with client private key; server verifies with client public key.
+     *
+     * @param signingKey this side's private key for signing outgoing messages
+     * @param verificationKey peer's public key for verifying incoming messages
+     * @return this config for chaining
+     * @throws IllegalArgumentException if either key is null
+     */
+    public SecurityConfig enableSignature(PrivateKey signingKey, PublicKey verificationKey) {
+        if (signingKey == null || verificationKey == null) {
+            throw new IllegalArgumentException("Signing key and verification key cannot be null");
+        }
+        this.signatureAlgorithm = SignatureAlgorithm.RSA_SHA256;
+        this.signingPrivateKey = signingKey;
+        this.verificationPublicKey = verificationKey;
+        return this;
+    }
+
+    /**
+     * Disables signature (default).
+     *
+     * @return this config for chaining
+     */
+    public SecurityConfig disableSignature() {
+        this.signatureAlgorithm = SignatureAlgorithm.NONE;
+        this.signingPrivateKey = null;
+        this.verificationPublicKey = null;
         return this;
     }
 
@@ -168,5 +219,21 @@ public class SecurityConfig {
 
     public boolean isChecksumEnabled() {
         return checksumAlgorithm != ChecksumAlgorithm.NONE;
+    }
+
+    public SignatureAlgorithm getSignatureAlgorithm() {
+        return signatureAlgorithm;
+    }
+
+    public PrivateKey getSigningPrivateKey() {
+        return signingPrivateKey;
+    }
+
+    public PublicKey getVerificationPublicKey() {
+        return verificationPublicKey;
+    }
+
+    public boolean isSignatureEnabled() {
+        return signatureAlgorithm != SignatureAlgorithm.NONE;
     }
 }

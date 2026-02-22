@@ -2,10 +2,13 @@ package cn.huiwings.tcprest.codec.v2;
 
 import cn.huiwings.tcprest.protocol.v2.StatusCode;
 import cn.huiwings.tcprest.security.ProtocolSecurity;
+import cn.huiwings.tcprest.security.SecurityConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.util.Base64;
 
 import static org.testng.Assert.*;
@@ -326,6 +329,43 @@ public class ProtocolV2CodecTest {
 
         // Verify metadata
         assertEquals(decodedMeta, expectedMeta, "Metadata should match");
+    }
+
+    @Test
+    public void testEncodeDecode_withChkAndSig() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair clientKeyPair = kpg.generateKeyPair();
+        KeyPair serverKeyPair = kpg.generateKeyPair();
+
+        SecurityConfig clientConfig = new SecurityConfig()
+                .enableCRC32()
+                .enableSignature(clientKeyPair.getPrivate(), serverKeyPair.getPublic());
+        SecurityConfig serverConfig = new SecurityConfig()
+                .enableCRC32()
+                .enableSignature(serverKeyPair.getPrivate(), clientKeyPair.getPublic());
+
+        ProtocolV2Codec clientCodec = new ProtocolV2Codec(clientConfig);
+        ProtocolV2Codec serverCodec = new ProtocolV2Codec(serverConfig);
+
+        Method method = TestService.class.getMethod("add", int.class, int.class);
+        Object[] params = {3, 5};
+        String encodedRequest = clientCodec.encode(TestService.class, method, params, null);
+        assertTrue(encodedRequest.contains("CHK:"));
+        assertTrue(encodedRequest.contains("SIG:RSA:"));
+
+        ProtocolSecurity.TrailingSegments seg = ProtocolSecurity.parseTrailingSegments(encodedRequest);
+        assertFalse(seg.getChkSegment().isEmpty());
+        assertFalse(seg.getSigSegment().isEmpty());
+        assertTrue(ProtocolSecurity.verifyChecksum(seg.getContent(), seg.getChkSegment(), serverConfig));
+        ProtocolSecurity.verifySignatureSegment(seg.getSignedPayload(), seg.getSigSegment(), serverConfig);
+
+        String encodedResponse = serverCodec.encodeResponse(7, StatusCode.SUCCESS);
+        assertTrue(encodedResponse.contains("CHK:"));
+        assertTrue(encodedResponse.contains("SIG:RSA:"));
+
+        Object decoded = clientCodec.decode(encodedResponse, int.class);
+        assertEquals(decoded, 7);
     }
 
     // ========== Test Helper Interface ==========

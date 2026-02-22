@@ -1,10 +1,14 @@
 package cn.huiwings.tcprest.security;
 
 import cn.huiwings.tcprest.exception.SecurityException;
+import cn.huiwings.tcprest.protocol.TcpRestProtocol;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Signature;
 import java.util.Base64;
 import java.util.zip.CRC32;
 
@@ -14,8 +18,8 @@ import java.util.zip.CRC32;
  * <p>Provides secure encoding/decoding and integrity verification:
  * <ul>
  *   <li>URL-safe Base64 encoding for all protocol components</li>
- *   <li>CRC32 checksum for detecting accidental corruption</li>
- *   <li>HMAC-SHA256 for cryptographic message authentication</li>
+ *   <li>CHK: CRC32/HMAC for integrity</li>
+ *   <li>SIG: RSA-SHA256 for origin authentication (GPG via optional modules)</li>
  * </ul>
  *
  * <p>All methods are thread-safe and stateless.
@@ -27,6 +31,9 @@ public class ProtocolSecurity {
 
     /** Checksum prefix separator */
     private static final String CHECKSUM_PREFIX = "CHK:";
+
+    /** Signature value prefix for RSA (wire format: SIG:RSA:base64) */
+    private static final String SIG_RSA_PREFIX = "RSA:";
 
     /**
      * Encodes a protocol component using URL-safe Base64.
@@ -155,6 +162,181 @@ public class ProtocolSecurity {
         } else {
             return new String[]{message, ""};
         }
+    }
+
+    /**
+     * Result of parsing optional trailing CHK and SIG segments.
+     * Order on wire is content|CHK:value|SIG:value; parsing strips from right.
+     */
+    public static final class TrailingSegments {
+        private final String content;
+        private final String chkSegment;
+        private final String sigSegment;
+
+        public TrailingSegments(String content, String chkSegment, String sigSegment) {
+            this.content = content != null ? content : "";
+            this.chkSegment = chkSegment != null ? chkSegment : "";
+            this.sigSegment = sigSegment != null ? sigSegment : "";
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public String getChkSegment() {
+            return chkSegment;
+        }
+
+        public String getSigSegment() {
+            return sigSegment;
+        }
+
+        /** Payload that was signed when SIG is present: content, or content|CHK:value */
+        public String getSignedPayload() {
+            if (chkSegment.isEmpty()) {
+                return content;
+            }
+            return content + "|" + chkSegment;
+        }
+    }
+
+    /**
+     * Parses a protocol message into content and optional CHK/SIG segments.
+     * Strips from the right: last segment SIG: then CHK:, remainder is content.
+     *
+     * @param message full message (may end with |CHK:value and/or |SIG:value)
+     * @return TrailingSegments with content, chkSegment, sigSegment (empty if absent)
+     */
+    public static TrailingSegments parseTrailingSegments(String message) {
+        if (message == null) {
+            return new TrailingSegments("", "", "");
+        }
+        String rest = message;
+        String sigSegment = "";
+        String chkSegment = "";
+        int lastPipe = rest.lastIndexOf('|');
+        while (lastPipe >= 0) {
+            String segment = rest.substring(lastPipe + 1);
+            if (segment.startsWith(TcpRestProtocol.SIGNATURE_PREFIX)) {
+                sigSegment = segment;
+                rest = rest.substring(0, lastPipe);
+                lastPipe = rest.lastIndexOf('|');
+                continue;
+            }
+            if (segment.startsWith(CHECKSUM_PREFIX)) {
+                chkSegment = segment;
+                rest = rest.substring(0, lastPipe);
+                lastPipe = rest.lastIndexOf('|');
+                continue;
+            }
+            break;
+        }
+        return new TrailingSegments(rest, chkSegment, sigSegment);
+    }
+
+    /**
+     * Signs message with RSA-SHA256 (JDK only).
+     *
+     * @param message payload to sign (UTF-8)
+     * @param privateKey signer's private key
+     * @return Base64-encoded signature, never null
+     */
+    public static String sign(String message, PrivateKey privateKey) {
+        if (message == null || privateKey == null) {
+            throw new IllegalArgumentException("Message and privateKey cannot be null");
+        }
+        try {
+            Signature sig = Signature.getInstance("SHA256withRSA");
+            sig.initSign(privateKey);
+            sig.update(message.getBytes(StandardCharsets.UTF_8));
+            byte[] signatureBytes = sig.sign();
+            return Base64.getEncoder().encodeToString(signatureBytes);
+        } catch (Exception e) {
+            throw new SecurityException("Failed to sign message: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Verifies RSA-SHA256 signature.
+     *
+     * @param message original payload (UTF-8)
+     * @param signatureBase64 Base64-encoded signature
+     * @param publicKey signer's public key
+     * @return true if signature is valid
+     */
+    public static boolean verifySignature(String message, String signatureBase64, PublicKey publicKey) {
+        if (message == null || signatureBase64 == null || publicKey == null) {
+            return false;
+        }
+        try {
+            byte[] signatureBytes = Base64.getDecoder().decode(signatureBase64);
+            Signature sig = Signature.getInstance("SHA256withRSA");
+            sig.initVerify(publicKey);
+            sig.update(message.getBytes(StandardCharsets.UTF_8));
+            return sig.verify(signatureBytes);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Builds the SIG segment for the given message when signature is enabled.
+     * Format: SIG:RSA:base64(signature).
+     *
+     * @param message payload to sign (typically content or content|CHK:value)
+     * @param config security configuration
+     * @return "SIG:RSA:base64" or "" if signature disabled
+     */
+    public static String calculateSignature(String message, SecurityConfig config) {
+        if (config == null || !config.isSignatureEnabled()) {
+            return "";
+        }
+        if (config.getSignatureAlgorithm() != SecurityConfig.SignatureAlgorithm.RSA_SHA256) {
+            return "";
+        }
+        PrivateKey key = config.getSigningPrivateKey();
+        if (key == null) {
+            return "";
+        }
+        String signatureBase64 = sign(message, key);
+        return TcpRestProtocol.SIGNATURE_PREFIX + SIG_RSA_PREFIX + signatureBase64;
+    }
+
+    /**
+     * Verifies the SIG segment against the signed payload.
+     * Supports SIG:RSA:base64 (JDK). SIG:GPG:... throws SecurityException (use optional module).
+     *
+     * @param signedPayload the payload that was signed (content or content|CHK:value)
+     * @param sigSegment full segment e.g. "SIG:RSA:base64..."
+     * @param config security configuration
+     * @throws SecurityException if signature required but invalid or unsupported algorithm
+     */
+    public static void verifySignatureSegment(String signedPayload, String sigSegment, SecurityConfig config) {
+        if (config == null || !config.isSignatureEnabled()) {
+            return;
+        }
+        if (sigSegment == null || sigSegment.isEmpty()) {
+            throw new SecurityException("Signature enabled but not provided in message");
+        }
+        if (!sigSegment.startsWith(TcpRestProtocol.SIGNATURE_PREFIX)) {
+            throw new SecurityException("Invalid signature format, expected SIG:value");
+        }
+        String value = sigSegment.substring(TcpRestProtocol.SIGNATURE_PREFIX.length());
+        if (value.startsWith(SIG_RSA_PREFIX)) {
+            String signatureBase64 = value.substring(SIG_RSA_PREFIX.length());
+            PublicKey key = config.getVerificationPublicKey();
+            if (key == null) {
+                throw new SecurityException("Signature verification key not configured");
+            }
+            if (!verifySignature(signedPayload, signatureBase64, key)) {
+                throw new SecurityException("Signature verification failed - message may have been tampered or wrong key");
+            }
+            return;
+        }
+        if (value.startsWith("GPG:")) {
+            throw new SecurityException("GPG signature not supported in commons; use optional tcprest-pgp module");
+        }
+        throw new SecurityException("Unsupported signature algorithm: " + (value.contains(":") ? value.substring(0, value.indexOf(':')) : value));
     }
 
     /**

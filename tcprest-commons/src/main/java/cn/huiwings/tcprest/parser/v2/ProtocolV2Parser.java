@@ -147,37 +147,35 @@ public class ProtocolV2Parser implements RequestParser {
                 throw new ProtocolException("Not a v2 request: " + request);
             }
 
-            // Step 1: Split checksum if present
-            String[] checksumParts = ProtocolSecurity.splitChecksum(request);
-            String messageWithoutChecksum = checksumParts[0];
-            String checksum = checksumParts[1];
+            // Step 1: Parse trailing CHK and SIG segments
+            ProtocolSecurity.TrailingSegments segments = ProtocolSecurity.parseTrailingSegments(request);
 
             // Step 2: Verify checksum (enforce server security requirements)
             if (securityConfig.isChecksumEnabled()) {
-                // Server requires checksum - client must provide it
-                if (checksum.isEmpty()) {
+                if (segments.getChkSegment().isEmpty()) {
                     throw new cn.huiwings.tcprest.exception.SecurityException(
                         "Server requires " + securityConfig.getChecksumAlgorithm() +
                         " checksum, but client did not provide one"
                     );
                 }
-                // Verify the provided checksum
-                if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+                if (!ProtocolSecurity.verifyChecksum(segments.getContent(), segments.getChkSegment(), securityConfig)) {
                     throw new cn.huiwings.tcprest.exception.SecurityException(
                         "Checksum verification failed - message may have been tampered with"
                     );
                 }
-            } else if (!checksum.isEmpty()) {
-                // Server doesn't require checksum, but client sent one - still verify it
-                if (!ProtocolSecurity.verifyChecksum(messageWithoutChecksum, checksum, securityConfig)) {
+            } else if (!segments.getChkSegment().isEmpty()) {
+                if (!ProtocolSecurity.verifyChecksum(segments.getContent(), segments.getChkSegment(), securityConfig)) {
                     throw new cn.huiwings.tcprest.exception.SecurityException(
                         "Checksum verification failed - message may have been tampered with"
                     );
                 }
             }
 
-            // Step 3: Parse request parts: V2|0|{{META}}|[PARAMS]
-            String[] parts = messageWithoutChecksum.split("\\" + ProtocolV2Constants.SEPARATOR, 4);
+            // Step 3: Verify signature if required
+            ProtocolSecurity.verifySignatureSegment(segments.getSignedPayload(), segments.getSigSegment(), securityConfig);
+
+            // Step 4: Parse request parts: V2|0|{{META}}|[PARAMS]
+            String[] parts = segments.getContent().split("\\" + ProtocolV2Constants.SEPARATOR, 4);
             if (parts.length < 3) {
                 throw new ProtocolException("Invalid v2 request format: " + request);
             }
