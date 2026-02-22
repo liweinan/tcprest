@@ -126,30 +126,30 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
                         try {
                             socket = serverSocket.accept();
                             logger.fine("Client accepted.");
-                            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                            Scanner scanner = new Scanner(reader);
                             writer = new PrintWriter(socket.getOutputStream());
-
-                            String request = scanner.nextLine();
-                            String response = processRequest(request);
-                            writer.println(response);
-                            writer.flush();
+                            try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                                 Scanner scanner = new Scanner(reader)) {
+                                String request = scanner.nextLine();
+                                String response = processRequest(request);
+                                writer.println(response);
+                                writer.flush();
+                            }
                         } catch (ClassNotFoundException e) {
                             String message = "***SingleThreadTcpRestServer: requested class not found.";
                             logger.severe(message);
-                            if (writer != null) writer.println(message);
+                            writer.println(message);
                         } catch (NoSuchMethodException e) {
                             String message = "***SingleThreadTcpRestServer: requested method not found.";
                             logger.severe(message);
-                            if (writer != null) writer.println(message);
+                            writer.println(message);
                         } catch (InstantiationException e) {
                             String message = "***SingleThreadTcpRestServer: resource cannot be instantiated.";
                             logger.severe(message);
-                            if (writer != null) writer.println(message);
+                            writer.println(message);
                         } catch (IllegalAccessException e) {
                             String message = "***SingleThreadTcpRestServer: cannot invoke context.";
                             logger.severe(message);
-                            if (writer != null) writer.println(message);
+                            writer.println(message);
                         } catch (Exception e) {
                             if (e instanceof IOException) throw (IOException) e;
                             logger.severe(e.getMessage());

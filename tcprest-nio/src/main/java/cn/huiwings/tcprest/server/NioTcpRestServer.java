@@ -210,6 +210,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         }
     }
 
+    @Override
     public void up(boolean setDaemon) {
         status = TcpRestServerStatus.RUNNING;
         initializeProtocolComponents();

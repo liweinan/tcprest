@@ -77,7 +77,7 @@ public class FilePathClassLoader extends ClassLoader {
                 pathSeg.append(tokens[j]).append("/");
             }
             String classFile = directory + "/" + pathSeg.toString() + className + ".class";
-            logger.fine("searching for class: " + className);
+            logger.fine("searching classpath for class");
             File f = (new File(classFile));
             int classSize = Math.toIntExact(f.length());
             buf = new byte[classSize];
@@ -85,7 +85,7 @@ public class FilePathClassLoader extends ClassLoader {
                 FileInputStream filein = new FileInputStream(classFile);
                 classSize = filein.read(buf);
                 filein.close();
-                logger.fine("found class: " + className);
+                logger.fine("class loaded from classpath");
                 break;
             } catch (FileNotFoundException e) {
                 continue;
