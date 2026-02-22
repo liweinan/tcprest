@@ -139,8 +139,9 @@ Parameters are Base64-encoded individually and placed in a JSON-style array `[pa
 - `null` → `~` marker (tilde, not in Base64 charset, not Base64-encoded)
 - Empty string `""` → empty string (consecutive commas: `[a,,c]` or empty array `[]` for single param)
 - Primitives → `toString()` then Base64
-- Arrays → `Arrays.toString()` format then Base64 (e.g., `[1, 2, 3]`)
-- Objects → `toString()` then Base64
+- Primitive arrays / `String[]` → `Arrays.toString()` format then Base64 (e.g., `[1, 2, 3]`)
+- Collections (List, Map, Set, etc.) and `Serializable` → Java serialization then Base64 (see Mapper Support)
+- Other objects → `toString()` then Base64 (or register a custom mapper)
 
 #### Null Marker Design Rationale
 
@@ -281,7 +282,6 @@ public class DataServiceImpl implements DataService {
 
 // Server setup - no custom mapper needed!
 TcpRestServer server = new SingleThreadTcpRestServer(8080);
-server.setProtocolVersion(ProtocolVersion.V2);
 server.addResource(new DataServiceImpl());
 server.up();
 
@@ -385,7 +385,6 @@ public interface UserService {
 
 // Server setup - no mapper needed
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
-server.setProtocolVersion(ProtocolVersion.V2);
 server.addSingletonResource(new UserServiceImpl());
 server.up();
 
@@ -801,7 +800,7 @@ try {
 
 ## Compression Support
 
-Both protocols support optional gzip compression to reduce bandwidth.
+Protocol V2 supports optional gzip compression to reduce bandwidth.
 
 ### Compression Flag
 
@@ -809,6 +808,27 @@ Both protocols support optional gzip compression to reduce bandwidth.
 |-------|---------|-------------|
 | 0 | Uncompressed | Small messages (<1KB) |
 | 1 | Gzip compressed | Large messages (>1KB) |
+
+### Compressed Data Format
+
+**Wire structure (envelope):**
+
+Uncompressed:
+```
+0|V2|0|{{base64(META)}}|[param1,param2,...]
+```
+or for response: `0|V2|0|STATUS|{{base64(BODY)}}`
+
+Compressed (entire inner message is GZIP'd then Base64'd):
+```
+1|{{base64(GZIP(V2|0|{{base64(META)}}|[param1,param2,...]))}}
+```
+or for response: `1|{{base64(GZIP(V2|0|STATUS|{{base64(BODY)}}))}}`
+
+- **Prefix:** `0|` = use remainder as-is; `1|` = remainder is Base64(GZIP(inner)), decode then decompress to get the inner `V2|0|...` string.
+- **Inner message:** Same as uncompressed request/response (e.g. `V2|0|{{META}}|[params]` or `V2|0|STATUS|{{BODY}}`).
+
+Receivers detect by the first two characters: `0|` → parse the rest directly; `1|` → Base64-decode the rest, GZIP-decompress, then parse the resulting string.
 
 ### Compression Configuration
 
@@ -838,6 +858,15 @@ config.setLevel(6);         // Compression level (0-9)
 ```
 
 **Note:** Compression is applied AFTER Base64 encoding, so the threshold checks the encoded size.
+
+### Max Decompressed Size (zip-bomb protection)
+
+Default: 10MB. When positive, decompression throws if the output would exceed this size. Set to `0` to disable the limit (not recommended for untrusted input).
+
+```java
+config.setMaxDecompressedSize(10 * 1024 * 1024);  // 10MB (default)
+config.setMaxDecompressedSize(0);                 // No limit (use with care)
+```
 
 ---
 
@@ -1096,14 +1125,14 @@ SecurityConfig config = new SecurityConfig()
 
 When checksums are enabled, protocol messages include a `CHK:` suffix:
 
-**V1 with checksum:**
+**V1 with checksum (reference only; V1 removed in 2.0):**
 ```
 0|{{base64_meta}}|{{base64_params}}|CHK:a1b2c3d4
 ```
 
 **V2 with checksum:**
 ```
-V2|0|{{base64_meta}}|{{base64_params}}|CHK:def789
+V2|0|{{base64(META)}}|[param1,param2,...]|CHK:def789
 ```
 
 #### Server-Side Security Configuration
@@ -1161,7 +1190,7 @@ String result = client.getData();
 | Arbitrary Method Invocation | Resource registration | Only registered classes callable |
 | Private Method Access | Reflection filtering | Only public methods accessible |
 | Exception Information Leakage | Sanitization | Developer responsibility |
-| Denial of Service (zip bomb) | Size limits | `CompressionConfig.setMaxSize()` |
+| Denial of Service (zip bomb) | Decompression size limit | `CompressionConfig.setMaxDecompressedSize(int)` (default 10MB; 0 = no limit) |
 
 ### Performance Impact
 
@@ -1232,11 +1261,15 @@ try {
 }
 ```
 
-#### 6. Enforce Compression Size Limits
+#### 6. Enforce Decompression Size Limit
+
+Use the configurable max decompressed size (default 10MB) to mitigate zip-bomb risk:
 
 ```java
 CompressionConfig config = new CompressionConfig();
-config.setMaxSize(10 * 1024 * 1024);  // 10MB limit prevents zip bombs
+config.setEnabled(true);
+config.setMaxDecompressedSize(10 * 1024 * 1024);  // 10MB default; 0 = no limit (use with care)
+server.setCompressionConfig(config);
 ```
 
 ---

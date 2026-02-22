@@ -67,13 +67,26 @@ public class CompressionUtil {
     }
 
     /**
-     * Decompress string data.
-     * Automatically detects compressed vs uncompressed based on prefix.
+     * Decompress string data with no size limit.
      *
      * @param data String to decompress (with prefix)
      * @return Decompressed string
      */
     public static String decompress(String data) throws IOException {
+        return decompress(data, 0);
+    }
+
+    /**
+     * Decompress string data.
+     * Automatically detects compressed vs uncompressed based on prefix.
+     * When {@code maxDecompressedSize} is positive, throws if decompressed size would exceed it (zip-bomb protection).
+     *
+     * @param data String to decompress (with prefix)
+     * @param maxDecompressedSize maximum allowed decompressed size in bytes; 0 = no limit
+     * @return Decompressed string
+     * @throws IOException if decompression fails or size exceeds maxDecompressedSize
+     */
+    public static String decompress(String data, int maxDecompressedSize) throws IOException {
         if (data == null || data.length() < PREFIX_LENGTH) {
             return data;
         }
@@ -82,10 +95,8 @@ public class CompressionUtil {
         String payload = data.substring(PREFIX_LENGTH);
 
         if (UNCOMPRESSED_PREFIX.equals(prefix)) {
-            // Data is not compressed
             return payload;
         } else if (COMPRESSED_PREFIX.equals(prefix)) {
-            // Data is compressed - decompress it
             byte[] compressed = java.util.Base64.getDecoder().decode(payload);
 
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -95,13 +106,15 @@ public class CompressionUtil {
                 byte[] buffer = new byte[1024];
                 int len;
                 while ((len = gzipInputStream.read(buffer)) != -1) {
+                    if (maxDecompressedSize > 0 && byteArrayOutputStream.size() + len > maxDecompressedSize) {
+                        throw new IOException("DECOMPRESSED_SIZE_EXCEEDED: limit " + maxDecompressedSize + " bytes (zip-bomb protection)");
+                    }
                     byteArrayOutputStream.write(buffer, 0, len);
                 }
             }
 
             return byteArrayOutputStream.toString(StandardCharsets.UTF_8.name());
         } else {
-            // No prefix - assume legacy uncompressed format
             return data;
         }
     }

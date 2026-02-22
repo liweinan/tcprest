@@ -70,18 +70,24 @@ public class CompressingProtocolCodec implements ProtocolCodec {
     @Override
     public Object[] decode(Method targetMethod, String paramsToken, Map<String, Mapper> mappers) {
 
-        // First decompress if needed
+        // First decompress if needed (with configurable max size for zip-bomb protection)
         String decompressed = paramsToken;
         if (paramsToken != null) {
             try {
-                decompressed = CompressionUtil.decompress(paramsToken);
+                int maxSize = config.getMaxDecompressedSize();
+                decompressed = maxSize > 0
+                        ? CompressionUtil.decompress(paramsToken, maxSize)
+                        : CompressionUtil.decompress(paramsToken);
                 if (CompressionUtil.isCompressed(paramsToken)) {
                     logger.fine("Decompressed message: " + paramsToken.length() + " -> " +
                             decompressed.length() + " bytes");
                 }
             } catch (IOException e) {
+                if (e.getMessage() != null && e.getMessage().startsWith("DECOMPRESSED_SIZE_EXCEEDED:")) {
+                    logger.severe("Decompression rejected: " + e.getMessage());
+                    throw new RuntimeException(e);
+                }
                 logger.severe("Decompression failed, trying as-is: " + e.getMessage());
-                // If decompression fails, try using original (might be legacy format)
                 decompressed = paramsToken;
             }
         }
