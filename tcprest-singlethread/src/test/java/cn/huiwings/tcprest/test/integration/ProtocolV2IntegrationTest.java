@@ -7,6 +7,7 @@ import cn.huiwings.tcprest.exception.RemoteBusinessException;
 import cn.huiwings.tcprest.exception.RemoteServerException;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
+import cn.huiwings.tcprest.server.TcpRestServerStatus;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -45,9 +46,10 @@ public class ProtocolV2IntegrationTest {
         server.addResource(OverloadedCalculatorImpl.class);
         server.addResource(ExceptionTestServiceImpl.class);
 
+        assertEquals(server.getStatus(), TcpRestServerStatus.CLOSED);
         server.up();
-
         Thread.sleep(500); // Wait for server startup
+        assertEquals(server.getStatus(), TcpRestServerStatus.RUNNING);
 
         // Create v2 clients via single factory with multiple interfaces (varargs)
         TcpRestClientFactory factory = new TcpRestClientFactory(
@@ -61,6 +63,7 @@ public class ProtocolV2IntegrationTest {
     public void tearDown() throws Exception {
         if (server != null) {
             server.down();
+            assertEquals(server.getStatus(), TcpRestServerStatus.CLOSED);
             server = null;
         }
         Thread.sleep(2000); // Long delay to ensure port is fully released before next test class

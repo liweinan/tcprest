@@ -149,6 +149,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
                     : new InetSocketAddress(bindAddress, port);
             ChannelFuture future = bootstrap.bind(address).sync();
             serverChannel = future.channel();
+            status = TcpRestServerStatus.RUNNING;
         } catch (Exception e) {
             throw new RuntimeException("Failed to start NettyTcpRestServer", e);
         }
@@ -156,6 +157,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
 
     @Override
     public void down() {
+        status = TcpRestServerStatus.CLOSING;
         try {
             if (serverChannel != null) {
                 serverChannel.close().sync();
@@ -169,6 +171,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
             if (bossGroup != null) {
                 bossGroup.shutdownGracefully();
             }
+            status = TcpRestServerStatus.CLOSED;
         }
     }
 

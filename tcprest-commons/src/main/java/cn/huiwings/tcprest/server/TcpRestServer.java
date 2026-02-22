@@ -19,6 +19,11 @@ public interface TcpRestServer extends ResourceRegister, MapperRegister {
 
     void down();
 
+    /**
+     * Current server status: {@link TcpRestServerStatus#CLOSED}, {@link TcpRestServerStatus#RUNNING}, or {@link TcpRestServerStatus#CLOSING}.
+     */
+    String getStatus();
+
     int getServerPort();
 
     /**

@@ -71,6 +71,7 @@ public class NettyUdpRestServer extends AbstractTcpRestServer {
                     ? new InetSocketAddress(port)
                     : new InetSocketAddress(bindAddress, port);
             channel = bootstrap.bind(address).sync().channel();
+            status = TcpRestServerStatus.RUNNING;
         } catch (Exception e) {
             throw new RuntimeException("Failed to start NettyUdpRestServer", e);
         }
@@ -78,6 +79,7 @@ public class NettyUdpRestServer extends AbstractTcpRestServer {
 
     @Override
     public void down() {
+        status = TcpRestServerStatus.CLOSING;
         try {
             if (channel != null) {
                 channel.close().sync();
@@ -88,6 +90,7 @@ public class NettyUdpRestServer extends AbstractTcpRestServer {
             if (group != null) {
                 group.shutdownGracefully();
             }
+            status = TcpRestServerStatus.CLOSED;
         }
     }
 

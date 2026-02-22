@@ -452,6 +452,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
                 Thread.currentThread().interrupt();
             }
         }
+        status = TcpRestServerStatus.CLOSED;
     }
 
 }

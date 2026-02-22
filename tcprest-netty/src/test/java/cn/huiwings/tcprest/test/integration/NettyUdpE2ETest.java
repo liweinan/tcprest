@@ -3,6 +3,7 @@ package cn.huiwings.tcprest.test.integration;
 import cn.huiwings.tcprest.client.NettyUdpRestClientFactory;
 import cn.huiwings.tcprest.server.NettyUdpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
+import cn.huiwings.tcprest.server.TcpRestServerStatus;
 import cn.huiwings.tcprest.test.HelloWorld;
 import cn.huiwings.tcprest.test.HelloWorldResource;
 import cn.huiwings.tcprest.test.smoke.PortGenerator;
@@ -26,8 +27,10 @@ public class NettyUdpE2ETest {
         port = PortGenerator.get();
         server = new NettyUdpRestServer(port);
         server.addResource(HelloWorldResource.class);
+        assertEquals(server.getStatus(), TcpRestServerStatus.CLOSED);
         server.up();
         Thread.sleep(300);
+        assertEquals(server.getStatus(), TcpRestServerStatus.RUNNING);
         clientFactory = new NettyUdpRestClientFactory(HelloWorld.class, "localhost", port);
     }
 
@@ -38,6 +41,7 @@ public class NettyUdpE2ETest {
         }
         if (server != null) {
             server.down();
+            assertEquals(server.getStatus(), TcpRestServerStatus.CLOSED);
         }
         Thread.sleep(200);
     }

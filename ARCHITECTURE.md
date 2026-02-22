@@ -163,8 +163,11 @@ All servers implement the `TcpRestServer` interface:
 void up();                    // Start server
 void up(boolean setDaemon);   // Start with daemon flag
 void down();                  // Shutdown server
+String getStatus();           // CLOSED | RUNNING | CLOSING (TcpRestServerStatus)
 int getServerPort();          // Get listening port
 ```
+
+**Server status:** `getStatus()` returns the current lifecycle state: `TcpRestServerStatus.CLOSED` (initial or after shutdown), `RUNNING` (after `up()`), `CLOSING` (during `down()`). The status field is volatile and is set in all server implementations so callers can observe state safely.
 
 **Shutdown guarantees:**
 - Closes server socket to stop accepting new connections

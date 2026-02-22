@@ -62,7 +62,7 @@ public class HelloWorldImpl implements HelloWorld {
 ```java
 TcpRestServer server = new SingleThreadTcpRestServer(8001);
 server.addSingletonResource(new HelloWorldImpl());
-server.up();
+server.up();  // server.getStatus() is then TcpRestServerStatus.RUNNING
 ```
 
 ### 4. Create a Client and Call Methods

@@ -202,6 +202,7 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
                 Thread.currentThread().interrupt();
             }
         }
+        status = TcpRestServerStatus.CLOSED;
     }
 
 }

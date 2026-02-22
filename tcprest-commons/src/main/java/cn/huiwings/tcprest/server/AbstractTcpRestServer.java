@@ -37,7 +37,7 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
 
     protected Logger logger = Logger.getLogger(AbstractTcpRestServer.class.getName());
 
-    protected String status = TcpRestServerStatus.PASSIVE;
+    protected volatile String status = TcpRestServerStatus.CLOSED;
 
     public final Map<String, Class> resourceClasses = new HashMap<String, Class>();
 
@@ -68,6 +68,11 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
     @Override
     public boolean isStrictTypeCheck() {
         return strictTypeCheck;
+    }
+
+    @Override
+    public String getStatus() {
+        return status;
     }
 
     @Override
