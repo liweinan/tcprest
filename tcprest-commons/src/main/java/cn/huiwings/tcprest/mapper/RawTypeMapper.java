@@ -125,11 +125,28 @@ public class RawTypeMapper implements Mapper {
      * @param param Base64-encoded serialization data (must not be null)
      * @return deserialized Java object (preserves exact type), or null if deserialization fails
      */
+    /** Reject known dangerous classes during deserialization (mitigates deserialization of user-controlled data). */
+    private static final ObjectInputFilter DESERIALIZATION_FILTER = info -> {
+        Class<?> serialClass = info.serialClass();
+        if (serialClass == null) return ObjectInputFilter.Status.ALLOWED;
+        String name = serialClass.getName();
+        boolean reject = name.equals("java.lang.ProcessBuilder")
+                || name.equals("java.lang.Runtime")
+                || name.startsWith("javax.management.")
+                || name.startsWith("java.util.prefs.")
+                || name.startsWith("java.awt.")
+                || name.startsWith("javax.swing.")
+                || name.startsWith("com.sun.")
+                || name.startsWith("sun.");
+        return reject ? ObjectInputFilter.Status.REJECTED : ObjectInputFilter.Status.UNDECIDED;
+    };
+
     @Override
     public Object stringToObject(String param) {
         try {
             ByteArrayInputStream source = new ByteArrayInputStream(Base64.getDecoder().decode(param));
             ObjectInputStream is = new ObjectInputStream(source);
+            is.setObjectInputFilter(DESERIALIZATION_FILTER);
             return is.readObject();
         } catch (IOException e) {
             e.printStackTrace();

@@ -60,7 +60,7 @@ public final class PgpSignatureHandler implements SignatureHandler {
             throw new IllegalArgumentException("message and signingKeyConfig must be non-null");
         }
         if (!(signingKeyConfig instanceof PGPPrivateKey)) {
-            throw new IllegalArgumentException("Signing key must be PGPPrivateKey, got " + (signingKeyConfig == null ? "null" : signingKeyConfig.getClass().getName()));
+            throw new IllegalArgumentException("Signing key must be PGPPrivateKey, got " + signingKeyConfig.getClass().getName());
         }
         PGPPrivateKey privateKey = (PGPPrivateKey) signingKeyConfig;
         try {

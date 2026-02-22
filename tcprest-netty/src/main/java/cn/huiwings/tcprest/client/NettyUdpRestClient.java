@@ -46,7 +46,10 @@ public class NettyUdpRestClient implements TcpRestClient {
                             @Override
                             protected void channelRead0(ChannelHandlerContext ctx, DatagramPacket msg) {
                                 String s = msg.content().toString(CharsetUtil.UTF_8);
-                                responseQueue.offer(s);
+                                if (!responseQueue.offer(s)) {
+                                    responseQueue.clear();
+                                    responseQueue.offer(s);
+                                }
                             }
                         });
                     }
