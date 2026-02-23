@@ -174,6 +174,16 @@ Use `NacosRegistry` (from `NamingService` or `NacosRegistry.fromProperties(prope
 ```
 Use `ConsulRegistry` (e.g. `new ConsulRegistry("localhost", 8500)`). Requires a running Consul agent.
 
+**9. Resilience4j governance** (optional, same interfaces):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-resilience4j</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+</dependency>
+```
+Use `Resilience4jRetryPolicy` (from Resilience4j `RetryConfig`) and `Resilience4jCircuitBreakerProvider` (default or custom `CircuitBreakerConfig`) as `RetryPolicy` / `CircuitBreakerProvider` when creating the client factory. Provides advanced retry (e.g. exponential backoff) and circuit breaker strategies.
+
 ### Server Comparison
 
 | Feature | SingleThread | NIO | Netty |
@@ -217,6 +227,7 @@ factory.shutdown();
 - **Commons** defines interfaces only (zero extra deps): `ServiceRegistry`, `ServiceDiscovery`, `LoadBalancer`, `RetryPolicy`, `CircuitBreaker`, `CircuitBreakerProvider`, and `HostPort`. Default `RoundRobinLoadBalancer` is in commons.
 - **tcprest-registry** provides implementations: `InMemoryRegistry` (register/deregister + getInstances), `SimpleRetryPolicy`, `CircuitBreakerImpl`, `PerInstanceCircuitBreakerProvider`. E2E tests run without Docker (see `tcprest-registry/E2E.md`). For real registries (e.g. Nacos) or strict CI parity, use Testcontainers or docker-compose as documented in the plan.
 - **tcprest-nacos** and **tcprest-consul** implement the same `ServiceRegistry`/`ServiceDiscovery` interfaces: `NacosRegistry` (Nacos NamingService), `ConsulRegistry` (Consul agent + health API). Use when your infrastructure already uses Nacos or Consul.
+- **tcprest-resilience4j** implements `RetryPolicy` and `CircuitBreakerProvider` using Resilience4j: `Resilience4jRetryPolicy(RetryConfig)`, `Resilience4jCircuitBreakerProvider()` or with custom `CircuitBreakerConfig`. Use when you need Resilience4j's retry (e.g. exponential backoff) or circuit breaker policies.
 - **Usage:** Server: `server.setServiceRegistry(registry, "my-service", "localhost"); server.up();` Client: `TcpRestClientFactory factory = new TcpRestClientFactory(registry, "my-service", new RoundRobinLoadBalancer(), MyApi.class);` Optional retry/circuit breaker: pass `RetryPolicy` and/or `CircuitBreakerProvider` into the factory constructor.
 
 ### Zero Dependencies
