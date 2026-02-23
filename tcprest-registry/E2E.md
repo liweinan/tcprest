@@ -25,9 +25,12 @@ mvn test -pl tcprest-registry -Dsurefire.suiteXmlFiles=src/test/resources/testng
 
 ## When Docker Is Required
 
-- **Current (InMemory):** Docker is **not** required. Local and CI run the same tests without containers.
-- **Future (real registry):** If E2E tests are added for Nacos, Consul, or other external registries, those tests will require:
-  - **Option A:** [Testcontainers](https://testcontainers.org/) in `@BeforeClass` to start the registry image (e.g. `nacos/nacos-server`), so local and CI run the same way.
-  - **Option B:** A `docker-compose.yml` that starts the registry; CI and local run `docker-compose up -d` before `mvn test`, then `docker-compose down` after.
+- **tcprest-registry (InMemory):** Docker is **not** required. Local and CI run the same tests without containers.
+- **tcprest-nacos / tcprest-consul:** E2E tests use [Testcontainers](https://testcontainers.org/) to start Nacos or Consul in Docker. **Docker must be installed and available** when running:
+  - `mvn test -pl tcprest-nacos` (NacosRegistryE2ETest)
+  - `mvn test -pl tcprest-consul` (ConsulRegistryE2ETest)
+  If Docker is not available, these tests are **skipped** (TestNG SkipException).
 
-Documentation and CI configuration will be updated when such tests are introduced. Precondition: Docker installed and available when the "real registry" test profile or class is enabled.
+**CI:** GitHub Actions `ubuntu-latest` provides Docker. The main CI job runs `mvn test`, which includes all E2E tests; Nacos E2E uses fixed host ports 8848/9848 (one Nacos per runner). No extra CI job is required.
+
+**Optional local stack:** `docker-compose -f docker-compose.test.yml up -d` starts Nacos (8858/9858) and Consul (8600→8500) for ad-hoc use; the standard E2E path is Testcontainers.

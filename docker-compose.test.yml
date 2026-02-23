@@ -1,0 +1,39 @@
+# Optional: start Nacos and Consul for local E2E without Testcontainers.
+# Default E2E uses Testcontainers (tcprest-nacos, tcprest-consul); this file is for
+# manual runs or CI that prefers pre-started services.
+#
+# Usage (optional):
+#   docker-compose -f docker-compose.test.yml up -d
+#   mvn test -pl tcprest-nacos -pl tcprest-consul  # would need to point tests at localhost
+#   docker-compose -f docker-compose.test.yml down
+#
+# Ports avoid conflict with Nacos E2E fixed ports (8848/9848) when using Testcontainers:
+# Nacos here uses 8858/9858; Consul uses 8600.
+
+services:
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    environment:
+      MODE: standalone
+      NACOS_APPLICATION_PORT: 8858
+      JVM_XMS: 128m
+      JVM_XMX: 256m
+    ports:
+      - "8858:8858"
+      - "9858:9858"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://127.0.0.1:8858/nacos/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  consul:
+    image: hashicorp/consul:1.17
+    command: agent -dev -client 0.0.0.0 -ui
+    ports:
+      - "8600:8500"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8500/v1/status/leader || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

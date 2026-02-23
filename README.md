@@ -154,6 +154,26 @@ Requires Bouncy Castle (transitive). Register once (e.g. class-load `cn.huiwings
 ```
 Provides `InMemoryRegistry` (implements `ServiceRegistry` and `ServiceDiscovery`), `SimpleRetryPolicy`, `CircuitBreakerImpl`, and `PerInstanceCircuitBreakerProvider`. Servers call `setServiceRegistry(registry, serviceName, advertisedHost)` before `up()`; clients use `TcpRestClientFactory(discovery, serviceName, loadBalancer, ...)` to resolve the address per request. See [Service Discovery and Governance](#service-discovery-and-governance) below.
 
+**7. Nacos adapter** (optional, same `ServiceRegistry`/`ServiceDiscovery` interfaces):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-nacos</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+</dependency>
+```
+Use `NacosRegistry` (from `NamingService` or `NacosRegistry.fromProperties(properties)` with `serverAddr`, optional `namespace`/`groupName`). Requires a running Nacos server.
+
+**8. Consul adapter** (optional, same interfaces):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-consul</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+</dependency>
+```
+Use `ConsulRegistry` (e.g. `new ConsulRegistry("localhost", 8500)`). Requires a running Consul agent.
+
 ### Server Comparison
 
 | Feature | SingleThread | NIO | Netty |
@@ -196,6 +216,7 @@ factory.shutdown();
 
 - **Commons** defines interfaces only (zero extra deps): `ServiceRegistry`, `ServiceDiscovery`, `LoadBalancer`, `RetryPolicy`, `CircuitBreaker`, `CircuitBreakerProvider`, and `HostPort`. Default `RoundRobinLoadBalancer` is in commons.
 - **tcprest-registry** provides implementations: `InMemoryRegistry` (register/deregister + getInstances), `SimpleRetryPolicy`, `CircuitBreakerImpl`, `PerInstanceCircuitBreakerProvider`. E2E tests run without Docker (see `tcprest-registry/E2E.md`). For real registries (e.g. Nacos) or strict CI parity, use Testcontainers or docker-compose as documented in the plan.
+- **tcprest-nacos** and **tcprest-consul** implement the same `ServiceRegistry`/`ServiceDiscovery` interfaces: `NacosRegistry` (Nacos NamingService), `ConsulRegistry` (Consul agent + health API). Use when your infrastructure already uses Nacos or Consul.
 - **Usage:** Server: `server.setServiceRegistry(registry, "my-service", "localhost"); server.up();` Client: `TcpRestClientFactory factory = new TcpRestClientFactory(registry, "my-service", new RoundRobinLoadBalancer(), MyApi.class);` Optional retry/circuit breaker: pass `RetryPolicy` and/or `CircuitBreakerProvider` into the factory constructor.
 
 ### Zero Dependencies
