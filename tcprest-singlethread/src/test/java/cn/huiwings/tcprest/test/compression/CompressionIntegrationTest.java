@@ -4,20 +4,20 @@ import cn.huiwings.tcprest.client.TcpRestClientFactory;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.server.SingleThreadTcpRestServer;
 import cn.huiwings.tcprest.server.TcpRestServer;
+import cn.huiwings.tcprest.test.smoke.PortGenerator;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.util.Random;
 
 import static org.testng.Assert.*;
 
 /**
  * Integration tests for compression feature between client and server.
+ * Uses PortGenerator to avoid port conflicts with other tests/modules.
  */
 public class CompressionIntegrationTest {
 
-    private static final int BASE_PORT = Math.abs(new Random().nextInt()) % 10000 + 7000;
+    private static final PortGenerator.PortRange PORT_RANGE = PortGenerator.from(35000);
     private TcpRestServer server;
     private int port;
 
@@ -50,7 +50,7 @@ public class CompressionIntegrationTest {
 
     @BeforeMethod
     public void setup() throws Exception {
-        port = BASE_PORT + new Random().nextInt(100);
+        port = PORT_RANGE.next();
         server = new SingleThreadTcpRestServer(port);
         server.addResource(DataServiceImpl.class);
         server.up();
@@ -61,7 +61,7 @@ public class CompressionIntegrationTest {
     public void teardown() throws Exception {
         if (server != null) {
             server.down();
-            Thread.sleep(200);
+            Thread.sleep(300);
         }
     }
 

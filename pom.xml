@@ -17,6 +17,7 @@
         <module>tcprest-nacos</module>
         <module>tcprest-consul</module>
         <module>tcprest-resilience4j</module>
+        <module>tcprest-e2e</module>
         <module>tcprest-pgp</module>
     </modules>
 
