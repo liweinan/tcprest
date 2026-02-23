@@ -5,10 +5,10 @@ import cn.huiwings.tcprest.discovery.ServiceDiscovery;
 import cn.huiwings.tcprest.discovery.ServiceRegistry;
 
 import com.ecwid.consul.v1.ConsulClient;
-import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.agent.model.NewService;
 import com.ecwid.consul.v1.health.model.HealthService;
+import com.ecwid.consul.v1.health.HealthServicesRequest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +64,8 @@ public class ConsulRegistry implements ServiceRegistry, ServiceDiscovery {
 
     @Override
     public List<HostPort> getInstances(String serviceName) {
-        Response<List<HealthService>> resp = consulClient.getHealthServices(serviceName, true, QueryParams.DEFAULT);
+        HealthServicesRequest request = HealthServicesRequest.newBuilder().setPassing(true).build();
+        Response<List<HealthService>> resp = consulClient.getHealthServices(serviceName, request);
         List<HostPort> result = new ArrayList<>();
         if (resp.getValue() == null) {
             return result;

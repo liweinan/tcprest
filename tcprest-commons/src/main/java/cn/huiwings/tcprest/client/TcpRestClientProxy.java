@@ -290,7 +290,7 @@ public class TcpRestClientProxy implements InvocationHandler {
             Throwable lastThrowable = null;
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
-                    return invokeOnce(proxy, method, params);
+                    return invokeOnce(method, params);
                 } catch (Throwable e) {
                     lastThrowable = e;
                     if (attempt == maxAttempts || !retryPolicy.isRetryable(e)) {
@@ -311,10 +311,10 @@ public class TcpRestClientProxy implements InvocationHandler {
                 throw lastThrowable;
             }
         }
-        return invokeOnce(proxy, method, params);
+        return invokeOnce(method, params);
     }
 
-    private Object invokeOnce(Object proxy, Method method, Object[] params) throws Throwable {
+    private Object invokeOnce(Method method, Object[] params) throws Throwable {
         String className = method.getDeclaringClass().getCanonicalName();
         if (!className.equals(tcpRestClient.getDeletgatedClassName())) {
             throw new IllegalAccessException("Method cannot be invoked: " + method.getName());

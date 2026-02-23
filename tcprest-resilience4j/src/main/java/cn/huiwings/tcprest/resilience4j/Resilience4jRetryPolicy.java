@@ -1,14 +1,17 @@
 package cn.huiwings.tcprest.resilience4j;
 
 import cn.huiwings.tcprest.governance.RetryPolicy;
+import io.github.resilience4j.core.IntervalBiFunction;
 import io.github.resilience4j.retry.RetryConfig;
+import io.vavr.control.Either;
 
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
  * Adapts Resilience4j {@link RetryConfig} to TcpRest {@link RetryPolicy}.
- * Uses the config's max attempts, retry predicate, and interval function (or default delay) for delays.
+ * Uses the config's max attempts, retry predicate, and {@link IntervalBiFunction} for delay.
+ * Delay is taken from {@link RetryConfig#getIntervalBiFunction()}; when null, {@value #DEFAULT_DELAY_MS} ms is used.
+ * For custom delay-by-attempt, configure {@code intervalBiFunction} on the config (e.g. {@code IntervalBiFunction.ofIntervalFunction(...)}).
  *
  * @since 2.0.0
  */
@@ -35,9 +38,9 @@ public class Resilience4jRetryPolicy implements RetryPolicy {
 
     @Override
     public long getDelayMs(int attempt) {
-        Function<Integer, Long> intervalFn = config.getIntervalFunction();
-        if (intervalFn != null) {
-            return intervalFn.apply(attempt);
+        IntervalBiFunction<Object> biFn = config.getIntervalBiFunction();
+        if (biFn != null) {
+            return biFn.apply(attempt, Either.left(new Throwable("retry")));
         }
         return DEFAULT_DELAY_MS;
     }
