@@ -1,0 +1,11 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<suite name="TcpRestRegistryTestSuite" verbose="1" parallel="false" data-provider-thread-count="1">
+    <test name="RegistryE2ETests" parallel="false" preserve-order="true">
+        <classes>
+            <class name="cn.huiwings.tcprest.test.e2e.DiscoveryE2ETest"/>
+            <class name="cn.huiwings.tcprest.test.e2e.DiscoveryLoadBalanceE2ETest"/>
+            <class name="cn.huiwings.tcprest.test.e2e.RetryE2ETest"/>
+            <class name="cn.huiwings.tcprest.test.e2e.CircuitBreakerE2ETest"/>
+        </classes>
+    </test>
+</suite>

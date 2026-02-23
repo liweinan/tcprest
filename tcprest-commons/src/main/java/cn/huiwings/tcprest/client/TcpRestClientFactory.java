@@ -1,6 +1,11 @@
 package cn.huiwings.tcprest.client;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
+import cn.huiwings.tcprest.discovery.LoadBalancer;
+import cn.huiwings.tcprest.discovery.RoundRobinLoadBalancer;
+import cn.huiwings.tcprest.discovery.ServiceDiscovery;
+import cn.huiwings.tcprest.governance.CircuitBreakerProvider;
+import cn.huiwings.tcprest.governance.RetryPolicy;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.security.SecurityConfig;
 import cn.huiwings.tcprest.ssl.SSLParams;
@@ -53,6 +58,12 @@ public class TcpRestClientFactory {
     private final Class<?>[] interfaceClasses;
     String host;
     int port;
+    /** When non-null, client uses discovery + serviceName + loadBalancer instead of fixed host:port. */
+    ServiceDiscovery discovery;
+    String serviceName;
+    LoadBalancer loadBalancer;
+    CircuitBreakerProvider circuitBreakerProvider;
+    RetryPolicy retryPolicy;
     Map<String, Mapper> extraMappers;
     SSLParams sslParams;
     CompressionConfig compressionConfig;
@@ -175,6 +186,72 @@ public class TcpRestClientFactory {
         this.compressionConfig = compressionConfig;
     }
 
+    /**
+     * Single-interface factory using service discovery. Address is resolved per request via discovery and load balancer.
+     *
+     * @param discovery   service discovery (non-null)
+     * @param serviceName logical service name
+     * @param loadBalancer load balancer (if null, {@link RoundRobinLoadBalancer} is used)
+     * @param interfaceClass client interface
+     */
+    public TcpRestClientFactory(ServiceDiscovery discovery, String serviceName, LoadBalancer loadBalancer, Class<?> interfaceClass) {
+        this(discovery, serviceName, loadBalancer, null, null, null, null, null, null, new Class<?>[]{validateInterface(interfaceClass)});
+    }
+
+    /**
+     * Single-interface factory using service discovery with full configuration (no circuit breaker or retry).
+     */
+    public TcpRestClientFactory(ServiceDiscovery discovery, String serviceName, LoadBalancer loadBalancer,
+                                Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig,
+                                SecurityConfig securityConfig, Class<?> interfaceClass) {
+        this(discovery, serviceName, loadBalancer, null, null, extraMappers, sslParams, compressionConfig, securityConfig, new Class<?>[]{validateInterface(interfaceClass)});
+    }
+
+    /**
+     * Single-interface factory using service discovery with optional circuit breaker and retry.
+     */
+    public TcpRestClientFactory(ServiceDiscovery discovery, String serviceName, LoadBalancer loadBalancer,
+                                CircuitBreakerProvider circuitBreakerProvider, RetryPolicy retryPolicy,
+                                Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig,
+                                SecurityConfig securityConfig, Class<?> interfaceClass) {
+        this(discovery, serviceName, loadBalancer, circuitBreakerProvider, retryPolicy, extraMappers, sslParams, compressionConfig, securityConfig, new Class<?>[]{validateInterface(interfaceClass)});
+    }
+
+    /**
+     * Multi-interface factory using service discovery.
+     */
+    public TcpRestClientFactory(ServiceDiscovery discovery, String serviceName, LoadBalancer loadBalancer, Class<?>... interfaceClasses) {
+        this(discovery, serviceName, loadBalancer, null, null, null, null, null, null, validateInterfaceClasses(interfaceClasses));
+    }
+
+    /**
+     * Multi-interface factory using service discovery with full configuration.
+     */
+    public TcpRestClientFactory(ServiceDiscovery discovery, String serviceName, LoadBalancer loadBalancer,
+                                Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig,
+                                SecurityConfig securityConfig, Class<?>... interfaceClasses) {
+        this(discovery, serviceName, loadBalancer, null, null, extraMappers, sslParams, compressionConfig, securityConfig, validateInterfaceClasses(interfaceClasses));
+    }
+
+    /**
+     * Discovery factory with optional circuit breaker and retry (single or multi-interface).
+     */
+    public TcpRestClientFactory(ServiceDiscovery discovery, String serviceName, LoadBalancer loadBalancer,
+                                CircuitBreakerProvider circuitBreakerProvider, RetryPolicy retryPolicy,
+                                Map<String, Mapper> extraMappers, SSLParams sslParams, CompressionConfig compressionConfig,
+                                SecurityConfig securityConfig, Class<?>... interfaceClasses) {
+        this.interfaceClasses = interfaceClasses;
+        this.discovery = discovery;
+        this.serviceName = serviceName;
+        this.loadBalancer = loadBalancer != null ? loadBalancer : new RoundRobinLoadBalancer();
+        this.circuitBreakerProvider = circuitBreakerProvider;
+        this.retryPolicy = retryPolicy;
+        this.extraMappers = extraMappers;
+        this.sslParams = sslParams;
+        this.compressionConfig = compressionConfig;
+        this.securityConfig = securityConfig;
+    }
+
     private static Class<?>[] validateInterfaceClasses(Class<?>[] classes) {
         if (classes == null || classes.length == 0) {
             throw new IllegalArgumentException("interfaceClasses must not be null or empty");
@@ -228,6 +305,12 @@ public class TcpRestClientFactory {
     }
 
     private Object createProxy(Class<?> type) {
+        if (discovery != null) {
+            return Proxy.newProxyInstance(type.getClassLoader(),
+                    new Class<?>[]{type},
+                    new TcpRestClientProxy(type.getCanonicalName(), discovery, serviceName, loadBalancer,
+                            circuitBreakerProvider, retryPolicy, extraMappers, sslParams, compressionConfig, securityConfig));
+        }
         return Proxy.newProxyInstance(type.getClassLoader(),
                 new Class<?>[]{type},
                 new TcpRestClientProxy(type.getCanonicalName(), host, port,

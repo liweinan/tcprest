@@ -13,6 +13,7 @@
         <module>tcprest-singlethread</module>
         <module>tcprest-nio</module>
         <module>tcprest-netty</module>
+        <module>tcprest-registry</module>
         <module>tcprest-pgp</module>
     </modules>
 

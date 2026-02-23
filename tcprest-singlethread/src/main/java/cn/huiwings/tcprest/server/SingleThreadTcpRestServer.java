@@ -174,10 +174,12 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
         };
         serverThread.setDaemon(setDaemon);
         serverThread.start();
+        notifyRegistryUp();
     }
 
     @Override
     public void down() {
+        notifyRegistryDown();
         status = TcpRestServerStatus.CLOSING;
 
         // Interrupt server thread
@@ -204,5 +206,4 @@ public class SingleThreadTcpRestServer extends AbstractTcpRestServer {
         }
         status = TcpRestServerStatus.CLOSED;
     }
-
 }

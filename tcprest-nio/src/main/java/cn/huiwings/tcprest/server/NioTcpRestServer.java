@@ -272,6 +272,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
         };
         worker.setDaemon(setDaemon);
         worker.start();
+        notifyRegistryUp();
     }
 
     @Override
@@ -418,6 +419,7 @@ public class NioTcpRestServer extends AbstractTcpRestServer {
 
     @Override
     public void down() {
+        notifyRegistryDown();
         status = TcpRestServerStatus.CLOSING;
 
         // Interrupt worker thread

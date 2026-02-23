@@ -1,6 +1,7 @@
 package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
+import cn.huiwings.tcprest.discovery.ServiceRegistry;
 import cn.huiwings.tcprest.security.SecurityConfig;
 
 /**
@@ -55,4 +56,14 @@ public interface TcpRestServer extends ResourceRegister, MapperRegister {
      * Get security configuration
      */
     SecurityConfig getSecurityConfig();
+
+    /**
+     * Optionally register this server with a registry on {@link #up()} and deregister on {@link #down()}.
+     * If not set, no registration is performed.
+     *
+     * @param registry        service registry (null to clear)
+     * @param serviceName     logical service name
+     * @param advertisedHost  host to advertise (e.g. "localhost" or external IP)
+     */
+    void setServiceRegistry(ServiceRegistry registry, String serviceName, String advertisedHost);
 }

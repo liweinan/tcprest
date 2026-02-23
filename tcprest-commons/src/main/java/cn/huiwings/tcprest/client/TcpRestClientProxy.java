@@ -3,6 +3,12 @@ package cn.huiwings.tcprest.client;
 import cn.huiwings.tcprest.annotations.TimeoutAnnotationHandler;
 import cn.huiwings.tcprest.compression.CompressionConfig;
 import cn.huiwings.tcprest.codec.v2.ProtocolV2Codec;
+import cn.huiwings.tcprest.discovery.HostPort;
+import cn.huiwings.tcprest.discovery.LoadBalancer;
+import cn.huiwings.tcprest.discovery.ServiceDiscovery;
+import cn.huiwings.tcprest.exception.NoInstanceException;
+import cn.huiwings.tcprest.governance.CircuitBreakerProvider;
+import cn.huiwings.tcprest.governance.RetryPolicy;
 import java.util.logging.Logger;
 import cn.huiwings.tcprest.mapper.Mapper;
 import cn.huiwings.tcprest.mapper.MapperHelper;
@@ -11,7 +17,9 @@ import cn.huiwings.tcprest.ssl.SSLParams;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -38,6 +46,7 @@ public class TcpRestClientProxy implements InvocationHandler {
     private ProtocolV2Codec codec;
     private CompressionConfig compressionConfig = new CompressionConfig(); // Default: disabled
     private SecurityConfig securityConfig = new SecurityConfig(); // Default: no security
+    private RetryPolicy retryPolicy;
 
     /**
      * Create client proxy with full configuration.
@@ -75,6 +84,78 @@ public class TcpRestClientProxy implements InvocationHandler {
     }
 
     /**
+     * Create client proxy that resolves address per request via service discovery and load balancer.
+     *
+     * @param delegatedClassName target service class name
+     * @param discovery         service discovery (non-null)
+     * @param serviceName       logical service name
+     * @param loadBalancer      load balancer (non-null)
+     * @param extraMappers      custom mappers (optional)
+     * @param sslParams         SSL configuration (optional)
+     * @param compressionConfig compression configuration (optional)
+     * @param securityConfig    security configuration (optional)
+     */
+    public TcpRestClientProxy(String delegatedClassName, ServiceDiscovery discovery, String serviceName,
+                              LoadBalancer loadBalancer, Map<String, Mapper> extraMappers, SSLParams sslParams,
+                              CompressionConfig compressionConfig, SecurityConfig securityConfig) {
+        this(delegatedClassName, discovery, serviceName, loadBalancer, null, null, extraMappers, sslParams, compressionConfig, securityConfig);
+    }
+
+    /**
+     * Create client proxy with discovery, optional circuit breaker and retry.
+     *
+     * @param delegatedClassName target service class name
+     * @param discovery         service discovery (non-null)
+     * @param serviceName       logical service name
+     * @param loadBalancer      load balancer (non-null)
+     * @param circuitBreakerProvider optional; filters instances and records success/failure per instance
+     * @param retryPolicy       optional; retries on retryable failures
+     * @param extraMappers      custom mappers (optional)
+     * @param sslParams         SSL configuration (optional)
+     * @param compressionConfig compression configuration (optional)
+     * @param securityConfig    security configuration (optional)
+     */
+    public TcpRestClientProxy(String delegatedClassName, ServiceDiscovery discovery, String serviceName,
+                              LoadBalancer loadBalancer, CircuitBreakerProvider circuitBreakerProvider,
+                              RetryPolicy retryPolicy, Map<String, Mapper> extraMappers, SSLParams sslParams,
+                              CompressionConfig compressionConfig, SecurityConfig securityConfig) {
+        this(delegatedClassName, createDiscoveryClient(delegatedClassName, discovery, serviceName, loadBalancer, circuitBreakerProvider, sslParams), extraMappers, sslParams, compressionConfig, securityConfig, retryPolicy);
+    }
+
+    private static TcpRestClient createDiscoveryClient(String delegatedClassName, ServiceDiscovery discovery, String serviceName, LoadBalancer loadBalancer, CircuitBreakerProvider circuitBreakerProvider, SSLParams sslParams) {
+        java.util.function.Supplier<HostPort> supplier = () -> {
+            List<HostPort> instances = discovery.getInstances(serviceName);
+            if (instances == null || instances.isEmpty()) {
+                throw new NoInstanceException(serviceName);
+            }
+            if (circuitBreakerProvider != null) {
+                List<HostPort> allowed = new ArrayList<>();
+                for (HostPort hp : instances) {
+                    if (circuitBreakerProvider.get(hp).allowRequest()) {
+                        allowed.add(hp);
+                    }
+                }
+                if (allowed.isEmpty()) {
+                    throw new NoInstanceException(serviceName + " (all instances circuit open)");
+                }
+                instances = allowed;
+            }
+            return loadBalancer.select(instances);
+        };
+        java.util.function.BiConsumer<HostPort, Boolean> afterRequest = null;
+        if (circuitBreakerProvider != null) {
+            afterRequest = (addr, success) -> {
+                if (success) {
+                    circuitBreakerProvider.get(addr).recordSuccess();
+                } else {
+                    circuitBreakerProvider.get(addr).recordFailure();
+                }
+            };
+        }
+        return new DiscoveryTcpRestClient(delegatedClassName, sslParams, supplier, afterRequest);
+    }
+
+    /**
      * Create client proxy with an existing transport client (e.g. UDP client).
      * Use this when the transport is not TCP (e.g. NettyUdpRestClient).
      *
@@ -88,6 +169,15 @@ public class TcpRestClientProxy implements InvocationHandler {
     public TcpRestClientProxy(String delegatedClassName, TcpRestClient tcpRestClient,
                               Map<String, Mapper> extraMappers, SSLParams sslParams,
                               CompressionConfig compressionConfig, SecurityConfig securityConfig) {
+        this(delegatedClassName, tcpRestClient, extraMappers, sslParams, compressionConfig, securityConfig, null);
+    }
+
+    /**
+     * Create client proxy with an existing transport client and optional retry policy.
+     */
+    public TcpRestClientProxy(String delegatedClassName, TcpRestClient tcpRestClient,
+                              Map<String, Mapper> extraMappers, SSLParams sslParams,
+                              CompressionConfig compressionConfig, SecurityConfig securityConfig, RetryPolicy retryPolicy) {
         java.util.Objects.requireNonNull(delegatedClassName, "delegatedClassName must not be null");
         java.util.Objects.requireNonNull(tcpRestClient, "tcpRestClient must not be null");
         if (sslParams != null) {
@@ -101,6 +191,7 @@ public class TcpRestClientProxy implements InvocationHandler {
         this.securityConfig = securityConfig != null ? securityConfig : new SecurityConfig();
         this.codec = new ProtocolV2Codec(this.securityConfig, this.mappers);
         this.tcpRestClient = tcpRestClient;
+        this.retryPolicy = retryPolicy;
     }
 
     /**
@@ -184,7 +275,7 @@ public class TcpRestClientProxy implements InvocationHandler {
     }
 
     /**
-     * Invoke remote method using Protocol V2.
+     * Invoke remote method using Protocol V2. When {@link RetryPolicy} is set, retries on retryable failures.
      *
      * @param proxy the proxy instance
      * @param method the method to invoke
@@ -194,6 +285,36 @@ public class TcpRestClientProxy implements InvocationHandler {
      */
     @Override
     public Object invoke(Object proxy, Method method, Object[] params) throws Throwable {
+        if (retryPolicy != null) {
+            int maxAttempts = retryPolicy.getMaxAttempts();
+            Throwable lastThrowable = null;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    return invokeOnce(proxy, method, params);
+                } catch (Throwable e) {
+                    lastThrowable = e;
+                    if (attempt == maxAttempts || !retryPolicy.isRetryable(e)) {
+                        throw e;
+                    }
+                    long delayMs = retryPolicy.getDelayMs(attempt);
+                    if (delayMs > 0) {
+                        try {
+                            Thread.sleep(delayMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException(ie);
+                        }
+                    }
+                }
+            }
+            if (lastThrowable != null) {
+                throw lastThrowable;
+            }
+        }
+        return invokeOnce(proxy, method, params);
+    }
+
+    private Object invokeOnce(Object proxy, Method method, Object[] params) throws Throwable {
         String className = method.getDeclaringClass().getCanonicalName();
         if (!className.equals(tcpRestClient.getDeletgatedClassName())) {
             throw new IllegalAccessException("Method cannot be invoked: " + method.getName());

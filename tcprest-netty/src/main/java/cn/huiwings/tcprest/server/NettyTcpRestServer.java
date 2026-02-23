@@ -150,6 +150,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
             ChannelFuture future = bootstrap.bind(address).sync();
             serverChannel = future.channel();
             status = TcpRestServerStatus.RUNNING;
+            notifyRegistryUp();
         } catch (Exception e) {
             throw new RuntimeException("Failed to start NettyTcpRestServer", e);
         }
@@ -157,6 +158,7 @@ public class NettyTcpRestServer extends AbstractTcpRestServer {
 
     @Override
     public void down() {
+        notifyRegistryDown();
         status = TcpRestServerStatus.CLOSING;
         try {
             if (serverChannel != null) {

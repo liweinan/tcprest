@@ -144,6 +144,16 @@ TcpRest is organized into focused modules - choose what you need:
 ```
 Requires Bouncy Castle (transitive). Register once (e.g. class-load `cn.huiwings.tcprest.pgp.PgpSignatureHandler`), then use `SecurityConfig.enableCustomSignature("GPG", pgpPrivateKey, pgpPublicKey)` on both server and client. See [Security (GPG)](#gpg-signature-optional) below.
 
+**6. Service discovery and governance** (optional, in-memory registry + retry + circuit breaker):
+```xml
+<dependency>
+    <groupId>cn.huiwings</groupId>
+    <artifactId>tcprest-registry</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+</dependency>
+```
+Provides `InMemoryRegistry` (implements `ServiceRegistry` and `ServiceDiscovery`), `SimpleRetryPolicy`, `CircuitBreakerImpl`, and `PerInstanceCircuitBreakerProvider`. Servers call `setServiceRegistry(registry, serviceName, advertisedHost)` before `up()`; clients use `TcpRestClientFactory(discovery, serviceName, loadBalancer, ...)` to resolve the address per request. See [Service Discovery and Governance](#service-discovery-and-governance) below.
+
 ### Server Comparison
 
 | Feature | SingleThread | NIO | Netty |
@@ -181,6 +191,12 @@ factory.shutdown();
 ```
 
 ## Key Features
+
+### Service Discovery and Governance
+
+- **Commons** defines interfaces only (zero extra deps): `ServiceRegistry`, `ServiceDiscovery`, `LoadBalancer`, `RetryPolicy`, `CircuitBreaker`, `CircuitBreakerProvider`, and `HostPort`. Default `RoundRobinLoadBalancer` is in commons.
+- **tcprest-registry** provides implementations: `InMemoryRegistry` (register/deregister + getInstances), `SimpleRetryPolicy`, `CircuitBreakerImpl`, `PerInstanceCircuitBreakerProvider`. E2E tests run without Docker (see `tcprest-registry/E2E.md`). For real registries (e.g. Nacos) or strict CI parity, use Testcontainers or docker-compose as documented in the plan.
+- **Usage:** Server: `server.setServiceRegistry(registry, "my-service", "localhost"); server.up();` Client: `TcpRestClientFactory factory = new TcpRestClientFactory(registry, "my-service", new RoundRobinLoadBalancer(), MyApi.class);` Optional retry/circuit breaker: pass `RetryPolicy` and/or `CircuitBreakerProvider` into the factory constructor.
 
 ### Zero Dependencies
 The `tcprest-commons` module has **zero runtime dependencies** - only JDK built-in APIs. This minimizes dependency conflicts and reduces security vulnerabilities. Server modules (`tcprest-singlethread`, `tcprest-nio`) inherit this zero-dependency principle through `tcprest-commons`.

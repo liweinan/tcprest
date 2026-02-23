@@ -1,6 +1,7 @@
 package cn.huiwings.tcprest.server;
 
 import cn.huiwings.tcprest.compression.CompressionConfig;
+import cn.huiwings.tcprest.discovery.ServiceRegistry;
 import cn.huiwings.tcprest.exception.BusinessException;
 import cn.huiwings.tcprest.exception.ProtocolException;
 import cn.huiwings.tcprest.invoker.v2.ProtocolV2Invoker;
@@ -54,6 +55,11 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
      * Serializable nor has a mapper. When false (default), only a warning is logged.
      */
     private boolean strictTypeCheck = false;
+
+    /** Optional registry: when set, register on up() and deregister on down(). */
+    private ServiceRegistry serviceRegistry;
+    private String registryServiceName;
+    private String advertisedHost;
 
     @Override
     public void setStrictTypeCheck(boolean strictTypeCheck) {
@@ -362,6 +368,39 @@ public abstract class AbstractTcpRestServer implements TcpRestServer {
             throw new IllegalStateException(message);
         }
         logger.warning(message);
+    }
+
+    /**
+     * Set optional service registry. When set, subclasses must call {@link #notifyRegistryUp()} at the end of
+     * {@code up()} (after port is bound) and {@link #notifyRegistryDown()} at the start of {@code down()}.
+     */
+    @Override
+    public void setServiceRegistry(ServiceRegistry registry, String serviceName, String advertisedHost) {
+        this.serviceRegistry = registry;
+        this.registryServiceName = serviceName;
+        this.advertisedHost = advertisedHost;
+    }
+
+    /**
+     * Called by subclasses at the end of up() (after port is bound). Registers this server with the registry if set.
+     */
+    protected final void notifyRegistryUp() {
+        if (serviceRegistry != null && registryServiceName != null && advertisedHost != null) {
+            int port = getServerPort();
+            serviceRegistry.register(registryServiceName, advertisedHost, port);
+            logger.info("Registered with registry: " + registryServiceName + " at " + advertisedHost + ":" + port);
+        }
+    }
+
+    /**
+     * Called by subclasses at the start of down(). Deregisters this server from the registry if set.
+     */
+    protected final void notifyRegistryDown() {
+        if (serviceRegistry != null && registryServiceName != null && advertisedHost != null) {
+            int port = getServerPort();
+            serviceRegistry.deregister(registryServiceName, advertisedHost, port);
+            logger.info("Deregistered from registry: " + registryServiceName + " at " + advertisedHost + ":" + port);
+        }
     }
 
     /** Sanitize string for logging to prevent log injection (newlines/control chars). */
