@@ -32,7 +32,7 @@
         <nacos-client.version>2.3.2</nacos-client.version>
         <consul-api.version>1.4.5</consul-api.version>
         <testcontainers.version>1.19.8</testcontainers.version>
-        <resilience4j.version>1.7.1</resilience4j.version>
+        <resilience4j.version>2.3.0</resilience4j.version>
     </properties>
 
     <dependencyManagement>
