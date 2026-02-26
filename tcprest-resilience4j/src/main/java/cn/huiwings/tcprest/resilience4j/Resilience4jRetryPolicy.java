@@ -2,8 +2,8 @@ package cn.huiwings.tcprest.resilience4j;
 
 import cn.huiwings.tcprest.governance.RetryPolicy;
 import io.github.resilience4j.core.IntervalBiFunction;
+import io.github.resilience4j.core.functions.Either;
 import io.github.resilience4j.retry.RetryConfig;
-import io.vavr.control.Either;
 
 import java.util.function.Predicate;
 
