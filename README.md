@@ -3,7 +3,7 @@
 [![CI](https://github.com/liweinan/tcprest/actions/workflows/ci.yml/badge.svg)](https://github.com/liweinan/tcprest/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/liweinan/tcprest/actions/workflows/codeql.yml/badge.svg)](https://github.com/liweinan/tcprest/actions/workflows/codeql.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Java Version](https://img.shields.io/badge/Java-11%2B-orange)](https://www.oracle.com/java/)
+[![Java Version](https://img.shields.io/badge/Java-17%2B-orange)](https://www.oracle.com/java/)
 
 A lightweight, zero-dependency RPC framework that transforms POJOs into network-accessible services over TCP.
 
@@ -1293,7 +1293,7 @@ See the test directories for comprehensive examples:
 
 ## Requirements
 
-- **Java 11+**
+- **Java 17+**
 - **Maven 3.6+** (for building)
 
 ## License
